@@ -27,10 +27,10 @@ data.writeArchive(basepath ++ "/presets/" ++ filename);
 
 Layers{
 
-	var server, <path, <bufs, <sfs, <pls, <howmany=24;
+	var server, <path, <bufs, <sfs, <ps, <howmany=24;
 
-	*new {| aserver = nil, apath = nil, anum = 24 |
-		^super.new.initLayers( aserver, apath, anum );
+	*new {| server = nil, path = "~/", num = 24 |
+		^super.new.initLayers( server, path, num );
 	}
 
 	initLayers {| aserver, apath, anum |
@@ -38,8 +38,8 @@ Layers{
 		path = apath;
 		howmany = anum;
 
-		apath.postln;
-		howmany.postln;
+		("path is"+apath).postln;
+		("players:"+howmany.asString).postln;
 
 		SynthDef( \StPlayer, {
 			arg outbus=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=1, index=0;
@@ -52,61 +52,97 @@ Layers{
 			Out.ar(outbus, Balance2.ar(left, right, pan));
 		}).load(aserver);
 
-
 		sfs = List.newUsing( SoundFile.collect( path ) );
-		(sfs.size + "files imported").postln;
-
-		bufs.do({arg buf; buf.free}); // clear all first
+		this.free;
 		bufs = Array.new(howmany);
 
 		// load buffers
 		howmany.do({ arg n;
-			bufs.add( Buffer.read(server, sfs[n].path) )
+			var buf = Buffer.read(server, sfs[n].path);
+			bufs.add( buf )
 		});
 
+		(sfs.size + "buffers available").postln;
 	}
 
 	players {
-		pls.do({arg pl; pl.free}); // kill everyone first
-		pls = Array.new(sfs.size);
+		ps.do({arg pl; pl.free}); // kill everyone first
+		ps = Array.new(sfs.size);
 
 		howmany.do({arg index;
-			pls.add( Layer.new(index, bufs) );
+			ps.add( Layer.new(index, bufs) );
 		});
 	}
 
-	resume { pls.do({ |pl| pl.resume}) }
+	free {
+		bufs.do({arg buf; buf.free}); // clear all first
+	}
 
-	pause { pls.do({ |pl| pl.pause}) }
+	allbufs{
+		"-- Available buffers --".postln;
+		sfs.size.do({|i|
+			(i.asString++": ").post;
+			sfs[i].path.split($/).last.postln;
+		})
+	}
 
-	rvol { pls.do({ |pl| pl.rvol}) }
+	curbufs {
+		ps.size.do({ |i|
+			(i.asString++":" + ps[i].file).postln
+		})
+	}
 
-	rpos { pls.do({ |pl| pl.rpos}) }
+	normalize {
+		bufs.do({arg buf; buf.normalize});
+	}
 
-	rat { |rate| pls.do({ |pl|	pl.rat(rate)}) }
+	pos {|positions|
+		positions.size.do({|index|
+			ps[index].pos(positions[index])
+		})
+	}
 
-	rrate { pls.do({ |pl| pl.rrate}) }
 
-	rbuf { pls.do({ |pl| pl.rbuf}) }
+	resume { ps.do({ |pl| pl.resume}) }
 
-	vol { |vol| pls.do({ |pl|	pl.vol(vol)}) }
+	pause { ps.do({ |pl| pl.pause}) }
 
-	vold { pls.do({ |pl| pl.vold}) }
+	rvol { ps.do({ |pl| pl.rvol}) }
 
-	volu { pls.do({ |pl| pl.volu}) }
+	rpos { ps.do({ |pl| pl.rpos}) }
+
+	rst { ps.do({ |pl| pl.rst}) }
+
+	rlen { ps.do({ |pl| pl.rlen}) }
+
+	rat { |rate| ps.do({ |pl|	pl.rat(rate)}) }
+
+	rrate { ps.do({ |pl| pl.rrate}) }
+
+	rbuf { ps.do({ |pl| pl.rbuf}) }
+
+	vol { |vol| ps.do({ |pl| pl.volumen(vol) }) }
+
+	vold { ps.do({ |pl| pl.vold}) }
+
+	volu { ps.do({ |pl| pl.volu}) }
+
+	stopptask { ps.do({ |p| p.ptask.stop }) }
+	stoprtask { ps.do({ |p| p.rtask.stop }) }
+	stopvtask { ps.do({ |p| p.vtask.stop }) }
 
 	brownpos {|step=0.01, sleep=5, dsync=0, delta=0|
 		["brown POS", step, sleep, dsync, delta].postln;
-		pls.do({ |pl| pl.brownpos(step, sleep, dsync, delta) })
+		ps.do({ |pl| pl.brownpos(step, sleep, dsync, delta) })
 	}
 
 	brownvol {|step=0.01, sleep=5, dsync=0, delta=0|
 		["brown VOL", step, sleep, dsync, delta].postln;
-		pls.do({ |pl| pl.brownvol(step, sleep, dsync, delta) })
+		ps.do({ |pl| pl.brownvol(step, sleep, dsync, delta) })
 	}
 
 	brownrate {|step=0.01, sleep=5, dsync=0, delta=0|
 		["brown RATE", step, sleep, dsync, delta].postln;
-		pls.do({ |pl| pl.brownrate(step, sleep, dsync, delta) })
+		ps.do({ |pl| pl.brownrate(step, sleep, dsync, delta) })
 	}
 }

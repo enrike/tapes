@@ -1,32 +1,76 @@
+/*
+*/
 
 
 (
 s.boot;
+//a = "/home/r2d2/Mahaigaina/audio/00cuts/*";
+a = "/home/r2d2/Mahaigaina/audio/00songs/*";
 s.waitForBoot({
-	l = Layers.new(s, "/home/r2d2/Mahaigaina/audio/00cuts/*", 24);
+	if (l.isNil.not, {l.free}); // just in case
+	l = Layers.new(s, a, 24);
 	{ l.players }.defer(2)
 })
 )
 
-l.rvol
+
+// global. all layers //
+l.allbufs
+l.curbufs
+l.normalize
+
 l.resume
 l.pause
+l.rat(0.9)
+l.vol(0.4)
+l.volu //UP
+l.vold //DOWN
+
+//random
+l.rvol
 l.rbuf
 l.rpos
-l.volu
-l.vold
-l.vol(1)
-l.rat(0.5)
 l.rrate
+l.rst
+l.rlen
 
-l.brownpos(5, 0.3, 1, 0.05)
-l.brownvol(1, 1, 1, -1)
-l.brownrate(0.01, 3, 1, 0)
+// tasks. schecdule random prop set
+l.brownpos(0.1, 2, 1, 0.05)
+l.brownvol(0.01, 5, 1, 0)
+l.brownrate(0.01, 1, 1, 0)
+l.stopptask
+l.stopvtask
+l.stoprtask
 
-l.pls[0].file
-l.pls[0].vol
-l.pls[0].info
 
 
 
-1.asBoolean
+// individual layers //
+l.ps[0].setbuf( l.bufs.choose )
+l.ps[0].volumen( 1 )
+l.ps[0].rat(1)
+
+l.ps[0].vol
+l.ps[0].info
+l.ps[0].file
+l.ps[0].plot
+
+l.ps[0].resume
+l.ps[0].pause
+
+l.ps[0].end
+l.ps[0].st
+
+l.ps[0].rpos
+l.ps[0].rst
+l.ps[0].rvol
+l.ps[0].rrate
+
+l.ps[0].brownpos(0.1, 1, 1, 0)
+l.ps[0].brownvol(0.9, 1, 1, 0)
+l.ps[0].brownrate(0.1, 1, 1, 0)
+l.ps[0].ptask.stop;
+l.ps[0].vtask.stop;
+l.ps[0].rtask.stop;
+
+l.ps.do({|p| p.rtask.stop})
