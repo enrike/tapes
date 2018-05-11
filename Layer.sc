@@ -75,6 +75,7 @@ Layer{
 	}
 
 	volumen {|avol|
+		if (avol< 0, {avol=0}); //lower limit
 		vol = avol;
 		play.set(\amp, vol);
 	}
@@ -118,19 +119,19 @@ Layer{
 		play.set(\buffer, buf.bufnum)
 	}
 
-	rpos {|st_range=1, len_range=0.1|
-		st = (st_range-len_range).rand; // TO DO: adjust length etc... here
-		end = st + (len_range.rand);
+	rpos {|st_range=1.0, len_range=0.1|
+		st = (st_range.asFloat-len_range.asFloat).rand; // TO DO: adjust length etc... here
+		end = st + (len_range.asFloat.rand);
 		this.pos(st, end);
 	}
 
-	rst {|range=1|
-		st = range.rand;
+	rst {|range=1.0|
+		st = range.asFloat.rand;
 		play.set(\start, st);
 	}
 
-	rlen {|range=1|
-		end = st + range.rand;
+	rlen {|range=1.0|
+		end = st + range.asFloat.rand;
 		play.set(\end, end);
 	}
 
@@ -154,7 +155,7 @@ Layer{
 	// set start
 	// set len
 
-	brownpos {|step=0.01, sleep=5, dsync=0, delta=0|
+	brownpos {|step=0.01, sleep=5.0, dsync=0, delta=0|
 		if (sleep <= 0, {sleep = 0.01}); // limit
 		ptask.stop; // CORRECT??
 		ptask = Task({
@@ -180,7 +181,7 @@ Layer{
 	}
 
 
-	brownvol {|step=0.01, sleep=5, dsync=0, delta=0|
+	brownvol {|step=0.01, sleep=5.0, dsync=0, delta=0|
 		if (sleep <= 0, {sleep = 0.01}); // limit
 		vtask.stop; // is this CORRECT???
 		vtask = Task({
@@ -195,7 +196,7 @@ Layer{
 		vtask.start;
 	}
 
-	brownrate {|step=0.01, sleep=5, dsync=0, delta=0|
+	brownrate {|step=0.01, sleep=5.0, dsync=0, delta=0|
 		if (sleep <= 0, {sleep = 0.01}); // limit
 		rtask.stop; // is this CORRECT???
 		rtask = Task({
