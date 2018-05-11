@@ -18,6 +18,7 @@ s.waitForBoot({
 l.allbufs
 l.curbufs
 l.normalize
+l.ps // list of players
 
 l.resume
 l.pause
