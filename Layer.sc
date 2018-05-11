@@ -4,7 +4,8 @@
 Layer{
 
 	var id, buffers, play, blen;
-	var <>buf, <>st=0, <>end=1, <>vol=1, <>rate=0, memrate=1;
+	var <buf, <st=0, <end=1, <vol=1, <rate=0;
+	var memrate=1;
 	var <ptask, <vtask, <rtask;
 	var plotview, plotwin=nil;
 
@@ -170,7 +171,6 @@ Layer{
 					if(end>1, {end=1});
 					if(st>(1-len), {st=(1-len)});// limits
 					//if(end>(1-len), {end=(1-len)});
-					[st, end].postln;
 					this.pos(st, end)
 				}.defer(dsync.asFloat.rand); //out of sync all of them?
 				sleep.wait;
