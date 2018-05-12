@@ -63,15 +63,15 @@ Layers{
 		});
 
 		(sfs.size + "buffers available").postln;
-	}
 
-	players {
-		ps.do({arg pl; pl.free}); // kill everyone first
-		ps = Array.new(sfs.size);
+		{
+			ps.do({arg pl; pl.free}); // kill everyone first
+			ps = Array.new(sfs.size);
 
-		howmany.do({arg index;
-			ps.add( Layer.new(index, bufs) );
-		});
+			howmany.do({arg index;
+				ps.add( Layer.new(index, bufs) );
+			});
+		}.defer(4)
 	}
 
 	free {
@@ -96,12 +96,17 @@ Layers{
 		bufs.do({arg buf; buf.normalize});
 	}
 
-	pos {|positions|
+	/*positions {|positions|
 		positions.size.do({|index|
 			ps[index].pos(positions[index])
 		})
+	}*/
+
+	pos {|st, end|
+		ps.do({ |pl| pl.pos(st,end)})
 	}
 
+	len {|ms| ps.do({ |pl| pl.len(ms)}) }
 
 	resume { ps.do({ |pl| pl.resume}) }
 
@@ -111,9 +116,11 @@ Layers{
 
 	rpos { ps.do({ |pl| pl.rpos}) }
 
-	rst { ps.do({ |pl| pl.rst}) }
+	rst {|range=1, keeplen=1|
+		ps.do({ |pl| pl.rst(range, keeplen)})
+	}
 
-	rlen { ps.do({ |pl| pl.rlen}) }
+	rend { ps.do({ |pl| pl.rend}) }
 
 	rat { |rate| ps.do({ |pl|	pl.rat(rate)}) }
 
