@@ -16,7 +16,6 @@ a = "/home/r2d2/Mahaigaina/audio/00songs/*"; // Folder to load samples from
 s.waitForBoot({
 	if (l.isNil.not, {l.free});
 	l = Layers.new(s, a, 24); //HOW MANY players
-	{ l.players }.defer(3)
 })
 )
 
@@ -29,8 +28,10 @@ l.ps // list of players
 
 l.resume
 l.pause
-l.rat(0.9)
+l.rat(1)
 l.vol(0.4)
+l.pos(0.012, 0.028) // st, end
+l.len(500) // in milliseconds!
 l.volu //UP
 l.vold //DOWN
 
@@ -40,7 +41,7 @@ l.rbuf
 l.rpos
 l.rrate
 l.rst
-l.rlen
+l.rend
 
 // tasks. schedule random prop set
 l.brownpos(0.1, 2, 1, 0.05)
@@ -68,6 +69,7 @@ l.ps[0].setbuf( l.bufs.choose )
 l.ps[0].volumen( 1 )
 l.ps[0].rat(1)
 l.ps[0].pos(0.1, 0.12) // st and end
+l.ps[0].len(80) // in millisecs!!!
 
 // ACTIONS
 l.ps[0].resume
@@ -75,6 +77,7 @@ l.ps[0].pause
 
 l.ps[0].rpos
 l.ps[0].rst
+l.ps[0].rlen // only change end, not st
 l.ps[0].rvol
 l.ps[0].rrate
 
