@@ -3,7 +3,7 @@
 */
 Layer{
 
-	var id, buffers, play, blen;
+	var id, buffers, play; //, blen;
 	var <buf, <st=0, <end=1, <vol=1, <rate=0;
 	var memrate=1;
 	var <ptask, <vtask, <rtask;
@@ -18,14 +18,12 @@ Layer{
 		buffers = abuffers; // kep a ref to all of them to be able to change later
 		buf = buffers.choose; // random
 
-		try{
-			blen = buf.numFrames / buf.numChannels.asFloat; // to get length in frames of one chanel
-		}{|error| error.postln};
-
 		play.free;
 		play = Synth(\StPlayer, [\buffer, buf.bufnum, \rate, rate]);
 		this.rpos();
 		this.rvol();
+
+		("ready layer"+id).postln;
 	}
 
 	plot {
@@ -39,8 +37,8 @@ Layer{
 			plotview = SoundFileView(plotwin);
 			plotview.mouseUpAction = {
 				var cs = plotview.selections[plotview.currentSelection];
-				st = cs[0]/blen;
-				end = (cs[0]+cs[1])/blen; //because view wants start and duration
+				st = cs[0]/buf.numFrames;
+				end = (cs[0]+cs[1])/buf.numFrames; //because view wants start and duration
 				play.set(\start, st);
 				play.set(\end, end);
 				["new loop:", st, end].postln;
@@ -54,8 +52,8 @@ Layer{
 			var f = { |b,v| b.loadToFloatArray(action: { |a| { v.setData(a) }.defer }) };
 
 			plotview.timeCursorOn = true;
-			plotview.setSelectionStart(0, blen * st);
-			plotview.setSelectionSize(0, blen * (end-st));
+			plotview.setSelectionStart(0, buf.numFrames * st);
+			plotview.setSelectionSize(0, buf.numFrames * (end-st));
 			plotview.readSelection.refresh;
 
 			f.(buf, plotview); //
@@ -88,6 +86,11 @@ Layer{
 		this.volumen(vol+0.02)
 	}
 
+	len{|ms=100|
+		var adur= ms / ((buf.numFrames/buf.sampleRate)*1000 ); //convert from millisecs to 0-1
+		this.dur(adur)
+	}
+
 	rvol {
 		this.volumen( 1.0.rand );
 	}
@@ -106,17 +109,18 @@ Layer{
 
 	dur {|adur|
 		end = st + adur;
+		play.set(\end, end)
 	}
 
 	rbuf {
 		buf = buffers.choose;
-		blen = buf.numFrames/buf.numChannels;
+		//blen = buf.numFrames/buf.numChannels;
 		play.set(\buffer, buf.bufnum)
 	}
 
 	setbuf {|abuf|
 		buf = abuf;
-		blen = buf.numFrames/buf.numChannels;
+		//blen = buf.numFrames/buf.numChannels;
 		play.set(\buffer, buf.bufnum)
 	}
 
@@ -126,12 +130,18 @@ Layer{
 		this.pos(st, end);
 	}
 
-	rst {|range=1.0|
+	rst {|range=1.0, keeplen=1|
+		var len = end-st;// if keeplen
 		st = range.asFloat.rand;
+		[st, len].postln;
 		play.set(\start, st);
+		if (keeplen.asBoolean, {
+			end = st+len;
+			play.set(\end, end);// keep the length constant
+		})
 	}
 
-	rlen {|range=1.0|
+	rend {|range=1.0|
 		end = st + range.asFloat.rand;
 		play.set(\end, end);
 	}
