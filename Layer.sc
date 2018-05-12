@@ -86,15 +86,29 @@ Layer{
 		this.volumen(vol+0.02)
 	}
 
-	len{|ms=100|
-		var adur= ms / ((buf.numFrames/buf.sampleRate)*1000 ); //convert from millisecs to 0-1
+	rat {|arate|
+		rate = arate;
+		play.set(\rate, rate);
+	}
+
+	len{|ms=100| // IN MILLISECONDS
+		var adur= ms / ((buf.numFrames/buf.sampleRate)*1000 ); // from millisecs to 0-1
 		this.dur(adur)
 	}
 
-	rvol {
-		this.volumen( 1.0.rand );
+	pos {|p1, p2|
+		st = p1;
+		end = p2;
+		play.set(\start, st);
+		play.set(\end, end);
+		this.updateplot; //only if w open
 	}
 
+	dur {|adur|
+		end = st + adur;
+		play.set(\end, end);
+		this.updateplot; //only if w open
+	}
 
 	pause {
 		memrate = rate; // store
@@ -107,19 +121,18 @@ Layer{
 		play.set(\rate, rate)
 	}
 
-	dur {|adur|
-		end = st + adur;
-		play.set(\end, end)
-	}
-
-	rbuf {
-		buf = buffers.choose;
+	setbuf {|abuf|
+		buf = abuf;
 		//blen = buf.numFrames/buf.numChannels;
 		play.set(\buffer, buf.bufnum)
 	}
 
-	setbuf {|abuf|
-		buf = abuf;
+	rvol {
+		this.volumen( 1.0.rand );
+	}
+
+	rbuf {
+		buf = buffers.choose;
 		//blen = buf.numFrames/buf.numChannels;
 		play.set(\buffer, buf.bufnum)
 	}
@@ -138,29 +151,18 @@ Layer{
 		if (keeplen.asBoolean, {
 			end = st+len;
 			play.set(\end, end);// keep the length constant
-		})
+		});
+		this.updateplot; //only if w open
 	}
 
 	rend {|range=1.0|
 		end = st + range.asFloat.rand;
 		play.set(\end, end);
+		this.updateplot; //only if w open
 	}
 
 	rrate {
 		this.rat(1.0.rand2)
-	}
-
-	rat {|arate|
-		rate = arate;
-		play.set(\rate, rate);
-	}
-
-	pos {|p1, p2|
-		st = p1;
-		end = p2;
-		play.set(\start, st);
-		play.set(\end, end);
-		this.updateplot; //only if w open
 	}
 
 	// set start
