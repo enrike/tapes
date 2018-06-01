@@ -50,14 +50,7 @@ Layers{
 			SendTrig.kr( LFPulse.kr(12, 0), index, phasor/dur); //fps 12
 			#left, right = BufRd.ar( 2, buffer, phasor, 1 ) * amp;
 			Out.ar(outbus, Balance2.ar(left, right, pan));
-		}).load(server);
-
-		SynthDef(\HPF, {|in=10, out=0, cut=100|
-			var signal;
-			signal = In.ar(in);
-			signal  = HPF.ar(signal, cut);
-			Out(out, signal);
-		}).load(server);
+		}).load(aserver);
 
 		sfs = List.newUsing( SoundFile.collect( path ) );
 		this.free;
@@ -70,7 +63,6 @@ Layers{
 		});
 
 		(sfs.size + "buffers available").postln;
-		"...loading...".postln;
 
 		{
 			ps.do({arg pl; pl.free}); // kill everyone first
@@ -120,13 +112,7 @@ Layers{
 
 	pause { ps.do({ |pl| pl.pause}) }
 
-	push {|which| ps.do({ |pl| pl.push(which)}) } // if no which it appends to stack
-
-	pop {|which| ps.do({ |pl| pl.pop(which)}) } // if no which it pops last one
-
 	rvol { ps.do({ |pl| pl.rvol}) }
-
-	rpan { ps.do({ |pl| pl.rpan}) }
 
 	rpos { ps.do({ |pl| pl.rpos}) }
 
@@ -147,10 +133,6 @@ Layers{
 	vold { ps.do({ |pl| pl.vold}) }
 
 	volu { ps.do({ |pl| pl.volu}) }
-
-	outb {|bus| ps.do({ |pl| pl.volumen(bus) })} // sets synthdef out buf. used for manipulating the signal
-
-	bpos {|range=0.01| ps.do({|pl| pl.bpos(range) }) }
 
 	stopptask { ps.do({ |p| p.ptask.stop }) }
 	stoprtask { ps.do({ |p| p.rtask.stop }) }

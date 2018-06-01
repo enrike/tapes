@@ -3,12 +3,11 @@
 */
 Layer{
 
-	var id, buffers, play;
-	var <buf, <st=0, <end=1, <vol=1, <rate=0, <panning=0; // state variables
-	var memrate=1; // to store rate while paused
+	var id, buffers, play; //, blen;
+	var <buf, <st=0, <end=1, <vol=1, <rate=0;
+	var memrate=1;
 	var <ptask, <vtask, <rtask;
 	var plotview, plotwin=nil;
-	var statesDic;
 
 	*new {| id, buffers = nil |
 		^super.new.initLayer( id, buffers );
@@ -24,32 +23,7 @@ Layer{
 		this.rpos();
 		this.rvol();
 
-		statesDic = Dictionary.new;
-
 		("ready layer"+id).postln;
-	}
-
-	push { |which|
-		var state = Dictionary.new;
-		state.put(\buf, buf);
-		state.put(\st, st);
-		state.put(\end, end);
-		state.put(\vol, vol);
-		state.put(\rate, rate);
-		state.put(\panning,panning);
-
-		statesDic[which] = state;
-	}
-
-	pop {|which|
-		var state;
-		state = statesDic[which];
-
-		this.setbuf( state[\buf] );
-		this.pos( state[\st], state[\end] );
-		this.vol( state[\vol] );
-		this.rat( state[\rate] );
-		this.pan( state[\panning] );
 	}
 
 	plot {
@@ -97,15 +71,6 @@ Layer{
 
 	file {
 		^buf.path.split($/).last;
-	}
-
-	outb {|bus=0|
-		play.set(\out, bus)
-	}
-
-	pan {|apan=0|
-		panning = apan;
-		play.set(\pan, apan)
 	}
 
 	volumen {|avol|
@@ -158,6 +123,7 @@ Layer{
 
 	setbuf {|abuf|
 		buf = abuf;
+		//blen = buf.numFrames/buf.numChannels;
 		play.set(\buffer, buf.bufnum)
 	}
 
@@ -165,24 +131,22 @@ Layer{
 		this.volumen( 1.0.rand );
 	}
 
-	rpan {
-		this.pan( 1.0.rand2 )
-	}
-
 	rbuf {
 		buf = buffers.choose;
+		//blen = buf.numFrames/buf.numChannels;
 		play.set(\buffer, buf.bufnum)
 	}
 
 	rpos {|st_range=1.0, len_range=0.1|
-		st = (st_range.asFloat-len_range.asFloat).rand;
+		st = (st_range.asFloat-len_range.asFloat).rand; // TO DO: adjust length etc... here
 		end = st + (len_range.asFloat.rand);
 		this.pos(st, end);
 	}
 
 	rst {|range=1.0, keeplen=1|
-		var len = end-st;// only used if keeplen
+		var len = end-st;// if keeplen
 		st = range.asFloat.rand;
+		[st, len].postln;
 		play.set(\start, st);
 		if (keeplen.asBoolean, {
 			end = st+len;
@@ -203,8 +167,6 @@ Layer{
 
 	// set start
 	// set len
-
-	bpos {|range| this.pos( st+(range.rand2), end+(range.rand2)) }// single step brown variation
 
 	brownpos {|step=0.01, sleep=5.0, dsync=0, delta=0|
 		if (sleep <= 0, {sleep = 0.01}); // limit
