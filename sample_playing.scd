@@ -21,9 +21,8 @@ s.boot;
 a = "/home/r2d2/Mahaigaina/audio/00cuts/*";
 //a = "/home/r2d2/Mahaigaina/audio/00songs/*"; // Folder to load samples from
 s.waitForBoot({
-	s.meter(0,2);
 	if (l.isNil.not, {l.free});
-	l = Layers.new(s, a, 100); //HOW MANY players
+	l = Layers.new(s, a, 24); //HOW MANY players
 })
 )
 
@@ -48,14 +47,14 @@ l.normalize
 l.ps // list containing players
 
 p=l.search("Sprawl") //return a list of layers whose buffer contains this string in the file name. no case sensitive
-p.do({|lay| lay.vol(0.4)}) // do whatever
+p[0] // do whatever
 
 l.resume
 l.pause
 l.rat(1)
 l.vol(0.4)
 l.pos(0, 0.1) // st, end in 0 to 1 range
-l.len(1000) // in milliseconds!
+l.len(100) // in milliseconds!
 l.volu //UP
 l.vold //DOWN
 
@@ -64,7 +63,7 @@ l.vold //DOWN
 //f.set(\cut, 2000)
 
 // store and retrieve named states. they dont get deleted until the session ends
-l.push(\caos2)
+l.push(\blah2)
 l.pop(\blah2)
 l.save // l.save("blahblah") if no name is provided it uses the timestamp
 l.load // open a dialogue to search for the state file and load the state into the system

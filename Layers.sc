@@ -76,7 +76,7 @@ Layers{
 		// load buffers
 		howmany.do({ arg n;
 			var buf = Buffer.read(server, sfs.wrapAt(n).path);
-			bufs.add( buf )
+			bufs = bufs.add( buf )
 		});
 
 		(sfs.size + "buffers available").postln;
@@ -87,7 +87,7 @@ Layers{
 			ps = Array.new(sfs.size);
 
 			howmany.do({arg index;
-				ps.add( Layer.new(index, bufs) );
+				ps = ps.add( Layer.new(index, bufs) );
 			});
 		}.defer(4)
 	}
@@ -95,7 +95,9 @@ Layers{
 	search {|st|
 		var positives=[];
 		ps.do({ |pl|
-			if (pl.search(st), { positives.add(pl) })
+			if (pl.search(st), {
+				positives = positives.add(pl) // append
+			});
 		})
 		^positives
 	}
