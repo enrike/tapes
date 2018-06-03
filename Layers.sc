@@ -230,4 +230,19 @@ Layers{
 		["brown RATE", step, sleep, dsync, delta].postln;
 		ps.do({ |pl| pl.brownrate(step, sleep, dsync, delta) })
 	}
+
+	sched {|sleep=5.0, function|
+		var atask;
+		if (sleep <= 0, {sleep = 0.01}); // limit
+
+		atask = Task({
+			inf.do({
+				function.value();
+				sleep.wait;
+			});
+		});
+
+		atask.start;
+		^atask;
+	}
 }

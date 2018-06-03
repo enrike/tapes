@@ -21,6 +21,7 @@ s.boot;
 a = "/home/r2d2/Mahaigaina/audio/00cuts/*";
 //a = "/home/r2d2/Mahaigaina/audio/00songs/*"; // Folder to load samples from
 s.waitForBoot({
+	s.meter(0,2);
 	if (l.isNil.not, {l.free});
 	l = Layers.new(s, a, 24); //HOW MANY players
 })
@@ -41,20 +42,22 @@ s.meter(0, 2)
 
 
 // global. all layers //
-l.allbufs
-l.curbufs
+l.allbufs // available
+l.curbufs // actualy being used by whom
 l.normalize
 l.ps // list containing players
 
-p=l.search("Sprawl") //return a list of layers whose buffer contains this string in the file name. no case sensitive
-p[0] // do whatever
+p=l.search("dut") //return a list of layers whose buffer contains this string in the file name. no case sensitive
+p.do({|lay| lay.volumen(0.2)}) // do whatever
+
+l.sched(1, {l.rpan}); //schedule a function every N time
 
 l.resume
 l.pause
 l.rat(1)
 l.vol(0.4)
 l.pos(0, 0.1) // st, end in 0 to 1 range
-l.len(100) // in milliseconds!
+l.len(1000) // in milliseconds!
 l.volu //UP
 l.vold //DOWN
 
@@ -63,7 +66,7 @@ l.vold //DOWN
 //f.set(\cut, 2000)
 
 // store and retrieve named states. they dont get deleted until the session ends
-l.push(\blah2)
+l.push(\caos2)
 l.pop(\blah2)
 l.save // l.save("blahblah") if no name is provided it uses the timestamp
 l.load // open a dialogue to search for the state file and load the state into the system
@@ -72,6 +75,7 @@ l.load // open a dialogue to search for the state file and load the state into t
 //random
 l.rbuf
 l.rpos
+l.rpan
 l.rrate
 l.rvol
 l.rst
@@ -88,9 +92,11 @@ l.bvol(0.05) // single step small random
 l.brownpos(0.1, 2, 0, 0.05) // step, sleep, dsync, delta
 l.brownvol(0.01, 5, 1, 0)
 l.brownrate(0.01, 1, 1, 0)
+// l.brownpan(0.01, 1, 1, 0) // TO DO
 l.stopptask // pos // TO DO this is not stopping the tasks
 l.stopvtask // vol
 l.stoprtask // rate
+// TO DO: brown pan
 
 // control individual layers //
 

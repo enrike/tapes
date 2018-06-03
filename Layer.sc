@@ -34,7 +34,7 @@ Layer{
 		play.free; // get rid of the old one
 		play = Synth(asynth, [\buffer, buf.bufnum, \rate, rate]);
 		/*{
-			//this.setbuf( buf );
+			//this.setbuf( buf );dut
 			this.pos( st, end );
 			this.vol( vol );
 			//this.rat( rate );
