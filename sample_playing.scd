@@ -38,7 +38,6 @@ l.resume;
 l.newplayer(\StPlayerOD) // chaotic player
 l.newplayer(\StPlayer) // normal player
 
-s.meter(0, 2)
 
 
 // global. all layers //
@@ -50,16 +49,22 @@ l.ps // list containing players
 p=l.search("dut") //return a list of layers whose buffer contains this string in the file name. no case sensitive
 p.do({|lay| lay.volumen(0.2)}) // do whatever
 
-l.sched(1, {l.rpan}); //schedule a function every N time
+o = l.sched(5, {l.rpan}); //schedule a function every N time
+o.pause; o.resume; o.stop
+k = l.sched(1, {l.reverse});
+k.stop
+
 
 l.resume
 l.pause
-l.rat(1)
-l.vol(0.4)
-l.pos(0, 0.1) // st, end in 0 to 1 range
-l.len(1000) // in milliseconds!
+l.reverse
 l.volu //UP
 l.vold //DOWN
+l.vol(0.4)
+l.rat(0.8)
+l.pos(0, 0.1) // st, end in 0 to 1 range
+l.len(1000) // in milliseconds!
+
 
 //l.outb(10) // outbus for all players
 //f = Synth(\HPF, [\cut, 1000])
@@ -98,6 +103,11 @@ l.stopvtask // vol
 l.stoprtask // rate
 // TO DO: brown pan
 
+
+
+
+
+
 // control individual layers //
 
 // GET
@@ -120,7 +130,6 @@ l.ps[0].len(1000) // in millisecs!!!
 // ACTIONS
 l.ps[0].resume
 l.ps[0].pause
-
 l.ps[0].bpos(0.01) // single step small random
 
 // memory

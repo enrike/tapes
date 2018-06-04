@@ -196,6 +196,8 @@ Layers{
 
 	rat { |rate| ps.do({ |pl|	pl.rat(rate)}) }
 
+	reverse { ps.do({ |pl|	pl.rat(pl.rate.neg)}) }
+
 	rrate { ps.do({ |pl| pl.rrate}) }
 
 	rbuf { ps.do({ |pl| pl.rbuf}) }
