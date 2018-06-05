@@ -22,7 +22,20 @@ Layer{
 		if(buf.isNil.not, { initbuf = buf.bufnum }); // only if specified. otherwise nil
 
 		play.free;
-		play = Synth(\StPlayer, [\buffer, initbuf, \rate, rate]);
+		play = Synth(\StPlayer, [\buffer, initbuf, \rate, rate, \index, id]);
+
+		OSCdef(\playhead++id).clear;
+		OSCdef(\playhead++id).free;
+		OSCdef(\playhead++id, {|msg, time, addr, recvPort|
+			//[id, msg].postln;
+			if (id==msg[2], {
+				if (plotwin.isNil.not,{
+					//msg[3].postln;
+					{ plotview.timeCursorPosition = msg[3] * (buf.numFrames/buf.numChannels) }.defer;
+				});
+			});
+		}, '/tr', NetAddr("127.0.0.1", 57110));//s.addr);
+
 
 		statesDic = Dictionary.new;
 
@@ -68,7 +81,7 @@ Layer{
 		statesDic.postln;
 		state = statesDic[which];
 
-statesDic.postln;
+		//statesDic.postln;
 		this.setbuf( state[\buf] );
 		this.pos( state[\st], state[\end] );
 		this.vol( state[\vol] );
@@ -105,11 +118,13 @@ statesDic.postln;
 		if (plotwin.isNil.not, {
 			var f = { |b,v| b.loadToFloatArray(action: { |a| { v.setData(a) }.defer }) };
 
-			// TO DO: this does not work for some reason. maybe something to do with the supercollider version
-			//plotview.timeCursorOn = true;
-			plotview.setSelectionStart(0, (buf.numFrames/buf.numChannels) * st); // loop the selection
-			plotview.setSelectionSize(0, (buf.numFrames/buf.numChannels) * (end-st));
-			plotview.readSelection.refresh;
+			// TO DO: thiss does not work for some reason. maybe something to do with the supercollider version
+			{
+				plotview.timeCursorOn = true;
+				plotview.setSelectionStart(0, (buf.numFrames/buf.numChannels) * st); // loop the selection
+				plotview.setSelectionSize(0, (buf.numFrames/buf.numChannels) * (end-st));
+				plotview.readSelection.refresh;
+			}.defer;
 
 			f.(buf, plotview); //
 		});
