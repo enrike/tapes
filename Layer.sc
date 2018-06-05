@@ -3,34 +3,33 @@
 */
 Layer{
 
-	var id, buffers, play;
+	var id, play;
 	var <buf, <st=0, <end=1, <vol=1, <rate=0, <panning=0; // state variables
 	var memrate=1; // to store rate while paused
 	var <ptask, <vtask, <rtask;
 	var plotview, plotwin=nil;
 	var <>statesDic;
 
-	*new {| id, buffers = nil |
-		^super.new.initLayer( id, buffers );
+	*new {| id=0, buffer = nil |
+		^super.new.initLayer( id, buffer );
 	}
 
-	initLayer {| aid, abuffers |
+	initLayer {| aid, abuffer |
+		var initbuf;
 		id = aid; // just in case I need to identify later
-		buffers = abuffers; // kep a ref to all of them to be able to change later
-		buf = buffers.choose; // random
+		buf = abuffer;
 
-		statesDic = Dictionary.new;
+		if(buf.isNil.not, { initbuf = buf.bufnum }); // only if specified. otherwise nil
 
 		play.free;
-		play = Synth(\StPlayer, [\buffer, buf.bufnum, \rate, rate]);
+		play = Synth(\StPlayer, [\buffer, initbuf, \rate, rate]);
 
-		this.rpos(); // initial situation is random
-		this.rvol(); //  TODO: dont peak
+		statesDic = Dictionary.new;
 
 		("ready layer"+id).postln;
 	}
 
-	newplayer {|asynth|
+	newplayer {|asynth| // experimental
 		play.free; // get rid of the old one
 		play = Synth(asynth, [\buffer, buf.bufnum, \rate, rate]);
 		/*{
@@ -40,6 +39,11 @@ Layer{
 			//this.rat( rate );
 			this.pan( panning );
 		}.defer(0.1)*/
+	}
+
+	loadbuf {|server, path|
+		var abuf = Buffer.read(server, path);
+		{ this.setbuf(abuf) }.defer(0.1); // make sure it has been loaded
 	}
 
 	search {|st|
@@ -76,19 +80,23 @@ statesDic.postln;
 		if (plotwin.isNil, {
 			// to do: bigger size win and view
 			// move playhead as it plays?
-			plotwin = Window("Buffer"+id, Rect(200, 200, 400, 200)).alwaysOnTop=true;
+			plotwin = Window("Buffer"+id, Rect(200, 200, 400, 200));
+			plotwin.alwaysOnTop=true;
+			//plotwin.setSelectionColor(0, Color.red);
 			plotwin.front;
 			plotwin.onClose = { plotwin = nil }; // needed?
 
 			plotview = SoundFileView(plotwin);
 			plotview.mouseUpAction = {
 				var cs = plotview.selections[plotview.currentSelection];
-				st = cs[0]/buf.numFrames;
-				end = (cs[0]+cs[1])/buf.numFrames; //because view wants start and duration
+				st = (cs[0]/buf.numFrames)/buf.numChannels;
+				end = ((cs[0]+cs[1])/buf.numFrames)/buf.numChannels; //because view wants start and duration
 				play.set(\start, st);
 				play.set(\end, end);
 				["new loop:", st, end].postln;
 			};
+			"To zoom in/out: Shift + right-click + mouse-up/down".postln;
+			"To scroll: right-click + mouse-left/right".postln;
 		});
 		this.updateplot; // draw the data and refresh
 	}
@@ -97,9 +105,10 @@ statesDic.postln;
 		if (plotwin.isNil.not, {
 			var f = { |b,v| b.loadToFloatArray(action: { |a| { v.setData(a) }.defer }) };
 
-			plotview.timeCursorOn = true;
-			plotview.setSelectionStart(0, buf.numFrames * st);
-			plotview.setSelectionSize(0, buf.numFrames * (end-st));
+			// TO DO: this does not work for some reason. maybe something to do with the supercollider version
+			//plotview.timeCursorOn = true;
+			plotview.setSelectionStart(0, (buf.numFrames/buf.numChannels) * st); // loop the selection
+			plotview.setSelectionSize(0, (buf.numFrames/buf.numChannels) * (end-st));
 			plotview.readSelection.refresh;
 
 			f.(buf, plotview); //
@@ -128,22 +137,26 @@ statesDic.postln;
 		play.set(\pan, apan)
 	}
 
-	volumen {|avol|
+	volume {|avol|
 		if (avol< 0, {avol=0}); //lower limit
 		vol = avol;
 		play.set(\amp, vol);
 	}
 
 	vold {
-		this.volumen(vol-0.02)
+		this.volume(vol-0.02)
 	}
 	volu {
-		this.volumen(vol+0.02)
+		this.volume(vol+0.02)
 	}
 
 	rat {|arate|
 		rate = arate;
 		play.set(\rate, rate);
+	}
+
+	reverse {
+		this.rat(rate.neg)
 	}
 
 	len{|ms=100| // IN MILLISECONDS
@@ -172,6 +185,7 @@ statesDic.postln;
 	}
 
 	resume {
+		memrate.postln;
 		rate = memrate;// retrieve stored value
 		play.set(\rate, rate)
 	}
@@ -182,17 +196,17 @@ statesDic.postln;
 	}
 
 	rvol {
-		this.volumen( 1.0.rand );
+		this.volume( 1.0.rand );
 	}
 
 	rpan {
 		this.pan( 1.0.rand2 )
 	}
 
-	rbuf {
+	/*rbuf {
 		buf = buffers.choose;
 		play.set(\buffer, buf.bufnum)
-	}
+	}*/
 
 	rpos {|st_range=1.0, len_range=0.1|
 		st = (st_range.asFloat-len_range.asFloat).rand;
@@ -224,9 +238,9 @@ statesDic.postln;
 	// set start
 	// set len
 
-	bpos {|range| this.pos( st+(range.rand2), end+(range.rand2)) }// single step brown variation
+	bpos {|range=0.01| this.pos( st+(range.rand2), end+(range.rand2)) }// single step brown variation
 
-	bvol {|range| this.volumen( st+(range.rand2), end+(range.rand2)) }// single step brown variation
+	bvol {|range=0.05| this.volume( st+(range.rand2), end+(range.rand2)) }// single step brown variation
 
 	brownpos {|step=0.01, sleep=5.0, dsync=0, delta=0|
 		if (sleep <= 0, {sleep = 0.01}); // limit
@@ -281,6 +295,21 @@ statesDic.postln;
 		});
 
 		rtask.start;
+	}
+
+	sch {|sleep=5.0, function|
+		var atask;
+		if (sleep <= 0, {sleep = 0.01}); // limit
+
+		atask = Task({
+			inf.do({
+				function.value();
+				sleep.wait;
+			});
+		});
+
+		atask.start;
+		^atask;
 	}
 
 }

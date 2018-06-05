@@ -49,7 +49,7 @@ Layers{
 			SendTrig.kr( LFPulse.kr(12, 0), index, phasor/dur); //fps 12
 			#left, right = BufRd.ar( 2, buffer, phasor, 1 ) * amp;
 			Out.ar(outbus, Balance2.ar(left, right, pan));
-		}).load(server);
+		}).load;
 
 
 		SynthDef( \StPlayerOD, { arg outbus=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=1, index=0, a=1.4, b=0.3;
@@ -71,10 +71,10 @@ Layers{
 
 		sfs = List.newUsing( SoundFile.collect( path ) );
 		this.free;
-		bufs = Array.new(howmany);
+		bufs = Array.new(sfs.size);
 
-		// load buffers
-		howmany.do({ arg n;
+		// load ALL buffers
+		sfs.size.do({ arg n;
 			var buf = Buffer.read(server, sfs.wrapAt(n).path);
 			bufs = bufs.add( buf )
 		});
@@ -87,7 +87,7 @@ Layers{
 			ps = Array.new(sfs.size);
 
 			howmany.do({arg index;
-				ps = ps.add( Layer.new(index, bufs) );
+				ps = ps.add( Layer.new(index, bufs.wrapAt(index)) ); // just get any
 			});
 		}.defer(4)
 	}
@@ -129,6 +129,8 @@ Layers{
 			ps[index].pos(positions[index])
 		})
 	}*/
+
+	setbuf {|buf| ps.do({ |pl| pl.setbuf(buf)})	}
 
 	newplayer {|asynth| ps.do({ |pl| pl.newplayer(asynth)}) }
 
@@ -202,7 +204,7 @@ Layers{
 
 	rbuf { ps.do({ |pl| pl.rbuf}) }
 
-	vol { |vol| ps.do({ |pl| pl.volumen(vol) }) }
+	vol { |vol| ps.do({ |pl| pl.volume(vol) }) }
 
 	vold { ps.do({ |pl| pl.vold}) }
 
@@ -233,7 +235,7 @@ Layers{
 		ps.do({ |pl| pl.brownrate(step, sleep, dsync, delta) })
 	}
 
-	sched {|sleep=5.0, function|
+	sch {|sleep=5.0, function|
 		var atask;
 		if (sleep <= 0, {sleep = 0.01}); // limit
 
