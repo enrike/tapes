@@ -5,7 +5,7 @@ license GPL
 
 
 /*
-TO DO: create a GUI where there is a representation of each layer and its buffer and individual volumes can be controlled
+TO DO: create a GUI where there is a representation of each layer and its buffer and individual volumes can be controlled ?
 
 filter an array of objects that meet a condition
 */
@@ -33,7 +33,7 @@ l.rvol;
 l.resume;
 )
 
-
+l.setbuf( l.bufs[26] ); // all the same buffer
 
 l.newplayer(\StPlayerOD) // chaotic player
 l.newplayer(\StPlayer) // normal player
@@ -47,12 +47,13 @@ l.normalize
 l.ps // list containing players
 
 p=l.search("dut") //return a list of layers whose buffer contains this string in the file name. no case sensitive
-p.do({|lay| lay.volumen(0.2)}) // do whatever
+p.do({|lay| lay.volume(0.2)}) // do whatever
 
 o = l.sched(5, {l.rpan}); //schedule a function every N time
 o.pause; o.resume; o.stop
 k = l.sched(1, {l.reverse});
 k.stop
+k.resume
 
 
 l.resume
@@ -61,6 +62,7 @@ l.reverse
 l.volu //UP
 l.vold //DOWN
 l.vol(0.4)
+l.pan(0) //-1 to 1
 l.rat(0.8)
 l.pos(0, 0.1) // st, end in 0 to 1 range
 l.len(1000) // in milliseconds!
@@ -71,7 +73,7 @@ l.len(1000) // in milliseconds!
 //f.set(\cut, 2000)
 
 // store and retrieve named states. they dont get deleted until the session ends
-l.push(\caos2)
+l.push(\dut)
 l.pop(\blah2)
 l.save // l.save("blahblah") if no name is provided it uses the timestamp
 l.load // open a dialogue to search for the state file and load the state into the system
@@ -80,11 +82,13 @@ l.load // open a dialogue to search for the state file and load the state into t
 //random
 l.rbuf
 l.rpos
+l.rpos(0.9, 0.1) // start and length
 l.rpan
 l.rrate
 l.rvol
 l.rst
 l.rend
+l.rlen(0.1)
 
 l.bpos // small range jump defaults to 0.01
 l.bpos(0.05) // single step small random
@@ -105,6 +109,32 @@ l.stoprtask // rate
 
 
 
+(
+t.stop;
+t = l.sch(3, {l.reverse})
+)
+
+(
+y.stop;
+y = l.sch(4, {l.rlen(0.3)})
+)
+
+(
+u.stop;
+u = l.sch(4, {l.bpos})
+)
+
+(
+q.stop;
+q = l.sch(60, {l.pos(0.1,0.3)}) // back to origin
+)
+
+(
+v.stop;
+v = l.sch(5, {l.rpos})
+)
+
+
 
 
 
@@ -120,8 +150,8 @@ l.ps[0].end // get
 l.ps[0].st //get
 
 // SET
-l.ps[0].setbuf( l.bufs.choose )
-l.ps[0].volumen( 1 )
+l.ps[0].setbuf( l.bufs[26] )
+l.ps[0].volume( 1 )
 l.ps[0].pan( 0 ) // -1 to 1
 l.ps[0].rat(1)
 l.ps[0].pos(0.1, 0.12) // st and end
