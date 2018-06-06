@@ -80,7 +80,7 @@ Layers{
 		});
 
 		(sfs.size + "buffers available").postln;
-		"...loading...".postln;
+		"... loading ... please wait ...".postln;
 
 		{
 			ps.do({arg pl; pl.free}); // kill everyone first
@@ -186,15 +186,21 @@ Layers{
 
 	rvol { ps.do({ |pl| pl.rvol}) }
 
-	rpan { ps.do({ |pl| pl.rpan}) }
+	rpan {|range=1| ps.do({ |pl| pl.rpan(range)}) }
 
 	rpos { ps.do({ |pl| pl.rpos}) }
 
-	rst {|range=1, keeplen=1|
-		ps.do({ |pl| pl.rst(range, keeplen)})
+	rst {|range=1|
+		ps.do({ |pl| pl.rst(range)})
 	}
 
-	rend { ps.do({ |pl| pl.rend}) }
+	rend {|range=1|
+		ps.do({ |pl| pl.rend(range)})
+	}
+
+	rlen {|range=0.5|
+		ps.do({ |pl| pl.rlen(range)})
+	}
 
 	rat { |rate| ps.do({ |pl|	pl.rat(rate)}) }
 
@@ -209,6 +215,8 @@ Layers{
 	vold { ps.do({ |pl| pl.vold}) }
 
 	volu { ps.do({ |pl| pl.volu}) }
+
+	pan { |pan| ps.do({ |pl| pl.pan(pan) }) }
 
 	outb {|bus| ps.do({ |pl| pl.volumen(bus) })} // sets synthdef out buf. used for manipulating the signal
 
