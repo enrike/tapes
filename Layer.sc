@@ -27,11 +27,9 @@ Layer{
 		OSCdef(\playhead++id).clear;
 		OSCdef(\playhead++id).free;
 		OSCdef(\playhead++id, {|msg, time, addr, recvPort|
-			//[id, msg].postln;
 			if (id==msg[2], {
 				if (plotwin.isNil.not,{
-					//msg[3].postln;
-					{ plotview.timeCursorPosition = msg[3] * (buf.numFrames/buf.numChannels) }.defer;
+					{ plotview.timeCursorPosition = msg[3] * (buf.numFrames*buf.numChannels) }.defer;
 				});
 			});
 		}, '/tr', NetAddr("127.0.0.1", 57110));//s.addr);
@@ -99,14 +97,25 @@ Layer{
 			plotwin.front;
 			plotwin.onClose = { plotwin = nil }; // needed?
 
-			plotview = SoundFileView(plotwin);
+			plotview = SoundFileView(plotwin)
+			.elasticMode_(true)
+			.timeCursorOn_(true)
+			.timeCursorColor_(Color.red)
+			.drawsWaveForm_(true)
+			.gridOn_(true)
+			.gridResolution_(1)
+			.gridColor_(Color.white)
+			.waveColors_([ Color.new255(103, 148, 103), Color.new255(103, 148, 103) ])
+			.background_(Color.new255(155, 205, 155))
+			.canFocus_(false)
+			.setSelectionColor(0, Color.grey);
 			plotview.mouseUpAction = {
 				var cs = plotview.selections[plotview.currentSelection];
 				st = (cs[0]/buf.numFrames)/buf.numChannels;
 				end = ((cs[0]+cs[1])/buf.numFrames)/buf.numChannels; //because view wants start and duration
 				play.set(\start, st);
 				play.set(\end, end);
-				["new loop:", st, end].postln;
+				//["new loop:", st, end].postln;
 			};
 			"To zoom in/out: Shift + right-click + mouse-up/down".postln;
 			"To scroll: right-click + mouse-left/right".postln;
@@ -121,8 +130,8 @@ Layer{
 			// TO DO: thiss does not work for some reason. maybe something to do with the supercollider version
 			{
 				plotview.timeCursorOn = true;
-				plotview.setSelectionStart(0, (buf.numFrames/buf.numChannels) * st); // loop the selection
-				plotview.setSelectionSize(0, (buf.numFrames/buf.numChannels) * (end-st));
+				plotview.setSelectionStart(0, (buf.numFrames*buf.numChannels) * st); // loop the selection
+				plotview.setSelectionSize(0, (buf.numFrames*buf.numChannels) * (end-st));
 				plotview.readSelection.refresh;
 			}.defer;
 
@@ -214,8 +223,8 @@ Layer{
 		this.volume( 1.0.rand );
 	}
 
-	rpan {
-		this.pan( 1.0.rand2 )
+	rpan {|range=1| // -1 to 1
+		this.pan( range.asFloat.rand2 )
 	}
 
 	/*rbuf {
@@ -223,24 +232,28 @@ Layer{
 		play.set(\buffer, buf.bufnum)
 	}*/
 
-	rpos {|st_range=1.0, len_range=0.1|
-		st = (st_range.asFloat-len_range.asFloat).rand;
-		end = st + (len_range.asFloat.rand);
+	rpos {|st_range=1, len_range=1|
+		//st = (st_range.asFloat-len_range.asFloat).rand;
+		//end = st + (len_range.asFloat.rand);
+		st = st_range.asFloat.rand;
+		end = st + len_range.asFloat.rand;
+		if (end>1, {end=1}); //limit. maybe not needed
 		this.pos(st, end);
 	}
 
-	rst {|range=1.0, keeplen=1|
-		var len = end-st;// only used if keeplen
+	rst {|range=1.0|
 		st = range.asFloat.rand;
 		play.set(\start, st);
-		if (keeplen.asBoolean, {
-			end = st+len;
-			play.set(\end, end);// keep the length constant
-		});
 		this.updateplot; //only if w open
 	}
 
 	rend {|range=1.0|
+		end = range.asFloat.rand;
+		play.set(\end, end);
+		this.updateplot; //only if w open
+	}
+
+	rlen {|range=0.5|
 		end = st + range.asFloat.rand;
 		play.set(\end, end);
 		this.updateplot; //only if w open
