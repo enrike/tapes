@@ -153,6 +153,14 @@ Layer{
 		"---------".postln;
 	}
 
+	jump {|pos=0|
+		if (pos<st, {pos=st}); // limits
+		if (pos>end, {pos=end});
+		play.set(\reset, pos);
+		play.set(\trig, 0);
+		{ play.set(\trig, 1) }.defer(0.05);
+	}
+
 	file {
 		^buf.path.split($/).last;
 	}

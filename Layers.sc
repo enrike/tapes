@@ -41,11 +41,11 @@ Layers{
 		("path is"+apath).postln;
 		("players:"+howmany.asString).postln;
 
-		SynthDef( \StPlayer, { arg outbus=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=1, index=0;
+		SynthDef( \StPlayer, { arg outbus=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=1, index=0, trig=0, reset=0;
 			var length, left, right, phasor, dur; //offset;
 
 			dur = BufFrames.kr(buffer);
-			phasor = Phasor.ar( 0, rate, start*dur, end*dur);
+			phasor = Phasor.ar( trig, rate, start*dur, end*dur, resetPos: reset*dur);
 			SendTrig.kr( LFPulse.kr(12, 0), index, phasor/dur); //fps 12
 			#left, right = BufRd.ar( 2, buffer, phasor, 1 ) * amp;
 			Out.ar(outbus, Balance2.ar(left, right, pan));
