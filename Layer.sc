@@ -8,7 +8,7 @@ Layer{
 	var memrate=1; // to store rate while paused
 	var <ptask, <vtask, <rtask;
 	var plotview, plotwin=nil;
-	var <>statesDic;
+	var <>statesDic, <>verbose=0;
 
 	*new {| id=0, buffer = nil |
 		^super.new.initLayer( id, buffer );
@@ -52,9 +52,10 @@ Layer{
 		}.defer(0.1)*/
 	}
 
-	loadbuf {|server, path|
+	loadbuf {|server, path| // actually loads a file from disk into the server and sets it as current buffer used by this player
 		var abuf = Buffer.read(server, path);
 		{ this.setbuf(abuf) }.defer(0.1); // make sure it has been loaded
+		if(verbose.asBoolean, {["loading", path].postln});
 	}
 
 	search {|st|
@@ -72,6 +73,8 @@ Layer{
 		state.put(\panning,panning);
 
 		statesDic[which] = state;
+
+		if(verbose.asBoolean, {["pushing state", which].postln});
 	}
 
 	pop {|which|
@@ -85,6 +88,7 @@ Layer{
 		this.vol( state[\vol] );
 		this.rat( state[\rate] );
 		this.pan( state[\panning] );
+		if(verbose.asBoolean, {["poping state", which].postln});
 	}
 
 	plot {
@@ -145,6 +149,7 @@ Layer{
 		["vol", vol].postln;
 		[st, end].postln;
 		["rate", rate].postln;
+		["verbose", verbose].postln;
 		"---------".postln;
 	}
 
@@ -158,13 +163,15 @@ Layer{
 
 	pan {|apan=0|
 		panning = apan;
-		play.set(\pan, apan)
+		play.set(\pan, apan);
+		if(verbose.asBoolean, {["pan", panning].postln});
 	}
 
 	volume {|avol|
 		if (avol< 0, {avol=0}); //lower limit
 		vol = avol;
 		play.set(\amp, vol);
+		if(verbose.asBoolean, {["volume", vol].postln});
 	}
 
 	vold {
@@ -177,6 +184,7 @@ Layer{
 	rat {|arate|
 		rate = arate;
 		play.set(\rate, rate);
+		if(verbose.asBoolean, {["rate", rate].postln});
 	}
 
 	reverse {
@@ -193,12 +201,14 @@ Layer{
 		end = p2;
 		play.set(\start, st);
 		play.set(\end, end);
+		if(verbose.asBoolean, {["pos", st, end].postln});
 		this.updateplot; //only if w open
 	}
 
 	dur {|adur|
 		end = st + adur;
 		play.set(\end, end);
+		if(verbose.asBoolean, {["end", end].postln});
 		this.updateplot; //only if w open
 	}
 
@@ -216,7 +226,8 @@ Layer{
 
 	setbuf {|abuf|
 		buf = abuf;
-		play.set(\buffer, buf.bufnum)
+		play.set(\buffer, buf.bufnum);
+		if(verbose.asBoolean, {["buffer", buf.fileName].postln});
 	}
 
 	rvol {
@@ -248,14 +259,16 @@ Layer{
 	}
 
 	rend {|range=1.0|
-		end = range.asFloat.rand;
+		end = range.asFloat.rand; // total rand
 		play.set(\end, end);
+		if(verbose.asBoolean, {["end", end].postln});
 		this.updateplot; //only if w open
 	}
 
 	rlen {|range=0.5|
-		end = st + range.asFloat.rand;
+		end = st + range.asFloat.rand; // rand from st point
 		play.set(\end, end);
+		if(verbose.asBoolean, {["end", end].postln});
 		this.updateplot; //only if w open
 	}
 
@@ -325,13 +338,14 @@ Layer{
 		rtask.start;
 	}
 
-	sch {|sleep=5.0, function|
+	sch {|sleep=5.0, function, id=""|
 		var atask;
 		if (sleep <= 0, {sleep = 0.01}); // limit
 
 		atask = Task({
 			inf.do({
 				function.value();
+				if( (verbose.asBoolean && id != ""), {id.postln});
 				sleep.wait;
 			});
 		});
