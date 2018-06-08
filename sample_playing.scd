@@ -21,7 +21,7 @@ s.boot;
 a = "/home/r2d2/Mahaigaina/audio/00cuts/*";
 //a = "/home/r2d2/Mahaigaina/audio/00songs/*"; // Folder to load samples from
 s.waitForBoot({
-	s.meter(0,2);
+	s.meter;
 	if (l.isNil.not, {l.free});
 	l = Layers.new(s, a, 24); //HOW MANY players
 })
@@ -33,7 +33,7 @@ l.rvol;
 l.resume;
 )
 
-l.setbuf( l.bufs[26] ); // all the same buffer
+
 
 l.newplayer(\StPlayerOD) // chaotic player
 l.newplayer(\StPlayer) // normal player
@@ -43,17 +43,9 @@ l.newplayer(\StPlayer) // normal player
 // global. all layers //
 l.allbufs // available
 l.curbufs // actualy being used by whom
+l.setbuf( l.bufs[27] ); // all layers use the same buffer
 l.normalize
 l.ps // list containing players
-
-p=l.search("dut") //return a list of layers whose buffer contains this string in the file name. no case sensitive
-p.do({|lay| lay.volume(0.2)}) // do whatever
-
-o = l.sched(5, {l.rpan}); //schedule a function every N time
-o.pause; o.resume; o.stop
-k = l.sched(1, {l.reverse});
-k.stop
-k.resume
 
 
 l.resume
@@ -67,16 +59,18 @@ l.rat(0.8)
 l.pos(0, 0.1) // st, end in 0 to 1 range
 l.len(1000) // in milliseconds!
 
-
-//l.outb(10) // outbus for all players
-//f = Synth(\HPF, [\cut, 1000])
-//f.set(\cut, 2000)
-
 // store and retrieve named states. they dont get deleted until the session ends
 l.push(\dut)
 l.pop(\blah2)
 l.save // l.save("blahblah") if no name is provided it uses the timestamp
 l.load // open a dialogue to search for the state file and load the state into the system
+
+
+p=l.search("dut") //return a list of layers whose buffer contains this string in the file name. no case sensitive
+p.do({|lay| lay.volume(0.2)}) // do whatever with the search results
+
+o = l.sch(5, {l.rpan}); //schedule a function every N secs
+o.pause; o.resume; o.stop
 
 
 //random
@@ -111,7 +105,7 @@ l.stoprtask // rate
 
 (
 t.stop;
-t = l.sch(3, {l.reverse})
+t = l.sch(2.8, {l.reverse})
 )
 
 (
