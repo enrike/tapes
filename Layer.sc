@@ -189,6 +189,19 @@ Layer{
 		this.volume(vol+0.02)
 	}
 
+
+
+	fadein {|time=1|
+		play.set(\gdur, time);
+		play.set(\gate, 1);
+	}
+
+	fadeout {|time=1|
+		play.set(\gdur, time);
+		play.set(\gate, 0);
+	}
+
+
 	rat {|arate|
 		rate = arate;
 		play.set(\rate, rate);
@@ -199,9 +212,14 @@ Layer{
 		this.rat(rate.neg)
 	}
 
-	len{|ms=100| // IN MILLISECONDS
+	len {|ms=100| // IN MILLISECONDS
 		var adur= ms / ((buf.numFrames/buf.sampleRate)*1000 ); // from millisecs to 0-1
 		this.dur(adur)
+	}
+
+	reset {
+		this.pos(0,1);
+		this.jump(0);
 	}
 
 	pos {|p1, p2|
@@ -238,8 +256,8 @@ Layer{
 		if(verbose.asBoolean, {["buffer", buf.fileName].postln});
 	}
 
-	rvol {
-		this.volume( 1.0.rand );
+	rvol {|limit=1.0|
+		this.volume( limit.rand );
 	}
 
 	rpan {|range=1| // -1 to 1
@@ -289,7 +307,9 @@ Layer{
 
 	bpos {|range=0.01| this.pos( st+(range.rand2), end+(range.rand2)) }// single step brown variation
 
-	bvol {|range=0.05| this.volume( st+(range.rand2), end+(range.rand2)) }// single step brown variation
+	bvol {|range=0.05| this.volume( vol+(range.rand2), vol+(range.rand2)) }// single step brown variation
+
+	brat {|range=0.05| this.rat( rate+(range.rand2), rate+(range.rand2)) }// single step brown variation
 
 	brownpos {|step=0.01, sleep=5.0, dsync=0, delta=0|
 		if (sleep <= 0, {sleep = 0.01}); // limit

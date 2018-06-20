@@ -41,13 +41,14 @@ Layers{
 		("path is"+apath).postln;
 		("players:"+howmany.asString).postln;
 
-		SynthDef( \StPlayer, { arg outbus=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=1, index=0, trig=0, reset=0;
-			var length, left, right, phasor, dur; //offset;
+		SynthDef( \StPlayer, { arg outbus=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=1, index=0, trig=0, reset=0, gate=1, gdur=1;
+			var length, left, right, phasor, dur, env; //offset;
 
 			dur = BufFrames.kr(buffer);
 			phasor = Phasor.ar( trig, rate, start*dur, end*dur, resetPos: reset*dur);
 			SendTrig.kr( LFPulse.kr(12, 0), index, phasor/dur); //fps 12
-			#left, right = BufRd.ar( 2, buffer, phasor, 1 ) * amp;
+			env = EnvGen.kr(Env.asr(gdur,amp,gdur), gate);
+			#left, right = BufRd.ar( 2, buffer, phasor, 1 ) * amp * env;
 			Out.ar(outbus, Balance2.ar(left, right, pan));
 		}).load;
 
@@ -140,6 +141,8 @@ Layers{
 
 	len {|ms| ps.do({ |pl| pl.len(ms)}) }
 
+	reset { ps.do({ |pl| pl.reset}) }
+
 	resume { ps.do({ |pl| pl.resume}) }
 
 	pause { ps.do({ |pl| pl.pause}) }
@@ -184,7 +187,11 @@ Layers{
 	}
 
 
-	rvol { ps.do({ |pl| pl.rvol}) }
+	rvol {
+		ps.do({ |pl|
+			pl.rvol(1.0/ps.size)
+		})
+	}
 
 	rpan {|range=1| ps.do({ |pl| pl.rpan(range)}) }
 
@@ -204,7 +211,11 @@ Layers{
 
 	rat { |rate| ps.do({ |pl|	pl.rat(rate)}) }
 
-	reverse { ps.do({ |pl|	pl.rat(pl.rate.neg)}) }
+	reverse {|offset=0|
+		ps.do({ |pl|
+			{pl.rat(pl.rate.neg)}.defer(offset)
+		})
+	}
 
 	rrate { ps.do({ |pl| pl.rrate}) }
 
@@ -223,6 +234,8 @@ Layers{
 	bpos {|range=0.01| ps.do({|pl| pl.bpos(range) }) }
 
 	bvol {|range=0.01| ps.do({|pl| pl.bvol(range) }) }
+
+	brat {|range=0.01| ps.do({|pl| pl.brat(range) }) }
 
 	stopptask { ps.do({ |p| p.ptask.stop }) }
 	stoprtask { ps.do({ |p| p.rtask.stop }) }
@@ -243,13 +256,14 @@ Layers{
 		ps.do({ |pl| pl.brownrate(step, sleep, dsync, delta) })
 	}
 
-	sch {|sleep=5.0, function|
+	sch {|sleep=5.0, function, id=""|
 		var atask;
 		if (sleep <= 0, {sleep = 0.01}); // limit
 
 		atask = Task({
 			inf.do({
 				function.value();
+				if( (id != ""), {id.postln});
 				sleep.wait;
 			});
 		});
