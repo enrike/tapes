@@ -62,6 +62,10 @@ Layer{
 		^this.file().containsi(st) // no case sensitive
 	}
 
+	duration { // buffer len in msecs
+		^((buf.numFrames/buf.sampleRate)*1000).asInt // buf.numChannels/
+	}
+
 	push { |which|
 		var state = Dictionary.new;
 		which.postln;
@@ -95,13 +99,13 @@ Layer{
 		if (plotwin.isNil, {
 			// to do: bigger size win and view
 			// move playhead as it plays?
-			plotwin = Window("Buffer"+id, Rect(200, 200, 400, 200));
+			plotwin = Window("Buffer"+id, Rect(100, 200, 600, 300));
 			plotwin.alwaysOnTop=true;
 			//plotwin.setSelectionColor(0, Color.red);
 			plotwin.front;
 			plotwin.onClose = { plotwin = nil }; // needed?
 
-			plotview = SoundFileView(plotwin)
+			plotview = SoundFileView(plotwin, Rect(0, 0, 600, 300))
 			.elasticMode_(true)
 			.timeCursorOn_(true)
 			.timeCursorColor_(Color.red)
@@ -119,7 +123,7 @@ Layer{
 				end = ((cs[0]+cs[1])/buf.numFrames)/buf.numChannels; //because view wants start and duration
 				play.set(\start, st);
 				play.set(\end, end);
-				//["new loop:", st, end].postln;
+				["new loop:", st, end].postln;
 			};
 			"To zoom in/out: Shift + right-click + mouse-up/down".postln;
 			"To scroll: right-click + mouse-left/right".postln;
@@ -204,6 +208,7 @@ Layer{
 
 	rat {|arate|
 		rate = arate;
+		//s.samplerate / buf.sampleRate // calculate the right number to get the right rate even if the server is not running 44.1
 		play.set(\rate, rate);
 		if(verbose.asBoolean, {["rate", rate].postln});
 	}
@@ -254,6 +259,7 @@ Layer{
 		buf = abuf;
 		play.set(\buffer, buf.bufnum);
 		if(verbose.asBoolean, {["buffer", buf.fileName].postln});
+		this.updateplot; //only if w open
 	}
 
 	rvol {|limit=1.0|
@@ -371,8 +377,8 @@ Layer{
 		if (sleep <= 0, {sleep = 0.01}); // limit
 
 		atask = Task({
-			inf.do({
-				function.value();
+			inf.do({|index|
+				function.value(index);
 				if( (verbose.asBoolean && id != ""), {id.postln});
 				sleep.wait;
 			});
