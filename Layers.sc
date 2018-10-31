@@ -147,6 +147,12 @@ Layers{
 
 	pause { ps.do({ |pl| pl.pause}) }
 
+	solo {|ly|
+		ps.do({ |pl|
+			if (pl!=ly, {pl.pause})
+		});
+	}
+
 	push {|which| ps.do({ |pl| pl.push(which)}) } // if no which it appends to stack
 
 	pop {|which| ps.do({ |pl| pl.pop(which)}) } // if no which it pops last one
@@ -186,56 +192,120 @@ Layers{
 		}, fileMode:1)
 	}
 
-
-	rvol {
+	/////
+	rvol {|offset=0|
 		ps.do({ |pl|
-			pl.rvol(1.0/ps.size)
+			{pl.rvol(1.0/ps.size)}.defer(offset.asFloat.rand)
 		})
 	}
 
-	rpan {|range=1| ps.do({ |pl| pl.rpan(range)}) }
-
-	rpos { ps.do({ |pl| pl.rpos}) }
-
-	rst {|range=1|
-		ps.do({ |pl| pl.rst(range)})
-	}
-
-	rend {|range=1|
-		ps.do({ |pl| pl.rend(range)})
-	}
-
-	rlen {|range=0.5|
-		ps.do({ |pl| pl.rlen(range)})
-	}
-
-	rat { |rate| ps.do({ |pl|	pl.rat(rate)}) }
-
-	reverse {|offset=0|
+	rpan {|range=1, offset=0|
 		ps.do({ |pl|
-			{pl.rat(pl.rate.neg)}.defer(offset)
+			{pl.rpan(range)}.defer(offset.asFloat.rand)
 		})
 	}
 
-	rrate { ps.do({ |pl| pl.rrate}) }
+	rpos {|offset=0|
+		ps.do({ |pl|
+			{pl.rpos}.defer(offset.asFloat.rand)
+		})
+	}
 
-	rbuf { ps.do({ |pl| pl.rbuf}) }
+	rst {|range=1, offset=0|
+		ps.do({ |pl|
+			{pl.rst(range)}.defer(offset.asFloat.rand)
+		})
+	}
 
-	vol { |vol| ps.do({ |pl| pl.volume(vol) }) }
+	rend {|range=1, offset=0|
+		ps.do({ |pl|
+			{pl.rend(range)}.defer(offset.asFloat.rand)
+		})
+	}
+
+	rlen {|range=0.5, offset=0|
+		ps.do({ |pl|
+			{pl.rlen(range)}.defer(offset.asFloat.rand)
+		})
+	}
+
+	rat { |rate, offset=0|
+		ps.do({ |pl|
+			{pl.rat(rate)}.defer(offset.asFloat.rand)
+		})
+	}
+
+	reverse {|offset=0| // TO DO!! apply offset to all functions. system to unsync the changes
+		ps.do({ |pl|
+			{pl.rat(pl.rate.neg)}.defer(offset.asFloat.rand)
+		})
+	}
+
+	rrate {|offset=0|
+		ps.do({ |pl|
+			{pl.rrate}.defer(offset.asFloat.rand)
+		})
+	}
+
+	rbuf {|offset=0|
+		ps.do({ |pl|
+			{pl.setbuf(bufs.choose)}.defer(offset.asFloat.rand)
+		})
+	}
+
+	vol {|vol, offset=0|
+		ps.do({ |pl|
+			{pl.volume(vol)}.defer(offset.asFloat.rand)
+		})
+	}
 
 	vold { ps.do({ |pl| pl.vold}) }
 
 	volu { ps.do({ |pl| pl.volu}) }
 
-	pan { |pan| ps.do({ |pl| pl.pan(pan) }) }
+	fadeout {|time=1, offset=0|
+		ps.do({ |pl|
+			{pl.fadeout(time)}.defer(offset.asFloat.rand)
+		})
+	}
 
-	outb {|bus| ps.do({ |pl| pl.volumen(bus) })} // sets synthdef out buf. used for manipulating the signal
+	fadein {|time=1,offset=0|
+		ps.do({ |pl|
+			{pl.fadein(time)}.defer(offset.asFloat.rand)
+		})
+	}
 
-	bpos {|range=0.01| ps.do({|pl| pl.bpos(range) }) }
+	pan { |pan, offset=0|
+		ps.do({ |pl|
+			{pl.pan(pan)}.defer(offset.asFloat.rand)
+		})
+	}
 
-	bvol {|range=0.01| ps.do({|pl| pl.bvol(range) }) }
+	outb {|bus, offset=0|
+		ps.do({ |pl|
+			{pl.volumen(bus)}.defer(offset.asFloat.rand)
+		})
+	} // sets synthdef out buf. used for manipulating the signal
 
-	brat {|range=0.01| ps.do({|pl| pl.brat(range) }) }
+	bpos {|range=0.01, offset=0|
+		ps.do({|pl|
+			{pl.bpos(range)}.defer(offset.asFloat.rand)
+		})
+	}
+
+	bvol {|range=0.01, offset=0|
+		ps.do({|pl|
+			{pl.bvol(range)}.defer(offset.asFloat.rand)
+		})
+	}
+
+	brat {|range=0.01, offset=0|
+		ps.do({|pl|
+			{pl.brat(range)}.defer(offset.asFloat.rand)
+		})
+	}
+
+	///
 
 	stopptask { ps.do({ |p| p.ptask.stop }) }
 	stoprtask { ps.do({ |p| p.rtask.stop }) }
@@ -256,14 +326,16 @@ Layers{
 		ps.do({ |pl| pl.brownrate(step, sleep, dsync, delta) })
 	}
 
-	sch {|sleep=5.0, function, id=""|
+	///
+
+	sch {|sleep=5.0, function, id="", offset=0| // off set is passed to functions so that localy the events are not at the same time
 		var atask;
 		if (sleep <= 0, {sleep = 0.01}); // limit
 
 		atask = Task({
-			inf.do({
-				function.value();
-				if( (id != ""), {id.postln});
+			inf.do({|index|
+				function.value(index, offset);
+				if( (id != ""), {("-- now:"+id).postln});
 				sleep.wait;
 			});
 		});
