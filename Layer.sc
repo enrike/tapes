@@ -3,7 +3,7 @@
 */
 Layer{
 
-	var id, play;
+	var id, play, curpos;
 	var <buf, <st=0, <end=1, <vol=1, <rate=0, <panning=0; // state variables
 	var memrate=1; // to store rate while paused
 	var <ptask, <vtask, <rtask;
@@ -28,7 +28,8 @@ Layer{
 		OSCdef(\playhead++id).free;
 		OSCdef(\playhead++id, {|msg, time, addr, recvPort|
 			if (id==msg[2], {
-				if (plotwin.isNil.not,{
+				curpos = msg[3]; // keep track
+				if (plotwin.isNil.not,{ // to draw on window
 					{ plotview.timeCursorPosition = msg[3] * (buf.numFrames*buf.numChannels) }.defer;
 				});
 			});
@@ -313,9 +314,11 @@ Layer{
 
 	bpos {|range=0.01| this.pos( st+(range.rand2), end+(range.rand2)) }// single step brown variation
 
-	bvol {|range=0.05| this.volume( vol+(range.rand2), vol+(range.rand2)) }// single step brown variation
+	bjump {|range=0.01| this.jump( curpos+(range.rand2)) }// single step brown variation
 
-	brat {|range=0.05| this.rat( rate+(range.rand2), rate+(range.rand2)) }// single step brown variation
+	bvol {|range=0.05| this.volume( vol+(range.rand2)) }// single step brown variation
+
+	brat {|range=0.05| this.rat( rate+(range.rand2)) }// single step brown variation
 
 	brownpos {|step=0.01, sleep=5.0, dsync=0, delta=0|
 		if (sleep <= 0, {sleep = 0.01}); // limit
