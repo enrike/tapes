@@ -1,5 +1,5 @@
 /*
-Layers by ixi-audio
+Layers by ixi-audio.net
 license GPL
 */
 
@@ -15,7 +15,7 @@ filter an array of objects that meet a condition
 // load all sound files in a folder
 // instantiate as many players as you wish
 // wait for everything to be loaded and ready
-// each player gets a random buffer to play
+// each player gets a buffer. if more players than buffers it wraps (p1->b1, p2->b2, p3->b1 and so on)
 
 s.boot;
 //a = "/home/r2d2/Mahaigaina/audio/00cuts/*";
@@ -44,15 +44,22 @@ l.resume;
 
 
 
-l.newplayer(\StPlayerOD) // chaotic player
-l.newplayer(\StPlayer) // normal player
+l.newplayer(\StPlayerOD) // chaotic player. experimental.
+l.newplayer(\StPlayer) // normal player. default
 
 
 
-// global. all layers //
+
+
+
+/////////////////////////////////////
+// global controls. for all layers //
+/////////////////////////////////////
+
 l.allbufs // available
 l.curbufs // actualy being used by whom
-l.setbuf( l.bufs[3] ); // all layers use the same buffer
+l.setbuf( l.bufs[2] ); // all layers use the same buffer
+l.asignbufs // asign buffers to layers, it happens by default on Layers.new
 l.normalize
 l.ps // list containing players
 
@@ -69,112 +76,81 @@ l.fadeout(250, 10)
 l.pan(0) //-1 to 1
 l.rat(0.92)
 l.pos(0, 0.1) // st, end in 0 to 1 range
+l.jump(0) // go there
 l.len(600) // in milliseconds!
 l.reset // reset pos and play from 0
 
 // store and retrieve named states. they dont get deleted until the session ends
 l.push(\dut)
 l.pop(\chulo)
-l.save // l.save("blahblah") if no name is provided it uses the timestamp
-l.load // open a dialogue to search for the state file and load the state into the system
+l.save // l.save("blahblah") // save current states from memory into a file. if no name is provided it uses the timestamp
+l.load // open a dialogue to search for a file containg stated
 
-
-p=l.search("tm") //return a list of layers whose buffer contains this string in the file name. no case sensitive
+// identify which layers are using which sound
+p = l.search("Roll") //return a list of layers whose buffer contains this string in the file name. no case sensitive
 p.do({|lay| lay.volume(0.3)}) // do whatever with the search results
 
-o = l.sch(15, {l.rpan}); //schedule a function every N secs
-o.pause; o.resume; o.stop
-
-
 //random
-l.rbuf
-l.rpos
-l.rpos(0.9, 0.1) // start and length
+l.rbuf // anyone gets a new buffer randomly
+l.rpos // 0 to 1
+l.rpos(0.9, 0.1) // set start and length limits
 l.rpan
 l.rrate
 l.rvol
-l.rst
+l.rst // start point
 l.rend
-l.rlen(0.1)
+l.rlen(0.1) // range 0-1
 
-l.bpos // small range jump defaults to 0.01
+// random walks
+l.bpos // small range jump. range defaults to 0.01
 l.bpos(0.05) // single step small random
-l.bvol // small range jump defaults to 0.01
+l.bvol // small range jump. range defaults to 0.01
 l.bvol(0.05) // single step small random
+l.bjump
+l.brat
 
 
-
-// tasks. schedule random prop set
-l.brownpos(0.1, 2, 0, 0.05) // step, sleep, dsync, delta
-l.brownvol(0.01, 5, 1, 0)
-l.brownrate(0.01, 1, 1, 0)
-// l.brownpan(0.01, 1, 1, 0) // TO DO
-l.stopptask // pos // TO DO this is not stopping the tasks
-l.stopvtask // vol
-l.stoprtask // rate
-// TO DO: brown pan
+// schedule functions
+l.sch(\randpan, {l.rpan}, 15); //schedule a function every N secs. args: NAME, FUNCTION, TICK TIME, RAND RANGE OFFSET
+l.sch(\randpan, {l.rpan}, 15, offset:5); // ... optional offset delay so that each layer fires at N+(offset.rand)
+l.pauseT(\randpan)
+l.resumeT(\randpan)
+l.stopT(\randpan)
+l.procs // dictionary containing all Tasks alive
 
 
+// some examples of scheduling tasks. not rocket science
+l.sch(\backtoinit, {l.reset; l.rat(1)}, 10)
+l.stopT(\backtoinit)
 
-(
-t.stop;
-t = l.sch(10, {l.reverse}, "<>", offset:2.5) // TO DO: dsync not working as it should
-)
+l.sch(\rev, {l.reverse}, 10, offset:2.5)
+l.stopT(\rev)
 
-(
-y.stop;
-y = l.sch(8, {l.rlen(0.3, 0.5)})
-)
+l.sch(\rlen, {l.rlen(0.7, 0.9)}, 8, 4)
+l.stopT(\rlen)
 
-( // b r rate
-w.stop;
-w = l.sch(8, {l.brat(0.05)}, "rate", offset:1)
-)
+l.sch(\brat, {l.brat(0.01)}, 8, offset:4)
+l.stopT(\brat)
 
+l.sch(\bpos, {l.bpos}, 4)
+l.stopT(\bpos)
 
-(
-u.stop;
-u = l.sch(4, {l.bpos})
-)
+l.sch(\bvol, {l.bvol}, 4)
+l.stopT(\bvol)
 
-(
-i.stop;
-i = l.sch(4, {l.bvol})
-)
+l.sch(\bjump, {l.bjump(0.1)}, 2)
+l.stopT(\bjump)
 
-(
-q.stop;
-q = l.sch(60, {l.pos(0.1,0.3)}) // back to origin
-)
+l.sch(\rst, {l.rst}, 15, offset:3)
+l.stopT(\rst)
 
-(
-v.stop;
-v = l.sch(15, {l.rst(1)}, "rst", offset:3)
-)
+l.sch(\rbufs, {l.ps.choose.setbuf(l.bufs.choose)}, 15)
+l.stopT(\rbufs)
 
 
 (
-j.stop;
-j = l.sch(15, {l.ps.choose.setbuf(l.bufs.choose)})
-)
-
-
-(
-y.stop;u.stop;v.stop;
-k = l.sch(5, {l.rpos;l.bpos;l.pos(0.1, 0.3);l.rlen(0.6)})
-)
-
-(//fails if sch time is shorter than defer because var chnges before fade in
-x.stop;
-x = l.sch(10,
-	{
-		var pl = l.ps.choose;
-		pl.fadeout(2);
-		{pl.fadein(2)}.defer(3);
-
-		//l.ps.choose.fadeout(2);
-		//l.ps.choose.fadein(2);
-}, "pause")
+l.reset;
+l.rat(1)
 )
 
 
@@ -183,15 +159,16 @@ x = l.sch(10,
 
 
 
-
+///////////////////////////////
 // control individual layers //
+///////////////////////////////
+
 
 // GET
 l.ps[0].vol
 l.ps[0].info
 l.ps[0].file
-// displays the buffer and the current loop selection. it allows to change the selection by click
-l.ps[0].plot
+l.ps[0].plot // opens a window that displays the buffer and the current loop selection. it allows to change the selection by click
 l.ps[0].end // get
 l.ps[0].st //get
 
@@ -200,7 +177,7 @@ l.ps[0].setbuf( l.bufs[1] )
 l.ps[0].volume( 1 )
 l.ps[0].pan( 0 ) // -1 to 1
 l.ps[0].rat(1)
-l.ps[0].pos(0.1, 0.12) // st and end
+l.ps[0].pos(0.1, 0.12) // st and end. range 0-1
 l.ps[0].len(1000) // in millisecs!!!
 
 // ACTIONS
@@ -209,7 +186,7 @@ l.ps[0].fadein(8)
 l.ps[0].fadeout(5)
 l.ps[0].pause
 l.ps[0].bpos(0.01) // single step small random
-l.ps[0].jump(0.7)4
+l.ps[0].jump(0.7) // go there now
 
 // memory
 l.ps[0].push
@@ -224,10 +201,11 @@ l.ps[0].rpan
 l.ps[0].rrate
 
 // tasks
+/*
 l.ps[0].brownpos(0.1, 1, 1, 0)
 l.ps[0].brownvol(0.9, 1, 1, 0)
 l.ps[0].brownrate(0.1, 1, 1, 0)
 l.ps[0].ptask.stop;
 l.ps[0].vtask.stop;
 l.ps[0].rtask.stop;
-
+*/
