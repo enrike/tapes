@@ -27,7 +27,7 @@ data.writeArchive(basepath ++ "/presets/" ++ filename);
 
 Layers{
 
-	var server, <path, <bufs, <sfs, <ps, <howmany=24;
+	var server, <path, <bufs, <sfs, <ps, <howmany=24, <procs;
 
 	*new {| server = nil, path = "~/", num = 24 |
 		^super.new.initLayers( server, path, num );
@@ -37,6 +37,8 @@ Layers{
 		server = aserver;
 		path = apath;
 		howmany = anum;
+
+		procs = Dictionary.new; // stores all tasks
 
 		("path is"+apath).postln;
 		("players:"+howmany.asString).postln;
@@ -133,6 +135,12 @@ Layers{
 
 	setbuf {|buf| ps.do({ |pl| pl.setbuf(buf)})	}
 
+	asignbufs { // asign buffers sequentially if more layers than buffers then wrap
+		ps.do({ |pl, index|
+			pl.setbuf( bufs.wrapAt(index))
+		})
+	}
+
 	newplayer {|asynth| ps.do({ |pl| pl.newplayer(asynth)}) }
 
 	pos {|st, end|
@@ -146,6 +154,8 @@ Layers{
 	resume { ps.do({ |pl| pl.resume}) }
 
 	pause { ps.do({ |pl| pl.pause}) }
+
+	jump {|point| ps.do({ |pl| pl.len(point)}) }
 
 	solo {|ly|
 		ps.do({ |pl|
@@ -253,6 +263,8 @@ Layers{
 		})
 	}
 
+	//
+
 	vol {|vol, offset=0|
 		ps.do({ |pl|
 			{pl.volume(vol)}.defer(offset.asFloat.rand)
@@ -287,9 +299,17 @@ Layers{
 		})
 	} // sets synthdef out buf. used for manipulating the signal
 
+	//
+
 	bpos {|range=0.01, offset=0|
 		ps.do({|pl|
 			{pl.bpos(range)}.defer(offset.asFloat.rand)
+		})
+	}
+
+	bjump {|range=0.01, offset=0|
+		ps.do({|pl|
+			{pl.bjump(range)}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -306,7 +326,7 @@ Layers{
 	}
 
 	///
-
+	/*
 	stopptask { ps.do({ |p| p.ptask.stop }) }
 	stoprtask { ps.do({ |p| p.rtask.stop }) }
 	stopvtask { ps.do({ |p| p.vtask.stop }) }
@@ -325,22 +345,48 @@ Layers{
 		["brown RATE", step, sleep, dsync, delta].postln;
 		ps.do({ |pl| pl.brownrate(step, sleep, dsync, delta) })
 	}
-
+	*/
 	///
 
-	sch {|sleep=5.0, function, id="", offset=0| // off set is passed to functions so that localy the events are not at the same time
+
+
+
+	/////// task's stuff ////
+	addTask {|name, task|
+		("-- procs: adding"+name).postln;
+		procs.add(name.asSymbol -> task);
+	}
+
+	stopT {|name|
+		("-- procs: killing"+name).postln;
+		procs[name].stop;
+		procs.removeAt(name);
+	}
+	resumeT {|name| procs[name].resume}
+	pauseT {|name| procs[name].pause}
+
+
+
+	sch {|name="", function, sleep=5.0, offset=0| // off set is passed to functions so that localy the events are not at the same time
 		var atask;
-		if (sleep <= 0, {sleep = 0.01}); // limit
+
+		if (name=="", {"TASKS MUST HAVE A NAME".postln; ^false}); // TO DO: must be a string or symbol. sanitize
+
+		if (procs[name].isNil.not, { this.stopT(name) }); // kill if already there before rebirth
+
+		if (sleep <= 0, {sleep = 0.01}); // force lower limit to task tick resolution
 
 		atask = Task({
 			inf.do({|index|
+				var time = ""+Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second;
 				function.value(index, offset);
-				if( (id != ""), {("-- now:"+id).postln});
+				if( (name != ""), {("-- now:"+name++time).postln});
 				sleep.wait;
 			});
 		});
 
 		atask.start;
-		^atask;
+		this.addTask(name, atask) // to keep track of them
+		//^atask;
 	}
 }
