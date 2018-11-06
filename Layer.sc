@@ -3,7 +3,7 @@
 */
 Layer{
 
-	var id, play, curpos;
+	var id, play, <curpos;
 	var <buf, <st=0, <end=1, <vol=1, <rate=0, <panning=0; // state variables
 	var memrate=1; // to store rate while paused
 	var <ptask, <vtask, <rtask;
@@ -89,7 +89,7 @@ Layer{
 
 		//statesDic.postln;
 		this.setbuf( state[\buf] );
-		this.pos( state[\st], state[\end] );
+		this.bounds( state[\st], state[\end] );
 		this.vol( state[\vol] );
 		this.rat( state[\rate] );
 		this.pan( state[\panning] );
@@ -228,7 +228,7 @@ Layer{
 		this.jump(0);
 	}
 
-	pos {|p1, p2|
+	bounds {|p1, p2|
 		st = p1;
 		end = p2;
 		play.set(\start, st);
@@ -276,13 +276,17 @@ Layer{
 		play.set(\buffer, buf.bufnum)
 	}*/
 
-	rpos {|st_range=1, len_range=1|
+	rjump {|range=1|
+		this.jump(range.asFloat.rand)
+	}
+
+	rbounds {|st_range=1, len_range=1|
 		//st = (st_range.asFloat-len_range.asFloat).rand;
 		//end = st + (len_range.asFloat.rand);
 		st = st_range.asFloat.rand;
 		end = st + len_range.asFloat.rand;
 		if (end>1, {end=1}); //limit. maybe not needed
-		this.pos(st, end);
+		this.bounds(st, end);
 	}
 
 	rst {|range=1.0|
@@ -305,6 +309,10 @@ Layer{
 		this.updateplot; //only if w open
 	}
 
+	rdir{
+		this.rat(rate * [1,-1].choose)
+	}
+
 	rrate {
 		this.rat(1.0.rand2)
 	}
@@ -312,7 +320,7 @@ Layer{
 	// set start
 	// set len
 
-	bpos {|range=0.01| this.pos( st+(range.rand2), end+(range.rand2)) }// single step brown variation
+	bbounds {|range=0.01| this.bounds( st+(range.rand2), end+(range.rand2)) }// single step brown variation
 
 	bjump {|range=0.01| this.jump( curpos+(range.rand2)) }// single step brown variation
 
@@ -335,7 +343,7 @@ Layer{
 					if(end>1, {end=1});
 					if(st>(1-len), {st=(1-len)});// limits
 					//if(end>(1-len), {end=(1-len)});
-					this.pos(st, end)
+					this.bounds(st, end)
 				}.defer(dsync.asFloat.rand); //out of sync all of them?
 				sleep.wait;
 			});
@@ -374,7 +382,7 @@ Layer{
 
 		rtask.start;
 	}
-
+	/*
 	sch {|sleep=5.0, function, id=""|
 		var atask;
 		if (sleep <= 0, {sleep = 0.01}); // limit
@@ -390,5 +398,5 @@ Layer{
 		atask.start;
 		^atask;
 	}
-
+	*/
 }
