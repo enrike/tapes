@@ -29,6 +29,7 @@ Layers{
 
 	var server, <path, <bufs, <sfs, <ps, <howmany=24, <procs;
 	var plotwin=nil, plotview, drawview, plotwinrefresh;
+	var buses, <comp;
 
 	*new {| server = nil, path = "~/", num = 24 |
 		^super.new.initLayers( server, path, num );
@@ -46,12 +47,13 @@ Layers{
 		("players:"+howmany.asString).postln;
 
 		SynthDef( \StPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=1, index=0, trig=0, reset=0, gate=1, gdur=1;
-			var length, left, right, phasor, dur, env, bus; //offset;
+			var length, left, right, phasor, dur, env; //offset;
 
 			dur = BufFrames.kr(buffer);
-			phasor = Phasor.ar( trig, rate, start*dur, end*dur, resetPos: reset*dur);
+			phasor = Phasor.ar( trig, rate * BufRateScale.kr(buffer), start*dur, end*dur, resetPos: reset*dur);
 			SendTrig.kr( LFPulse.kr(12, 0), index, phasor/dur); //fps 12
-			env = EnvGen.kr(Env.asr(gdur,amp,gdur), gate);
+			env = EnvGen.kr(Env.new(levels: [ 0, amp, 0 ], times: [ gdur, gdur ], curve: 'cub', releaseNode:1), gate);
+			//env = EnvGen.kr(Env.asr(gdur, amp, gdur), gate);
 			#left, right = BufRd.ar( 2, buffer, phasor, 1 ) * amp * env;
 			Out.ar(out, Balance2.ar(left, right, pan));
 		}).load;
@@ -67,19 +69,11 @@ Layers{
 			Out.ar(outbus, Balance2.ar(left, right, pan));
 		}).load(server);*/
 
-		SynthDef(\HPF, {|in=0, out=0, cut=100|
-			var signal;
-			signal = In.ar(in);
-			signal  = HPF.ar(signal, cut);
-			Out(out, signal);
+		//Compander.ar(in: 0.0, control: 0.0, thresh: 0.5, slopeBelow: 1.0, slopeAbove: 1.0, clampTime: 0.01, relaxTime: 0.1, mul: 1.0, add: 0.0)
+		SynthDef(\comp, {|inbus=0, thr=0.5, slb=0.9, sla=0.5|
+			var signal = Compander.ar(In.ar(inbus, 2), In.ar(inbus, 2), thr, slopeBelow:slb, slopeAbove:sla);
+			Out.ar(0, signal);
 		}).load(server);
-
-		/*SynthDef(\comp, {
-			var lf, rg;
-			lf = Compander.ar(10, 10);
-			rg = Compander.ar(11, 11);
-			Out.ar(0, [lf,rg]);
-		});*/
 
 		sfs = List.newUsing( SoundFile.collect( path ) );
 		this.free;
@@ -94,13 +88,21 @@ Layers{
 		(sfs.size + "buffers available").postln;
 		"... loading ... please wait ...".postln;
 
+		/*buses = Array.new(sfs.size);
+		buses.size.do({ arg n;
+			buses = buses.add( Bus.audio(server, 2))
+		});*/
+		buses = Bus.audio(server, 2);
+		comp = Synth(\comp, [\inbus, buses]);
+
 		{
 			ps.do({arg pl; pl.free}); // kill everyone first
 			ps = Array.new(sfs.size);
 
 			howmany.do({arg index;
-				ps = ps.add( Layer.new(index, bufs.wrapAt(index)) ); // just get any
+				ps = ps.add( Layer.new(index, bufs.wrapAt(index), buses));
 			});
+
 		}.defer(4)
 	}
 
@@ -270,6 +272,18 @@ Layers{
 		})
 	}
 
+	gofwd {|offset=0|
+		ps.do({ |pl|
+			{pl.gofwd}.defer(offset.asFloat.rand)
+		})
+	}
+
+	gobwd {|offset=0|
+		ps.do({ |pl|
+			{pl.gobwd}.defer(offset.asFloat.rand)
+		})
+	}
+
 	rdir {|offset=0|
 		ps.do({ |pl|
 			{pl.rdir}.defer(offset.asFloat.rand)
@@ -306,7 +320,7 @@ Layers{
 		})
 	}
 
-	fadein {|time=1,offset=0|
+	fadein {|time=1, offset=0|
 		ps.do({ |pl|
 			{pl.fadein(time)}.defer(offset.asFloat.rand)
 		})
@@ -350,39 +364,13 @@ Layers{
 		})
 	}
 
-	///
-	/*
-	stopptask { ps.do({ |p| p.ptask.stop }) }
-	stoprtask { ps.do({ |p| p.rtask.stop }) }
-	stopvtask { ps.do({ |p| p.vtask.stop }) }
-
-	brownpos {|step=0.01, sleep=5, dsync=0, delta=0|
-		["brown POS", step, sleep, dsync, delta].postln;
-		ps.do({ |pl| pl.brownpos(step, sleep, dsync, delta) })
-	}
-
-	brownvol {|step=0.01, sleep=5, dsync=0, delta=0|
-		["brown VOL", step, sleep, dsync, delta].postln;
-		ps.do({ |pl| pl.brownvol(step, sleep, dsync, delta) })
-	}
-
-	brownrate {|step=0.01, sleep=5, dsync=0, delta=0|
-		["brown RATE", step, sleep, dsync, delta].postln;
-		ps.do({ |pl| pl.brownrate(step, sleep, dsync, delta) })
-	}
-	*/
-	///
-
-
-
-
 	/////// task's stuff ////
 	addTask {|name, task|
 		("-- procs: adding"+name).postln;
 		procs.add(name.asSymbol -> task);
 	}
 
-	stopAll{
+	noT {
 		procs.do({|pro| pro.stop});
 		procs = Dictionary.new;
 	}
@@ -394,8 +382,6 @@ Layers{
 	}
 	resumeT {|name| procs[name].resume}
 	pauseT {|name| procs[name].pause}
-
-
 
 	sch {|name="", function, sleep=5.0, offset=0| // off set is passed to functions so that localy the events are not at the same time
 		var atask;
@@ -424,8 +410,19 @@ Layers{
 
 	}
 
-	// TO DO: this needs to check for curpos in each layer and draw the position. 12fps
+	////////////////////////////
+
+
+
+	// compressor/expander ///
+	thr{|val=0.5| comp.set(\thr, val)}
+	sla{|val=1| comp.set(\sla, val)}
+	slb{|val=1| comp.set(\slb, val)}
+	/////////////////
+
+
 	plot {|abuf|
+		//if (plotwin.isNil.not, {plotwin.close});
 		if (plotwin.isNil, {
 			// to do: bigger size win and view
 			// move playhead as it plays?
@@ -444,7 +441,7 @@ Layers{
 			.timeCursorColor_(Color.red)
 			.drawsWaveForm_(true)
 			.gridOn_(true)
-			.gridResolution_(1)
+			.gridResolution_(10)
 			.gridColor_(Color.white)
 			.waveColors_([ Color.new255(103, 148, 103), Color.new255(103, 148, 103) ])
 			.background_(Color.new255(155, 205, 155))
@@ -462,8 +459,6 @@ Layers{
 			drawview = UserView(plotwin, Rect(0, 0, 600, 300));
 			drawview.drawFunc ={ arg view; // AND CAN DRAW AS WELL
 				ps.do({|ps, index|
-					//ps.curpos.postln;
-					// TO DO. must scale 0-1 to
 					Pen.line( ps.curpos*600 @ 0, ps.curpos*600 @ 300 );
 				});
 				Pen.stroke;
@@ -486,7 +481,10 @@ Layers{
 
 	updateplot {|buf| // draw the choosen buffer
 		if (plotwin.isNil.not, {
-			var f = { |b,v| b.loadToFloatArray(action: { |a| { v.setData(a) }.defer }) };
+			var f = { |b,v|
+				b.loadToFloatArray(action: { |a| { v.setData(a) }.defer });
+				v.gridResolution(b.duration/10); // I would like to divide the window in 10 parts no matter what the sound dur is. Cannot change gridRes on the fly?
+			};
 
 			// TO DO: thiss does not work for some reason. maybe something to do with the supercollider version
 			/*{

@@ -10,11 +10,11 @@ Layer{
 	var plotview, plotwin=nil;
 	var <>statesDic, <>verbose=0;
 
-	*new {| id=0, buffer = nil |
-		^super.new.initLayer( id, buffer );
+	*new {| id=0, buffer = nil, bus |
+		^super.new.initLayer( id, buffer, bus );
 	}
 
-	initLayer {| aid, abuffer |
+	initLayer {| aid, abuffer, abus |
 		var initbuf;
 		id = aid; // just in case I need to identify later
 		buf = abuffer;
@@ -22,7 +22,7 @@ Layer{
 		if(buf.isNil.not, { initbuf = buf.bufnum }); // only if specified. otherwise nil
 
 		play.free;
-		play = Synth(\StPlayer, [\buffer, initbuf, \rate, rate, \index, id]);
+		play = Synth(\StPlayer, [\buffer, initbuf, \rate, rate, \index, id, \out, abus]);
 
 		OSCdef(\playhead++id).clear;
 		OSCdef(\playhead++id).free;
@@ -33,24 +33,16 @@ Layer{
 					{ plotview.timeCursorPosition = msg[3] * (buf.numFrames*buf.numChannels) }.defer;
 				});
 			});
-		}, '/tr', NetAddr("127.0.0.1", 57110));//s.addr);
-
+		}, '/tr', NetAddr("127.0.0.1", 57110));
 
 		statesDic = Dictionary.new;
 
 		("ready layer"+id).postln;
 	}
 
-	newplayer {|asynth| // experimental
+	newplayer {|asynth| // experimental. not used.
 		play.free; // get rid of the old one
 		play = Synth(asynth, [\buffer, buf.bufnum, \rate, rate]);
-		/*{
-			//this.setbuf( buf );dut
-			this.pos( st, end );
-			this.vol( vol );
-			//this.rat( rate );
-			this.pan( panning );
-		}.defer(0.1)*/
 	}
 
 	loadbuf {|server, path| // actually loads a file from disk into the server and sets it as current buffer used by this player
@@ -209,7 +201,6 @@ Layer{
 
 	rat {|arate|
 		rate = arate;
-		//s.samplerate / buf.sampleRate // calculate the right number to get the right rate even if the server is not running 44.1
 		play.set(\rate, rate);
 		if(verbose.asBoolean, {["rate", rate].postln});
 	}
@@ -218,13 +209,20 @@ Layer{
 		this.rat(rate.neg)
 	}
 
+	gofwd {
+		if (rate<0, {this.reverse})
+	}
+	gobwd {
+		if (rate>0, {this.reverse})
+	}
+
 	len {|ms=100| // IN MILLISECONDS
 		var adur= ms / ((buf.numFrames/buf.sampleRate)*1000 ); // from millisecs to 0-1
 		this.dur(adur)
 	}
 
-	reset {
-		this.pos(0,1);
+	reset { // should this also reset the rate?
+		this.bounds(0,1);
 		this.jump(0);
 	}
 
@@ -251,9 +249,7 @@ Layer{
 	}
 
 	resume {
-		memrate.postln;
-		rate = memrate;// retrieve stored value
-		play.set(\rate, rate)
+		this.rat(memrate); // retrieve stored value
 	}
 
 	setbuf {|abuf|
@@ -382,21 +378,4 @@ Layer{
 
 		rtask.start;
 	}
-	/*
-	sch {|sleep=5.0, function, id=""|
-		var atask;
-		if (sleep <= 0, {sleep = 0.01}); // limit
-
-		atask = Task({
-			inf.do({|index|
-				function.value(index);
-				if( (verbose.asBoolean && id != ""), {id.postln});
-				sleep.wait;
-			});
-		});
-
-		atask.start;
-		^atask;
-	}
-	*/
 }
