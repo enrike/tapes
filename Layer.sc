@@ -1,14 +1,14 @@
-/*
-
+/* single layer
 */
+
 Layer{
 
-	var id, play, <curpos;
-	var <buf, <st=0, <end=1, <vol=1, <rate=0, <panning=0; // state variables
+	var id, <play, <curpos;
+	var <buf, <st=0, <end=1, <volume=1, <rate=0, <panning=0; // state variables
 	var memrate=1; // to store rate while paused
 	var <ptask, <vtask, <rtask;
 	var plotview, plotwin=nil;
-	var <>statesDic, <>verbose=0;
+	var <>statesDic, <>verbose=false;
 
 	*new {| id=0, buffer = nil, bus |
 		^super.new.initLayer( id, buffer, bus );
@@ -40,14 +40,15 @@ Layer{
 		("ready layer"+id).postln;
 	}
 
-	newplayer {|asynth| // experimental. not used.
+	/*newplayer {|asynth| // experimental. not used.
 		play.free; // get rid of the old one
 		play = Synth(asynth, [\buffer, buf.bufnum, \rate, rate]);
-	}
+	}*/
 
 	loadbuf {|server, path| // actually loads a file from disk into the server and sets it as current buffer used by this player
 		var abuf = Buffer.read(server, path);
 		{ this.setbuf(abuf) }.defer(0.1); // make sure it has been loaded
+		this.post("loading", path);
 		if(verbose.asBoolean, {["loading", path].postln});
 	}
 
@@ -65,12 +66,13 @@ Layer{
 		state.put(\buf, buf);
 		state.put(\st, st);
 		state.put(\end, end);
-		state.put(\vol, vol);
+		state.put(\vol, volume);
 		state.put(\rate, rate);
 		state.put(\panning,panning);
 
 		statesDic[which] = state;
 
+		this.post("pushing state", which);
 		if(verbose.asBoolean, {["pushing state", which].postln});
 	}
 
@@ -85,6 +87,7 @@ Layer{
 		this.vol( state[\vol] );
 		this.rat( state[\rate] );
 		this.pan( state[\panning] );
+		this.post("poping state", which);
 		if(verbose.asBoolean, {["poping state", which].postln});
 	}
 
@@ -143,11 +146,15 @@ Layer{
 	info {
 		("-- Layer"+id+"--").postln;
 		this.file().postln;
-		["vol", vol].postln;
-		[st, end].postln;
+		["volume", volume].postln;
+		["bounds", st, end].postln;
 		["rate", rate].postln;
 		["verbose", verbose].postln;
-		"---------".postln;
+		"--------------".postln;
+	}
+
+	post {|action, value|
+		if (verbose, {[id, action, value].postln});
 	}
 
 	jump {|pos=0|
@@ -166,43 +173,52 @@ Layer{
 		play.set(\out, bus)
 	}
 
-	pan {|apan=0|
+	pan {|apan=0, time=0, curve=\lin|
 		panning = apan;
-		play.set(\pan, apan);
-		if(verbose.asBoolean, {["pan", panning].postln});
+		play.set(\pancur, curve);
+		play.set(\pangate, 0);
+
+		play.set(\pantarget, panning);
+		play.set(\pandur, time);
+
+		{play.set(\pangate, 1)}.defer(0.01);
+
+		this.post("pan", panning);
 	}
 
-	volume {|avol|
+	vol{|avol, time=0, curve=\sqr|
 		if (avol< 0, {avol=0}); //lower limit
-		vol = avol;
-		play.set(\amp, vol);
-		if(verbose.asBoolean, {["volume", vol].postln});
+		volume = avol;
+
+		play.set(\ampcur, curve);
+		play.set(\ampgate, 0);
+
+		play.set(\amptarget, volume);
+		play.set(\ampdur, time);
+
+		{play.set(\ampgate, 1)}.defer(0.01);
+
+		this.post("volume", (volume.asString + time.asString + curve.asString) );
 	}
 
 	vold {
-		this.volume(vol-0.02)
+		this.vol(volume-0.02)
 	}
 	volu {
-		this.volume(vol+0.02)
+		this.vol(volume+0.02)
 	}
 
-
-
-	fadein {|time=1|
-		play.set(\gdur, time);
-		play.set(\gate, 1);
-	}
-
-	fadeout {|time=1|
-		play.set(\gdur, time);
-		play.set(\gate, 0);
-	}
-
-
-	rat {|arate|
+	rat {|arate, time=0, curve=\lin|
 		rate = arate;
-		play.set(\rate, rate);
-		if(verbose.asBoolean, {["rate", rate].postln});
+		play.set(\ratecur, curve);
+		play.set(\rategate, 0);
+
+		play.set(\ratetarget, rate);
+		play.set(\ratedur, time);
+
+		{play.set(\rategate, 1)}.defer(0.01);
+
+		this.post("rate", rate);
 	}
 
 	reverse {
@@ -216,11 +232,6 @@ Layer{
 		if (rate>0, {this.reverse})
 	}
 
-	len {|ms=100| // IN MILLISECONDS
-		var adur= ms / ((buf.numFrames/buf.sampleRate)*1000 ); // from millisecs to 0-1
-		this.dur(adur)
-	}
-
 	reset { // should this also reset the rate?
 		this.bounds(0,1);
 		this.jump(0);
@@ -231,15 +242,20 @@ Layer{
 		end = p2;
 		play.set(\start, st);
 		play.set(\end, end);
-		if(verbose.asBoolean, {["pos", st, end].postln});
+		this.post("bounds", st.asString+"-"+end.asString);
 		this.updateplot; //only if w open
 	}
 
 	dur {|adur|
 		end = st + adur;
 		play.set(\end, end);
-		if(verbose.asBoolean, {["end", end].postln});
+		this.post("end", end);
 		this.updateplot; //only if w open
+	}
+
+	len {|ms=100| // IN MILLISECONDS
+		var adur= ms / ((buf.numFrames/buf.sampleRate)*1000 ); // from millisecs to 0-1
+		this.dur(adur)
 	}
 
 	pause {
@@ -255,16 +271,16 @@ Layer{
 	setbuf {|abuf|
 		buf = abuf;
 		play.set(\buffer, buf.bufnum);
-		if(verbose.asBoolean, {["buffer", buf.fileName].postln});
+		this.post("buffer", this.file());
 		this.updateplot; //only if w open
 	}
 
-	rvol {|limit=1.0|
-		this.volume( limit.rand );
+	rvol {|limit=1.0, time=0, curve=\lin |
+		this.vol( limit.rand, time, curve );
 	}
 
-	rpan {|range=1| // -1 to 1
-		this.pan( range.asFloat.rand2 )
+	rpan {|range=1, time=0, curve=\lin| // -1 to 1
+		this.pan( range.asFloat.rand2, time, curve )
 	}
 
 	/*rbuf {
@@ -272,13 +288,11 @@ Layer{
 		play.set(\buffer, buf.bufnum)
 	}*/
 
-	rjump {|range=1|
-		this.jump(range.asFloat.rand)
+	rjump {|range=1, time=0, curve=\lin|
+		this.jump(range.asFloat.rand,time=0, curve=\lin)
 	}
 
 	rbounds {|st_range=1, len_range=1|
-		//st = (st_range.asFloat-len_range.asFloat).rand;
-		//end = st + (len_range.asFloat.rand);
 		st = st_range.asFloat.rand;
 		end = st + len_range.asFloat.rand;
 		if (end>1, {end=1}); //limit. maybe not needed
@@ -294,14 +308,12 @@ Layer{
 	rend {|range=1.0|
 		end = range.asFloat.rand; // total rand
 		play.set(\end, end);
-		if(verbose.asBoolean, {["end", end].postln});
 		this.updateplot; //only if w open
 	}
 
 	rlen {|range=0.5|
 		end = st + range.asFloat.rand; // rand from st point
 		play.set(\end, end);
-		if(verbose.asBoolean, {["end", end].postln});
 		this.updateplot; //only if w open
 	}
 
@@ -309,8 +321,8 @@ Layer{
 		this.rat(rate * [1,-1].choose)
 	}
 
-	rrate {
-		this.rat(1.0.rand2)
+	rrate {|time=0, curve=\lin|
+		this.rat(1.0.rand2, time, curve)
 	}
 
 	// set start
@@ -320,10 +332,14 @@ Layer{
 
 	bjump {|range=0.01| this.jump( curpos+(range.rand2)) }// single step brown variation
 
-	bvol {|range=0.05| this.volume( vol+(range.rand2)) }// single step brown variation
+	bvol {|range=0.05, time=0, curve=\lin|
+		this.vol( volume+(range.rand2), time, curve)
+	}// single step brown variation
 
-	brat {|range=0.05| this.rat( rate+(range.rand2)) }// single step brown variation
-
+	brat {|range=0.05, time=0, curve=\lin|
+		this.rat( rate+(range.rand2), time, curve )
+	}// single step brown variation
+/*
 	brownpos {|step=0.01, sleep=5.0, dsync=0, delta=0|
 		if (sleep <= 0, {sleep = 0.01}); // limit
 		ptask.stop; // CORRECT??
@@ -378,4 +394,5 @@ Layer{
 
 		rtask.start;
 	}
+	*/
 }
