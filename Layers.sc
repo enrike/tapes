@@ -1,35 +1,13 @@
 /* master of layers
 */
 
-/*
-
-( // to do: retrieve parameters from layers and store into a sc prefs file
-var data = Dictionary.new;
-
-//Array.fill(24, {[]});
-
-p.size.do({arg index;
-	data.put(index, pl.buf);
-
-	pl.buf;
-	pl.st;
-	pl.end;
-});
-
-data.writeArchive(basepath ++ "/presets/" ++ filename);
-
-)
-
-//data = Object.readArchive(basepath ++ "/presets/" ++ menu.item);
-
-
-*/
 
 Layers{
 
 	var server, <path, <bufs, <sfs, <ps, <howmany=24, <procs;
 	var plotwin=nil, plotview, drawview, plotwinrefresh;
 	var buses, <comp;
+	var volume;
 
 	*new {| server = nil, path = "~/", num = 24 |
 		^super.new.initLayers( server, path, num );
@@ -46,28 +24,25 @@ Layers{
 		("path is"+apath).postln;
 		("players:"+howmany.asString).postln;
 
-		SynthDef( \StPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=1, index=0, trig=0, reset=0, gate=1, gdur=1;
-			var length, left, right, phasor, dur, env; //offset;
+		SynthDef( \StPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, index=0, trig=0, reset=0,
+			ampgate=0, ampdur=0, amptarget=1, ampcur=nil,
+			rategate=0, ratedur=0, ratetarget=1, ratecur=nil,
+			pangate=0, pandur=0, pantarget=1, pancur=nil;
+
+			var length, left, right, phasor, dur, env;
+
+			rate = EnvGen.kr(Env.new(levels: [ rate, ratetarget ], times: [ ratedur ], curve: ratecur), rategate);
+			env = EnvGen.kr(Env.new(levels: [ amp, amptarget ], times: [ ampdur ], curve: ampcur), ampgate);
+			pan = EnvGen.kr(Env.new(levels: [ pan, pantarget ], times: [ pandur ], curve: pancur), pangate);
 
 			dur = BufFrames.kr(buffer);
 			phasor = Phasor.ar( trig, rate * BufRateScale.kr(buffer), start*dur, end*dur, resetPos: reset*dur);
 			SendTrig.kr( LFPulse.kr(12, 0), index, phasor/dur); //fps 12
-			env = EnvGen.kr(Env.new(levels: [ 0, amp, 0 ], times: [ gdur, gdur ], curve: 'cub', releaseNode:1), gate);
-			//env = EnvGen.kr(Env.asr(gdur, amp, gdur), gate);
+
 			#left, right = BufRd.ar( 2, buffer, phasor, 1 ) * amp * env;
 			Out.ar(out, Balance2.ar(left, right, pan));
 		}).load;
 
-
-		/*SynthDef( \StPlayerOD, { arg outbus=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=1, index=0, a=1.4, b=0.3;
-			var length, left, right, phasor, dur; //offset;
-			dur = BufFrames.kr(buffer);
-
-			rate = Henon2DC.kr(200, 2000, LFNoise2.kr(1, 0.1, 1.3), 0.3);
-			phasor = Phasor.ar( 0, rate, start*dur, end*dur);
-			#left, right = BufRd.ar( 2, buffer, phasor, 1 ) * amp;
-			Out.ar(outbus, Balance2.ar(left, right, pan));
-		}).load(server);*/
 
 		//Compander.ar(in: 0.0, control: 0.0, thresh: 0.5, slopeBelow: 1.0, slopeAbove: 1.0, clampTime: 0.01, relaxTime: 0.1, mul: 1.0, add: 0.0)
 		SynthDef(\comp, {|inbus=0, thr=0.5, slb=0.9, sla=0.5|
@@ -117,7 +92,7 @@ Layers{
 	}
 
 	free {
-		bufs.do({arg buf; buf.free}); // clear all first
+		bufs.do({|buf| buf.free}); // clear all first
 	}
 
 	allbufs{
@@ -134,8 +109,17 @@ Layers{
 		})
 	}
 
+	info {
+		ps.do({ |p| p.info })
+	}
+
+	verbose {|flag=true|
+		["verbose:", flag].postln;
+		ps.do({ |p| p.verbose = flag })
+	}
+
 	normalize {
-		bufs.do({arg buf; buf.normalize});
+		bufs.do({|buf| buf.normalize});
 	}
 
 	/*positions {|positions|
@@ -218,15 +202,15 @@ Layers{
 	}
 
 	/////
-	rvol {|offset=0|
+	rvol {|offset=0, time=0, curve=\lin|
 		ps.do({ |pl|
 			{pl.rvol(1.0/ps.size)}.defer(offset.asFloat.rand)
 		})
 	}
 
-	rpan {|range=1, offset=0|
+	rpan {|range=1, time=0, curve=\lin, offset=0|
 		ps.do({ |pl|
-			{pl.rpan(range)}.defer(offset.asFloat.rand)
+			{pl.rpan(range, time, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -260,13 +244,13 @@ Layers{
 		})
 	}
 
-	rat { |rate, offset=0|
+	rat { |rate, time=0, curve=\lin, offset=0|
 		ps.do({ |pl|
-			{pl.rat(rate)}.defer(offset.asFloat.rand)
+			{pl.rat(rate, time, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
-	reverse {|offset=0| // TO DO!! apply offset to all functions. system to unsync the changes
+	reverse {|offset=0|
 		ps.do({ |pl|
 			{pl.rat(pl.rate.neg)}.defer(offset.asFloat.rand)
 		})
@@ -290,9 +274,9 @@ Layers{
 		})
 	}
 
-	rrate {|offset=0|
+	rrate {|time=0, curve=\lin, offset=0|
 		ps.do({ |pl|
-			{pl.rrate}.defer(offset.asFloat.rand)
+			{pl.rrate(time, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -304,9 +288,10 @@ Layers{
 
 	//
 
-	vol {|vol, offset=0|
+	vol {|avol=1, time=0, curve=\sqr, offset=0|
+		volume = avol; // remember for the fadein/out
 		ps.do({ |pl|
-			{pl.volume(vol)}.defer(offset.asFloat.rand)
+			{pl.vol(volume, time, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -314,53 +299,53 @@ Layers{
 
 	volu { ps.do({ |pl| pl.volu}) }
 
-	fadeout {|time=1, offset=0|
+	fadeout {|time=1, curve=\sqr, offset=0|
 		ps.do({ |pl|
-			{pl.fadeout(time)}.defer(offset.asFloat.rand)
+			{pl.volume(0, time, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
-	fadein {|time=1, offset=0|
+	fadein {|time=1, curve=\sqr, offset=0|
 		ps.do({ |pl|
-			{pl.fadein(time)}.defer(offset.asFloat.rand)
+			{pl.volume(volume, time, curve)}.defer(offset.asFloat.rand) // fade in to volume. not to 1
 		})
 	}
 
-	pan { |pan, offset=0|
+	pan { |pan, time=0, curve=\lin, offset=0|
 		ps.do({ |pl|
-			{pl.pan(pan)}.defer(offset.asFloat.rand)
+			{pl.pan(pan, time, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
 	outb {|bus, offset=0|
 		ps.do({ |pl|
-			{pl.volumen(bus)}.defer(offset.asFloat.rand)
+			{pl.outb(bus)}.defer(offset.asFloat.rand)
 		})
-	} // sets synthdef out buf. used for manipulating the signal
+	} // sets synthdef out buf. used for manipulating the signal w effects
 
 	//
 
-	bbounds {|range=0.01, offset=0|
+	bbounds {|range=0.01, time=0, curve=\lin, offset=0|
 		ps.do({|pl|
-			{pl.bbounds(range)}.defer(offset.asFloat.rand)
+			{pl.bbounds(range, time, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
-	bjump {|range=0.01, offset=0|
+	bjump {|range=0.01, time=0, curve=\lin, offset=0|
 		ps.do({|pl|
-			{pl.bjump(range)}.defer(offset.asFloat.rand)
+			{pl.bjump(range, time, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
-	bvol {|range=0.01, offset=0|
+	bvol {|range=0.01, time=0, curve=\lin, offset=0|
 		ps.do({|pl|
-			{pl.bvol(range)}.defer(offset.asFloat.rand)
+			{pl.bvol(range, time, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
-	brat {|range=0.01, offset=0|
+	brat {|range=0.01, time=0, curve=\lin, offset=0|
 		ps.do({|pl|
-			{pl.brat(range)}.defer(offset.asFloat.rand)
+			{pl.brat(range, time, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -383,7 +368,7 @@ Layers{
 	resumeT {|name| procs[name].resume}
 	pauseT {|name| procs[name].pause}
 
-	sch {|name="", function, sleep=5.0, offset=0| // off set is passed to functions so that localy the events are not at the same time
+	sch {|name="", function, sleep=5.0, offset=0| // offset is passed to functions so that local events are not at the same time
 		var atask;
 
 		if (name=="", {"TASKS MUST HAVE A NAME".postln; ^false}); // TO DO: must be a string or symbol. sanitize
@@ -403,7 +388,6 @@ Layers{
 
 		atask.start;
 		this.addTask(name, atask) // to keep track of them
-		//^atask;
 	}
 
 	gui {|test| // TO DO: a gui to see all layers
