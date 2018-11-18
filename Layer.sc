@@ -149,6 +149,7 @@ Layer{
 		["volume", volume].postln;
 		["bounds", st, end].postln;
 		["rate", rate].postln;
+		["panning", panning].postln;
 		["verbose", verbose].postln;
 		"--------------".postln;
 	}
@@ -186,7 +187,7 @@ Layer{
 		this.post("pan", panning);
 	}
 
-	vol{|avol, time=0, curve=\sqr|
+	vol {|avol, time=0, curve=\exp|
 		if (avol< 0, {avol=0}); //lower limit
 		volume = avol;
 
@@ -260,8 +261,7 @@ Layer{
 
 	pause {
 		memrate = rate; // store
-		rate = 0;
-		play.set(\rate, rate)
+		this.rat(0)
 	}
 
 	resume {
@@ -279,8 +279,8 @@ Layer{
 		this.vol( limit.rand, time, curve );
 	}
 
-	rpan {|range=1, time=0, curve=\lin| // -1 to 1
-		this.pan( range.asFloat.rand2, time, curve )
+	rpan {|time=0, curve=\lin| // -1 to 1
+		this.pan( 1.asFloat.rand2, time, curve )
 	}
 
 	/*rbuf {
@@ -288,8 +288,8 @@ Layer{
 		play.set(\buffer, buf.bufnum)
 	}*/
 
-	rjump {|range=1, time=0, curve=\lin|
-		this.jump(range.asFloat.rand,time=0, curve=\lin)
+	rjump {|range=1|
+		this.jump(range.asFloat.rand)
 	}
 
 	rbounds {|st_range=1, len_range=1|
@@ -321,7 +321,7 @@ Layer{
 		this.rat(rate * [1,-1].choose)
 	}
 
-	rrate {|time=0, curve=\lin|
+	rrat {|time=0, curve=\lin|
 		this.rat(1.0.rand2, time, curve)
 	}
 
@@ -335,6 +335,10 @@ Layer{
 	bvol {|range=0.05, time=0, curve=\lin|
 		this.vol( volume+(range.rand2), time, curve)
 	}// single step brown variation
+
+	bpan {|range=0.1, time=0, curve=\lin|
+		this.pan( panning+(range.rand2), time, curve)
+	}
 
 	brat {|range=0.05, time=0, curve=\lin|
 		this.rat( rate+(range.rand2), time, curve )
