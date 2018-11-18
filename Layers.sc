@@ -6,16 +6,16 @@ Layers{
 
 	var server, <path, <bufs, <sfs, <ps, <howmany=24, <procs;
 	var plotwin=nil, plotview, drawview, plotwinrefresh;
-	var buses, <comp;
-	var volume;
+	var buses, <compressor;
+	var volume=1;
 
-	*new {| server = nil, path = "~/", num = 24 |
-		^super.new.initLayers( server, path, num );
+	*new {| path = "~/", num = 24 |
+		^super.new.initLayers( path, num );
 	}
 
-	initLayers {| aserver, apath, anum |
+	initLayers {| apath, anum |
 		var limit;
-		server = aserver;
+		server = Server.default;
 		path = apath;
 		howmany = anum;
 
@@ -50,7 +50,42 @@ Layers{
 			Out.ar(0, signal);
 		}).load(server);
 
+		this.free;
+
+		if (PathName.new(path).isFile, {
+			sfs = List.newUsing( [SoundFile(path)] );
+		}, {
+			sfs = List.newUsing( SoundFile.collect( path++"*") ); // if a folder apply wildcards
+		});
+
+		bufs = Array.new(sfs.size);
+		// load ALL buffers
+		sfs.size.do({ arg n;
+			var buf = Buffer.read(server, sfs.wrapAt(n).path);
+			bufs = bufs.add( buf )
+		});
+
+		(sfs.size + "buffers available").postln;
+		"... loading ... please wait ...".postln;
+
+		buses = Bus.audio(server, 2);
+		compressor = Synth(\comp, [\inbus, buses]);
+
+		{
+			ps.do({arg pl; pl.free}); // kill everyone first
+			ps = Array.new(sfs.size);
+
+			howmany.do({arg index;
+				ps = ps.add( Layer.new(index, bufs.wrapAt(index), buses));
+			});
+
+		}.defer(4)
+	}
+
+	// TODO: a function to load all buffers from a directory
+	loadall {|path| // flag to overwrite or add to existing array???
 		sfs = List.newUsing( SoundFile.collect( path ) );
+		//sfs.clear; // delete all items
 		this.free;
 		bufs = Array.new(sfs.size);
 
@@ -62,23 +97,6 @@ Layers{
 
 		(sfs.size + "buffers available").postln;
 		"... loading ... please wait ...".postln;
-
-		/*buses = Array.new(sfs.size);
-		buses.size.do({ arg n;
-			buses = buses.add( Bus.audio(server, 2))
-		});*/
-		buses = Bus.audio(server, 2);
-		comp = Synth(\comp, [\inbus, buses]);
-
-		{
-			ps.do({arg pl; pl.free}); // kill everyone first
-			ps = Array.new(sfs.size);
-
-			howmany.do({arg index;
-				ps = ps.add( Layer.new(index, bufs.wrapAt(index), buses));
-			});
-
-		}.defer(4)
 	}
 
 	search {|st|
@@ -138,8 +156,10 @@ Layers{
 
 	newplayer {|asynth| ps.do({ |pl| pl.newplayer(asynth)}) }
 
-	bounds {|st, end|
-		ps.do({ |pl| pl.bounds(st,end)})
+	bounds {|st, end, offset=0|
+		ps.do({ |pl|
+			{ pl.bounds(st,end) }.defer(offset.asFloat.rand)
+		})
 	}
 
 	len {|ms| ps.do({ |pl| pl.len(ms)}) }
@@ -208,9 +228,9 @@ Layers{
 		})
 	}
 
-	rpan {|range=1, time=0, curve=\lin, offset=0|
+	rpan {|time=0, curve=\lin, offset=0|
 		ps.do({ |pl|
-			{pl.rpan(range, time, curve)}.defer(offset.asFloat.rand)
+			{pl.rpan(time, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -250,21 +270,21 @@ Layers{
 		})
 	}
 
-	reverse {|offset=0|
+	reverse {|time=0, curve=\lin, offset=0|
 		ps.do({ |pl|
-			{pl.rat(pl.rate.neg)}.defer(offset.asFloat.rand)
+			{pl.rat(pl.rate.neg, time, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
-	gofwd {|offset=0|
+	gofwd {|time=0, curve=\lin, offset=0|
 		ps.do({ |pl|
-			{pl.gofwd}.defer(offset.asFloat.rand)
+			{pl.gofwd(time, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
-	gobwd {|offset=0|
+	gobwd {|time=0, curve=\lin, offset=0|
 		ps.do({ |pl|
-			{pl.gobwd}.defer(offset.asFloat.rand)
+			{pl.gobwd(time, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -274,9 +294,9 @@ Layers{
 		})
 	}
 
-	rrate {|time=0, curve=\lin, offset=0|
+	rrat {|time=0, curve=\lin, offset=0|
 		ps.do({ |pl|
-			{pl.rrate(time, curve)}.defer(offset.asFloat.rand)
+			{pl.rrat(time, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -288,7 +308,7 @@ Layers{
 
 	//
 
-	vol {|avol=1, time=0, curve=\sqr, offset=0|
+	vol {|avol=1, time=0, curve=\exp, offset=0|
 		volume = avol; // remember for the fadein/out
 		ps.do({ |pl|
 			{pl.vol(volume, time, curve)}.defer(offset.asFloat.rand)
@@ -299,15 +319,15 @@ Layers{
 
 	volu { ps.do({ |pl| pl.volu}) }
 
-	fadeout {|time=1, curve=\sqr, offset=0|
+	fadeout {|time=1, curve=\exp, offset=0|
 		ps.do({ |pl|
-			{pl.volume(0, time, curve)}.defer(offset.asFloat.rand)
+			{pl.vol(0, time, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
-	fadein {|time=1, curve=\sqr, offset=0|
+	fadein {|time=1, curve=\exp, offset=0|
 		ps.do({ |pl|
-			{pl.volume(volume, time, curve)}.defer(offset.asFloat.rand) // fade in to volume. not to 1
+			{pl.vol(volume, time, curve)}.defer(offset.asFloat.rand) // fade in to volume. not to 1
 		})
 	}
 
@@ -340,6 +360,12 @@ Layers{
 	bvol {|range=0.01, time=0, curve=\lin, offset=0|
 		ps.do({|pl|
 			{pl.bvol(range, time, curve)}.defer(offset.asFloat.rand)
+		})
+	}
+
+	bpan {|range=0.1, time=0, curve=\lin, offset=0|
+		ps.do({|pl|
+			{pl.bpan(range, time, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -399,9 +425,15 @@ Layers{
 
 
 	// compressor/expander ///
-	thr{|val=0.5| comp.set(\thr, val)}
-	sla{|val=1| comp.set(\sla, val)}
-	slb{|val=1| comp.set(\slb, val)}
+	comp{|thr=0.5, sla=1, slb=1| // threshold, slopeBelow, slopeAbove
+		compressor.set(\thr, thr);
+		compressor.set(\sla, sla);
+		compressor.set(\slb, slb)
+	}
+	thr{|val=0.5| compressor.set(\thr, val)}
+	sla{|val=1| compressor.set(\sla, val)}
+	slb{|val=1| compressor.set(\slb, val)}
+	nocomp{this.comp(0.5,1,1)} // reset
 	/////////////////
 
 
