@@ -43,7 +43,6 @@ Layers{
 			Out.ar(out, Balance2.ar(left, right, pan));
 		}).load;
 
-
 		//Compander.ar(in: 0.0, control: 0.0, thresh: 0.5, slopeBelow: 1.0, slopeAbove: 1.0, clampTime: 0.01, relaxTime: 0.1, mul: 1.0, add: 0.0)
 		SynthDef(\comp, {|inbus=0, thr=0.5, slb=0.9, sla=0.5|
 			var signal = Compander.ar(In.ar(inbus, 2), In.ar(inbus, 2), thr, slopeBelow:slb, slopeAbove:sla);

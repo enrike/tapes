@@ -1,6 +1,13 @@
 /*
 Layers by ixi-audio.net
 license GPL
+
+Layers allows to create and control multiple layers of samplers
+
+For instance:
+l = Layers.new("~/mysamples", 12); // this creates 12 players and loads all files in "~/mysamples"
+l.resume; // all players start playing now
+l.rrate // all get random rate now
 */
 
 
@@ -9,33 +16,35 @@ license GPL
 
 s.boot;// BOOT SERVER FIRST
 
-// CREATE LAYERS instantiating Layers class
+// CREATE LAYERS: instantiating Layers
 // l = Layers.new("pathtofileorfolder", NUMOFLAYERS);
-// you can pass the path to a folder with many sounds files or the path to a single soundfile
-// when a folder is passed each player gets a buffer. if more players than buffers it
+
+// you can pass the path to a folder with many sounds files
+// each player gets a buffer. if more players than buffers it
 // wraps like (p1->b1, p2->b2, p3->b1 and so on)
-// if a single file all layers play the same file
 
-// for instance...
 //a = "/home/r2d2/Mahaigaina/audio/00works/";
-a = "/home/r2d2/Mahaigaina/audio/00songs/03_Pinebox_Derby.flac";
-//a = "/home/r2d2/Mahaigaina/audio/00_mbv/isntanything/";
-//a = "/home/r2d2/Mahaigaina/audio/00songs/"; // Folder to load samples from
+a = "/home/r2d2/Mahaigaina/audio/00_mbv/isntanything/";
+//a = "/home/r2d2/Mahaigaina/audio/00songs/";
 
-l.free
+// you can pass a single soundfile too and all layers play that one
+//a = "/home/r2d2/Mahaigaina/audio/00songs/03_Pinebox_Derby.flac";
+
+
+//l.free
 l = Layers.new(a, 12); // this takes a few seconds... please wait...
 
 
 // to create a single independent layer
-n = Buffer.new(s, "~/tm-2018-06-01T14_40_59.flac")
+n = Buffer.new(s, "~/tm-2018-06-01T14_40_59.flac") // load a buffer
 m = Layer.new(1000, n); //1000 is just any unique ID
 m.resume;
-// or to control a single layer from all Layers
+// or to control a single layer from Layers
 l.ps[0].pause
 
 
 
-( //initial situation
+( //initial situation. for instance
 l.normalize;
 l.vol(0.3);
 l.resume; // go play
@@ -48,8 +57,8 @@ l.resume; // go play
 // global controls. for all layers //
 /////////////////////////////////////
 
-l.allbufs // buffers available
-l.curbufs // buffers actually being used by whom
+l.allbufs // posts buffers available
+l.curbufs // posts buffers actually being used by which players
 l.ps // list containing all players
 l.info // post internal states for all available layers
 l.verbose(true)
@@ -71,10 +80,10 @@ l.vol(0.5)
 l.fadein
 l.fadeout
 l.pan(0) //-1 to 1
-l.rat(1)
+l.rat(1) // rate
 l.bounds(0, 0.01) // st, end. in 0 to 1 range
-l.jump(0.5) // go there
-l.len(600) // length, **in milliseconds** useful if they are using different buffers and you want same loop duration
+l.jump(0.5) // jump there
+l.len(600) // length, **in milliseconds** useful if they are using different buffers and you want the same loop duration
 l.reset // reset bounds to 0-1 and play from 0
 
 // store and retrieve named states. they dont get deleted from memory until the session ends
@@ -191,6 +200,8 @@ l.stopT(\ramps)
 
 
 /////////////////////
+// more examples
+
 ( //inital situation
 l.verbose(true);
 l.normalize;
