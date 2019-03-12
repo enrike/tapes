@@ -68,7 +68,7 @@ Layer{
 		state.put(\end, end);
 		state.put(\vol, volume);
 		state.put(\rate, rate);
-		state.put(\panning,panning);
+		state.put(\panning, panning);
 
 		statesDic[which] = state;
 
@@ -187,7 +187,7 @@ Layer{
 		this.post("pan", panning);
 	}
 
-	vol {|avol, time=0, curve=\exp|
+	vol {|avol=1, time=0, curve=\exp|
 		if (avol< 0, {avol=0}); //lower limit
 		volume = avol;
 
@@ -209,7 +209,7 @@ Layer{
 		this.vol(volume+0.02)
 	}
 
-	rat {|arate, time=0, curve=\lin|
+	rat {|arate=1, time=0, curve=\lin|
 		rate = arate;
 		play.set(\ratecur, curve);
 		play.set(\rategate, 0);
@@ -226,6 +226,10 @@ Layer{
 		this.rat(rate.neg)
 	}
 
+	mir{ |time=0| // mirror
+		// this should change play mode to mirror <>
+	}
+
 	gofwd {
 		if (rate<0, {this.reverse})
 	}
@@ -233,12 +237,13 @@ Layer{
 		if (rate>0, {this.reverse})
 	}
 
-	reset { // should this also reset the rate?
+	reset {
 		this.bounds(0,1);
 		this.jump(0);
+		this.rat(1);
 	}
 
-	bounds {|p1, p2|
+	bounds {|p1=0, p2=1|
 		st = p1;
 		end = p2;
 		play.set(\start, st);
@@ -289,7 +294,8 @@ Layer{
 	}*/
 
 	rjump {|range=1|
-		this.jump(range.asFloat.rand)
+		//this.jump(range.asFloat.rand)
+		this.jump(rrand(st, end))
 	}
 
 	rbounds {|st_range=1, len_range=1|
@@ -317,8 +323,8 @@ Layer{
 		this.updateplot; //only if w open
 	}
 
-	rdir{
-		this.rat(rate * [1,-1].choose)
+	rdir{|time=0, curve=\lin|
+		this.rat(rate * [1,-1].choose, time, curve)
 	}
 
 	rrat {|time=0, curve=\lin|

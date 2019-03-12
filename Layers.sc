@@ -108,6 +108,11 @@ Layers{
 		^positives
 	}
 
+	some {|howmany|
+		if (howmany.isNil, {howmany=ps.size.rand});
+		^ps.scramble[0..howmany-1];
+	}
+
 	free {
 		bufs.do({|buf| buf.free}); // clear all first
 	}
@@ -145,7 +150,11 @@ Layers{
 		})
 	}*/
 
-	setbuf {|buf| ps.do({ |pl| pl.setbuf(buf)})	}
+	setbuf {|buf, offset=0|
+		ps.do({ |pl|
+			{ pl.setbuf(buf) }.defer(offset.asFloat.rand)
+		})
+	}
 
 	asignbufs { // asign buffers sequentially if more layers than buffers then wrap
 		ps.do({ |pl, index|
@@ -155,7 +164,7 @@ Layers{
 
 	newplayer {|asynth| ps.do({ |pl| pl.newplayer(asynth)}) }
 
-	bounds {|st, end, offset=0|
+	bounds {|st=0, end=1, offset=0|
 		ps.do({ |pl|
 			{ pl.bounds(st,end) }.defer(offset.asFloat.rand)
 		})
@@ -163,13 +172,18 @@ Layers{
 
 	len {|ms| ps.do({ |pl| pl.len(ms)}) }
 
-	reset { ps.do({ |pl| pl.reset}) }
+	reset { |offset=0|
+		ps.do({ |pl|
+			{ pl.reset }.defer(offset.asFloat.rand)
+
+		})
+	}
 
 	resume { ps.do({ |pl| pl.resume}) }
 
 	pause { ps.do({ |pl| pl.pause}) }
 
-	jump {|point, offset=0|
+	jump {|point=0, offset=0|
 		ps.do({ |pl|
 			{ pl.jump(point) }.defer(offset.asFloat.rand)
 		})
@@ -177,7 +191,7 @@ Layers{
 
 	solo {|ly|
 		ps.do({ |pl|
-			if (pl!=ly, {pl.pause})
+			if (pl!=ly, {pl.pause}) // pause if not me
 		});
 	}
 
@@ -190,7 +204,7 @@ Layers{
 		if (filename.isNil, {
 			filename = Date.getDate.stamp++".states";
 		}, {
-			filename = filename.string++".states"}
+			filename = filename.asString++".states"}
 		);
 
 		data = Dictionary.new;
@@ -200,9 +214,8 @@ Layers{
 		});
 
 		// open dialogue if no file path is provided
-		//(path ++ "/" ++ filename).postln;
-		data.writeArchive(path[..path.size-2] ++ "/" ++ filename);
-
+		("saving" + path ++ filename).postln;
+		data.writeArchive(path ++ filename);
 	}
 
 	load { // opn dialogue to load file with state dictionary
@@ -221,7 +234,24 @@ Layers{
 	}
 
 	/////
-	rvol {|offset=0, time=0, curve=\lin|
+
+	//random file, pan, vol, rate, bounds (st, end), dir and jump
+	rand {|time=0, curve=\lin, offset=0|
+		ps.do({ |pl|
+			ps.do({ |pl| pl.vol(0)});// mute. necessary?
+			this.rbuf(offset);
+			this.rvol(time, curve, offset);
+			this.rpan(time, curve, offset);
+			this.rrat(time, curve, offset);//??
+			//this.rdir(time, curve, offset); / not needed
+			this.rbounds(offset);
+			this.rjump;// this should be limited to the current bounds
+			ps.do({ |pl| pl.vol(pl.volume)}); //restore
+		})
+	}
+
+
+	rvol {|time=0, curve=\exp, offset=0|
 		ps.do({ |pl|
 			{pl.rvol(1.0/ps.size)}.defer(offset.asFloat.rand)
 		})
@@ -287,7 +317,7 @@ Layers{
 		})
 	}
 
-	rdir {|offset=0|
+	rdir {|curve=\lin, offset=0|
 		ps.do({ |pl|
 			{pl.rdir}.defer(offset.asFloat.rand)
 		})
@@ -330,7 +360,7 @@ Layers{
 		})
 	}
 
-	pan { |pan, time=0, curve=\lin, offset=0|
+	pan { |pan=0, time=0, curve=\lin, offset=0|
 		ps.do({ |pl|
 			{pl.pan(pan, time, curve)}.defer(offset.asFloat.rand)
 		})
