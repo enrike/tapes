@@ -175,7 +175,6 @@ Layers{
 	reset { |offset=0|
 		ps.do({ |pl|
 			{ pl.reset }.defer(offset.asFloat.rand)
-
 		})
 	}
 
@@ -189,9 +188,13 @@ Layers{
 		})
 	}
 
-	solo {|ly|
+	solo {|id|
 		ps.do({ |pl|
-			if (pl!=ly, {pl.pause}) // pause if not me
+			if (pl.id!=id, {
+				if (pl.rate!=0, {pl.pause}); // if not already paused, pause.
+			}, {
+				pl.resume;
+			})
 		});
 	}
 
@@ -293,7 +296,7 @@ Layers{
 		})
 	}
 
-	rat { |rate, time=0, curve=\lin, offset=0|
+	rat { |rate=1, time=0, curve=\lin, offset=0|
 		ps.do({ |pl|
 			{pl.rat(rate, time, curve)}.defer(offset.asFloat.rand)
 		})

@@ -6,11 +6,10 @@ Layers allows to create and control multiple layers of samplers
 
 For instance:
 l = Layers.new("~/mysamples", 12); // this creates 12 players and loads all files in "~/mysamples"
+// now wait until the layers are ready. check the post window
 l.resume; // all players start playing now
 l.rrate // all get random rate now
 */
-
-
 
 
 
@@ -24,15 +23,15 @@ s.boot;// BOOT SERVER FIRST
 // wraps like (p1->b1, p2->b2, p3->b1 and so on)
 
 //a = "/home/r2d2/Mahaigaina/audio/00works/";
-a = "/home/r2d2/Mahaigaina/audio/00_mbv/isntanything/";
+//a = "/home/r2d2/Mahaigaina/audio/00_mbv/isntanything/";
 //a = "/home/r2d2/Mahaigaina/audio/00songs/";
-
+a = "/home/r2d2/Mahaigaina/audio/beat_happening_cuts/";
 // you can pass a single soundfile too and all layers play that one
 //a = "/home/r2d2/Mahaigaina/audio/00songs/03_Pinebox_Derby.flac";
 
 
 //l.free
-l = Layers.new(a, 12); // this takes a few seconds... please wait...
+l = Layers.new(a, 7); // this takes a few seconds... please wait...
 
 
 // to create a single independent layer
@@ -52,7 +51,6 @@ l.resume; // go play
 
 
 
-
 /////////////////////////////////////
 // global controls. for all layers //
 /////////////////////////////////////
@@ -62,18 +60,18 @@ l.curbufs // posts buffers actually being used by which players
 l.ps // list containing all players
 l.info // post internal states for all available layers
 l.verbose(true)
-l.setbuf( l.bufs[3] ); // set this buffer to all layers
+l.setbuf( l.bufs[34] ); // set this buffer to all layers
 l.asignbufs // asign the loaded buffers to layers, it happens by default on Layers.new
 l.normalize
 l.plot; // draws the play heads of each layer in a window
-l.plot(l.bufs[2]) // optional pass the buffer to draw on the background of the window. useful when all layers share the same buffer
+l.plot(l.bufs[4]) // optional pass the buffer to draw on the background of the window. useful when all layers share the same buffer
 
 l.resume
 l.pause
 l.solo( l.ps[0] ) // pause all but this layer
-l.reverse // change play direction. +rate to -rate
-l.gofwd // force positive rate
-l.gobwd // force negative rate
+l.reverse // reverse play direction. +rate to -rate and - to +
+l.gofwd // turn current rate positive
+l.gobwd // turn current rate negative
 l.volu // UP
 l.vold // DOWN
 l.vol(0.5)
@@ -82,15 +80,21 @@ l.fadeout
 l.pan(0) //-1 to 1
 l.rat(1) // rate
 l.bounds(0, 0.01) // st, end. in 0 to 1 range
-l.jump(0.5) // jump there
+l.jump(0.5, offset:0.3) // jump there
 l.len(600) // length, **in milliseconds** useful if they are using different buffers and you want the same loop duration
-l.reset // reset bounds to 0-1 and play from 0
+l.reset // reset bounds to 0-1, play from 0, pitch to 1
+
+// reset: calling some functions with no args should reset its corresponding state for instance...
+l.bounds // resets bounds to 0-1
+l.jump // resets rate to 0
+// SAME for l.pan, l.rat, l.vol
+
 
 // store and retrieve named states. they dont get deleted from memory until the session ends
 l.push(\dut)
 l.pop(\dut)
-l.save // save current states from memory into a file.
-l.save("blahblah") // optionally provide a name. if no name is provided it uses the timestamp
+l.save // save current states from memblahblahory into a file.
+l.save("caos") // optionally provide a name. if no name is provided it uses the timestamp
 l.load // open a dialogue to search for a file containg states
 
 // search. identify which layers are playing which sound file
@@ -98,17 +102,21 @@ p = l.search("Roll") //return a list of layers whose buffer contains this string
 p.do({|lay| lay.volume(0.3)}) // do whatever with the search results
 
 //random
+l.some // returns a list with a random number of random players
+l.some(3) // returns a list with N random items from all players
+
 l.rbuf // anyone gets a new buffer randomly
-l.rbounds // 0 to 1
-l.rbounds(0.2, 0.1) // set start and LENGTH limits for the random. in this case start will be rrange(0,0.2) and length start+(0.1.rand)
 l.rpan
 l.rrat
+l.rdir // + or - rate
 l.rvol
+l.rbounds // 0 to 1
+l.rbounds(0.2, 0.1) // set start and LENGTH limits for the random. in this case start will be rrange(0,0.2) and length start+(0.1.rand)
 l.rst // start point
 l.rend // end point (not length)
 l.rlen(0.1) // length. in range 0-1
-l.rdir // + or - rate
 l.rjump
+l.rand // random file, pan, vol, rate, dir, bounds (st, end) and jump
 
 // random walks
 l.bbounds // small range jump. range defaults to 0.01
@@ -120,13 +128,15 @@ l.bjump(0.9)
 l.brat
 
 
-// offsets: functions also have offsets so that layers dont run the function at the same time
-l.rrat(offset:8) // all layers random rate within 8 secs. each one at a different time within the next 8 secs
+// OFFSET:
+// functions also have offsets so that layers dont run the function at the same time
+l.rrat(5, offset:8) // all layers random rate within 8 secs. each one at a different time within the next 8 secs
 l.rlen(offset:20) // and so on...
 
 
-// transitions: some functions (the ones related to panning, amplitude and pitch) can perform a transition between the current state and the target state in N secs
-//go to a value in N secs describing a shape: \lin, \exp, \sin, \wel, \cub, \sqr
+// TRANSITION TIME:
+// some functions (the ones related to panning, amplitude and pitch) can perform a transition between the current state and the target state in N secs
+// go to a value in N secs describing a shape: \lin, \exp, \sin, \wel, \cub, \sqr
 l.rat(0.1, 10, \lin)// check this out, the sound is self explanatory :)
 l.brat(0.1, 20, \sin) // this will start a shift to a random rate from -0.1 to 0.1 of current rate that will take 20 secs and describing a sinusoidal ramp during the change
 l.brat(0.1, 20, \sqr, offset:8) // offset can be use here too
@@ -157,13 +167,13 @@ l.stopT(\backtoinit)
 l.sch(\rev, {l.reverse}, 10, offset:5)
 l.stopT(\rev)
 
-l.sch(\rlen, {l.rlen(0.7, 0.9)}, 8, 4)
+l.sch(\rlen, {l.rlen(1, 2)}, 8, 4)
 l.stopT(\rlen)
 
 l.sch(\brat, {l.brat(0.01)}, 10, offset:4) // rate
 l.stopT(\brat)
 
-l.sch(\bbounds, {l.bbounds}, 4)
+l.sch(\bbounds, {l.bbounds}, 4, offset:3)
 l.stopT(\bbounds)
 
 l.sch(\bvol, {l.bvol}, 4)
@@ -198,7 +208,6 @@ l.stopT(\ramps)
 
 
 
-
 /////////////////////
 // more examples
 
@@ -207,80 +216,134 @@ l.verbose(true);
 l.normalize;
 l.noT;
 l.vol(0.1); // lower vol because all layers are in synch
-l.setbuf( l.bufs[2] ); // all layers use the same buffer
+l.setbuf( l.bufs[32] ); // all layers use the same buffer
 l.jump(0);
 l.rat(1);
 l.thr(0.2);// compressor threshold
 l.slb(0.7); // increase to expand low
 l.sla(0.3); // decrease to compress top
-l.plot(l.bufs[4]);
+l.plot(l.bufs[2]);
 l.resume;
 )
 
 (
 l.jump(0.8); //
-l.bounds(0.885, 0.97)
+l.bounds(0.979, 1)
 )
 
+l.bounds(0,1, offset:10)
 
+
+
+l.gofwd
+l.noT
+l.sch(\jump, {l.jump(1.0.rand)}, 3)
+l.rat(0.5)
+
+l.info
 
 l.reset
-l.rjump
-l.jump(0.1);
-l.rat(1, 20)
+l.rjump(offset:10)
+l.jump(0.9, 10);
 
-l.rat(1, 7)
-l.brat(0.01, 10, offset:5);
+l.rat(0, 5)
 
-l.jump(0.5, offset:0.1);
+l.brat(0.1, 2, offset:3);///
 
+l.sch(\ku, {l.bjump(0.01)}, 8, 2);
+
+l.fadeout(20, offset:7)
 l.vol(0.15, 120)
 
-l.sch(\brat, {l.brat(0.001)}, 10)
-l.stopT(\brat)
+l.sch(\brat, {l.brat(0.02, 6, offset:5)}, 10)
+l.stopT(\jump)
 
-( //MVB
-l.setbuf( l.bufs[9] );
-l.rjump;
-l.sch(\rpan, {l.rpan(5)}, 15);
-l.sch(\bvol, {l.bvol(0.01, 5)}, 6);
-l.thr(0.08);// compressor threshold
-l.slb(1.1); // increase to expand low
-l.sla(0.01); // decrease to compress top
+l.volu
 
-l.sch(\rpan, {l.rpan(10)}, 10)
-
-l.sch(\one, {
-	var play, old;
-	play=l.ps.choose;
-	old=play.volume;
-	play.vol(l.ps.choose.volume+0.07, 10);
-	{play.vol(old, 10)}.defer(10)
-}, 10)
-)
-
-l.vol(0)
-l.vol(0.15, 360, \exp)
-l.pan(0, 10)
-l.nocomp; l.noT
-
-l.bjump(0.02)
-
-l.rdir(offset:5)
-
-l.reverse(offset:3)
-l.reverse(1)
-l.gofwd(5)
-l.gobwd
+l.vol(0.4)
+l.jump(0.03, offset:8)
+l.resume
+l.rrat(10, offset:5)
+l.pause
+l.reverse
+l.rdir(10, offset:10)
 
 (
-l.brat(0.01);
-l.jump(0.8);
+l.sch(\files, {
+	//l.rjump;
+//	l.setbuf( l.bufs.choose );
+	l.rst;
+	l.len(rrand(10, 20));
+}, 1.5)
 )
 
+l.stopT(\files)
+l.noT
 
 
 
+//
+l = Layers.new("/home/r2d2/Mahaigaina/audio/00songs/", 12); // this takes a few seconds... please wait...
+l.save
+
+l.rbuf
+l.setbuf(l.bufs[2])
+l.curbufs
+
+(
+l.vol(0.35);
+l.rbuf;
+l.rbounds;
+l.rat(0.1, 60*2, offset:60*1.5);
+l.rdir(offset:10);
+)
+
+l.sch(\bo, {l.reverse}, 4)
+
+(
+var len=50, gap=5, fade=0.5;
+l.sch(\rum, {
+	l.rbuf;
+	l.rdir; l.rrat; l.rbounds;
+	l.fadein(fade);
+	{l.fadeout(fade)}.defer(len-gap);
+}, len)
+)
+
+l.rvol
+l.vol(0.3, offset:10)
+l.rdir
+l.gobwd
+l.gofwd
+l.ps.choose.rdir
+//l.some(2).rbounds // it would be great to be able to do this. with more than one item in the array how to call that function to all items in the array?
+// would be great too to be able to add a pause after between the loops l.loop(0.1)?
+l.reverse;
+l.fadeout(60*2)
+l.rbounds(offset:10)
+l.reset(offset:0.9)
+l.rjump(offset:0.6)
+
+(
+l.sch(\rbounds, {
+	l.ps.choose.rbounds;
+}, 20)
+)
+(
+l.sch(\rvol, {
+	l.ps.choose.bvol;
+}, 5.5)
+)
+(
+l.sch(\reset, {
+	l.reset(offset:0.9)
+}, 60)
+)
+l.noT
+
+l.rvol
+
+l.stopT(\rum)
 
 ///////////////////////////////
 // control individual layers //

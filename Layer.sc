@@ -3,7 +3,7 @@
 
 Layer{
 
-	var id, <play, <curpos;
+	var <id, <play, <curpos;
 	var <buf, <st=0, <end=1, <volume=1, <rate=0, <panning=0; // state variables
 	var memrate=1; // to store rate while paused
 	var <ptask, <vtask, <rtask;
