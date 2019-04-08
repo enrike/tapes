@@ -294,8 +294,8 @@ Layer{
 	}*/
 
 	rjump {|range=1|
-		//this.jump(range.asFloat.rand)
-		this.jump(rrand(st, end))
+		var target = rrand(st.asFloat, end.asFloat);
+		this.jump(target)
 	}
 
 	rbounds {|st_range=1, len_range=1|
