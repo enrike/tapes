@@ -71,13 +71,12 @@ Layers{
 		compressor = Synth(\comp, [\inbus, buses]);
 
 		{
-			ps.do({arg pl; pl.free}); // kill everyone first
+			ps.collect(_.free);
 			ps = Array.new(sfs.size);
 
 			howmany.do({arg index;
 				ps = ps.add( Layer.new(index, bufs.wrapAt(index), buses));
 			});
-
 		}.defer(4)
 	}
 
@@ -113,9 +112,7 @@ Layers{
 		^ps.scramble[0..howmany-1];
 	}
 
-	free {
-		bufs.do({|buf| buf.free}); // clear all first
-	}
+	free { bufs.collect(_.free) }
 
 	allbufs{
 		"-- Available buffers --".postln;
@@ -131,9 +128,7 @@ Layers{
 		})
 	}
 
-	info {
-		ps.do({ |p| p.info })
-	}
+	info { ps.collect(_.info) }
 
 	verbose {|flag=true|
 		["verbose:", flag].postln;
@@ -141,7 +136,7 @@ Layers{
 	}
 
 	normalize {
-		bufs.do({|buf| buf.normalize});
+		bufs.collect(_.normalize);
 	}
 
 	/*positions {|positions|
@@ -178,9 +173,9 @@ Layers{
 		})
 	}
 
-	resume { ps.do({ |pl| pl.resume}) }
+	resume { ps.collect(_.resume) }
 
-	pause { ps.do({ |pl| pl.pause}) }
+	pause { ps.collect(_.pause) }
 
 	jump {|point=0, offset=0|
 		ps.do({ |pl|
@@ -347,9 +342,9 @@ Layers{
 		})
 	}
 
-	vold { ps.do({ |pl| pl.vold}) }
+	vold { ps.collect(_.vold) }
 
-	volu { ps.do({ |pl| pl.volu}) }
+	volu { ps.collect(_.volu) }
 
 	fadeout {|time=1, curve=\exp, offset=0|
 		ps.do({ |pl|
@@ -414,7 +409,7 @@ Layers{
 	}
 
 	noT {
-		procs.do({|pro| pro.stop});
+		procs.collect(_.stop);
 		procs = Dictionary.new;
 	}
 
