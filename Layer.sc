@@ -6,8 +6,8 @@ Layer{
 	var <id, <play, <curpos;
 	var <buf, <st=0, <end=1, <volume=1, <rate=0, <panning=0; // state variables
 	var memrate=1; // to store rate while paused
-	var <ptask, <vtask, <rtask;
-	var plotview, plotwin=nil;
+	//var <ptask, <vtask, <rtask;
+	//var plotview, plotwin=nil;
 	var <>statesDic, <>verbose=false;
 
 	*new {| id=0, buffer = nil, bus |
@@ -27,12 +27,7 @@ Layer{
 		OSCdef(\playhead++id).clear;
 		OSCdef(\playhead++id).free;
 		OSCdef(\playhead++id, {|msg, time, addr, recvPort|
-			if (id==msg[2], {
-				curpos = msg[3]; // keep track
-				if (plotwin.isNil.not,{ // to draw on window
-					{ plotview.timeCursorPosition = msg[3] * (buf.numFrames*buf.numChannels) }.defer;
-				});
-			});
+			if (id==msg[2], { curpos = msg[3] });
 		}, '/tr', NetAddr("127.0.0.1", 57110));
 
 		statesDic = Dictionary.new;
@@ -91,7 +86,7 @@ Layer{
 		if(verbose.asBoolean, {["poping state", which].postln});
 	}
 
-	plot {
+/*	plot {
 		if (plotwin.isNil, {
 			// to do: bigger size win and view
 			// move playhead as it plays?
@@ -141,7 +136,7 @@ Layer{
 
 			f.(buf, plotview); //
 		});
-	}
+	}*/
 
 	info {
 		("-- Layer"+id+"--").postln;
@@ -226,6 +221,12 @@ Layer{
 		this.rat(rate.neg)
 	}
 
+	boom {|target=0, tIn=1, tStay=0.5, tOut=1, curve=\lin| // boomerang like pitch change
+		var restore = rate;//
+		this.rat(target, tIn, curve);
+		{this.rat(restore, tOut, curve)}.defer(tIn+tStay);
+	}
+
 	mir{ |time=0| // mirror
 		// this should change play mode to mirror <>
 	}
@@ -244,19 +245,22 @@ Layer{
 	}
 
 	bounds {|p1=0, p2=1|
-		st = p1;
+		st = p1; // st and end are variables in this class. they must be updated as well
 		end = p2;
 		play.set(\start, st);
 		play.set(\end, end);
 		this.post("bounds", st.asString+"-"+end.asString);
-		this.updateplot; //only if w open
+		//this.updateplot; //only if w open
 	}
+
+	boundsA {|p=0| st=p; play.set(\start, st)}
+	boundsB {|p=0| end=p; play.set(\end, end)}
 
 	dur {|adur|
 		end = st + adur;
 		play.set(\end, end);
 		this.post("end", end);
-		this.updateplot; //only if w open
+		//this.updateplot; //only if w open
 	}
 
 	len {|ms=100| // IN MILLISECONDS
@@ -277,7 +281,7 @@ Layer{
 		buf = abuf;
 		play.set(\buffer, buf.bufnum);
 		this.post("buffer", this.file());
-		this.updateplot; //only if w open
+		//this.updateplot; //only if w open
 	}
 
 	rvol {|limit=1.0, time=0, curve=\lin |

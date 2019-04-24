@@ -6,6 +6,7 @@ Layers{
 
 	var server, <path, <bufs, <sfs, <ps, <howmany=24, <procs;
 	var plotwin=nil, plotview, drawview, plotwinrefresh;
+	var controlGUI, views;
 	var buses, <compressor;
 	var volume=1;
 
@@ -18,6 +19,8 @@ Layers{
 		server = Server.default;
 		path = apath;
 		howmany = anum;
+
+		views = Array.fill(howmany, {0});
 
 		procs = Dictionary.new; // stores all tasks
 
@@ -140,14 +143,17 @@ Layers{
 	}
 
 	/*positions {|positions|
-		positions.size.do({|index|
-			ps[index].pos(positions[index])
-		})
+	positions.size.do({|index|
+	ps[index].pos(positions[index])
+	})
 	}*/
 
 	setbuf {|buf, offset=0|
-		ps.do({ |pl|
-			{ pl.setbuf(buf) }.defer(offset.asFloat.rand)
+		ps.do({ |pl, index|
+			{
+				pl.setbuf(buf);
+				this.newplotdata(buf, views[index]);
+			}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -160,8 +166,11 @@ Layers{
 	newplayer {|asynth| ps.do({ |pl| pl.newplayer(asynth)}) }
 
 	bounds {|st=0, end=1, offset=0|
-		ps.do({ |pl|
-			{ pl.bounds(st,end) }.defer(offset.asFloat.rand)
+		ps.do({ |pl, index|
+			{
+				pl.bounds(st,end);
+				this.newselection(st, end, views[index], pl.buf);
+			}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -268,8 +277,11 @@ Layers{
 	}
 
 	rbounds {|offset=0|
-		ps.do({ |pl|
-			{pl.rbounds}.defer(offset.asFloat.rand)
+		ps.do({ |pl, index|
+			{
+				pl.rbounds;
+				this.newselection(pl.st, pl.end, views[index], pl.buf);
+			}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -303,6 +315,12 @@ Layers{
 		})
 	}
 
+	boom {|target=0, tIn=1, tStay=0.5, tOut=1, curve=\lin, offset=0| // boomerang like pitch change
+		ps.do({ |pl|
+			{pl.boom(target, tIn, tStay, tOut, curve)}.defer(offset.asFloat.rand)
+		})
+	}
+
 	gofwd {|time=0, curve=\lin, offset=0|
 		ps.do({ |pl|
 			{pl.gofwd(time, curve)}.defer(offset.asFloat.rand)
@@ -328,8 +346,11 @@ Layers{
 	}
 
 	rbuf {|offset=0|
-		ps.do({ |pl|
-			{pl.setbuf(bufs.choose)}.defer(offset.asFloat.rand)
+		ps.do({ |pl, index|
+			{
+				pl.setbuf(bufs.choose);
+				this.newplotdata(pl.buf, views[index]);
+			}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -373,8 +394,11 @@ Layers{
 	//
 
 	bbounds {|range=0.01, time=0, curve=\lin, offset=0|
-		ps.do({|pl|
-			{pl.bbounds(range, time, curve)}.defer(offset.asFloat.rand)
+		ps.do({|pl, index|
+			{
+				pl.bbounds(range, time, curve);
+				this.newselection(pl.st, pl.end, views[index], pl.buf);
+			}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -421,7 +445,7 @@ Layers{
 	resumeT {|name| procs[name].resume}
 	pauseT {|name| procs[name].pause}
 
-	sch {|name="", function, sleep=5.0, offset=0| // offset is passed to functions so that local events are not at the same time
+	sch {|name="", function, sleep=5.0, random=0, offset=0| // offset is passed to functions so that local events are not at the same time
 		var atask;
 
 		if (name=="", {"TASKS MUST HAVE A NAME".postln; ^false}); // TO DO: must be a string or symbol. sanitize
@@ -435,7 +459,8 @@ Layers{
 				var time = ""+Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second;
 				function.value(offset:offset); //CHECK: somehow the offsets gets added after the provided args
 				if( (name != ""), {("-- now:"+name++time).postln});
-				sleep.wait;
+				if (random!=0) {sleep = sleep + rrand(random.asFloat.neg, random.asFloat)};
+				sleep.wait
 			});
 		});
 
@@ -464,82 +489,135 @@ Layers{
 	/////////////////
 
 
-	plot {|abuf|
-		//if (plotwin.isNil.not, {plotwin.close});
-		if (plotwin.isNil, {
-			// to do: bigger size win and view
-			// move playhead as it plays?
-			plotwin = Window("All players", Rect(100, 200, 600, 300));
-			plotwin.alwaysOnTop=true;
-			//plotwin.setSelectionColor(0, Color.red);
-			plotwin.front;
-			plotwin.onClose = {
-				plotwinrefresh.stop;
-				plotwin = nil;
-			}; // needed?
+	 plot {|abuf|
+	 	//if (plotwin.isNil.not, {plotwin.close});
+	 	if (plotwin.isNil, {
+	 		// to do: bigger size win and view
+	 		// move playhead as it plays?
+	 		plotwin = Window("All players", Rect(100, 200, 600, 300));
+	 		plotwin.alwaysOnTop=true;
+	 		//plotwin.setSelectionColor(0, Color.red);
+	 		plotwin.front;
+	 		plotwin.onClose = {
+	 			plotwinrefresh.stop;
+	 			plotwin = nil;
+	 		}; // needed?
 
-			plotview = SoundFileView(plotwin, Rect(0, 0, 600, 300))
-			.elasticMode_(true)
-			.timeCursorOn_(true)
-			.timeCursorColor_(Color.red)
-			.drawsWaveForm_(true)
-			.gridOn_(true)
-			.gridResolution_(10)
-			.gridColor_(Color.white)
-			.waveColors_([ Color.new255(103, 148, 103), Color.new255(103, 148, 103) ])
-			.background_(Color.new255(155, 205, 155))
-			.canFocus_(false)
-			.setSelectionColor(0, Color.grey);
-			/*plotview.mouseUpAction = {
-				var cs = plotview.selections[plotview.currentSelection];
-				st = (cs[0]/buf.numFrames)/buf.numChannels;
-				end = ((cs[0]+cs[1])/buf.numFrames)/buf.numChannels; //because view wants start and duration
-				play.set(\start, st);
-				play.set(\end, end);
-				["new loop:", st, end].postln;
-			};*/
+	 		plotview = SoundFileView(plotwin, Rect(0, 0, 600, 300))
+	 		.elasticMode_(true)
+	 		.timeCursorOn_(true)
+	 		.timeCursorColor_(Color.red)
+	 		.drawsWaveForm_(true)
+	 		.gridOn_(true)
+	 		.gridResolution_(10)
+	 		.gridColor_(Color.white)
+	 		.waveColors_([ Color.new255(103, 148, 103), Color.new255(103, 148, 103) ])
+	 		.background_(Color.new255(155, 205, 155))
+	 		.canFocus_(false)
+	 		.setSelectionColor(0, Color.grey);
 
-			drawview = UserView(plotwin, Rect(0, 0, 600, 300));
-			drawview.drawFunc ={ arg view; // AND CAN DRAW AS WELL
-				ps.do({|ps, index|
-					Pen.line( ps.curpos*600 @ 0, ps.curpos*600 @ 300 );
-				});
-				Pen.stroke;
-			};
+	 		drawview = UserView(plotwin, Rect(0, 0, 600, 300))
+	 		.drawFunc_({ arg view; // AND CAN DRAW AS WELL
+	 			ps.do({|ps, index|
+	 				Pen.line( ps.curpos*600 @ 0, ps.curpos*600 @ 300 ); //playhead
+	 			});
+	 			Pen.stroke;
+	 		});
 
-			plotwinrefresh = Task({
-				inf.do({|index|
-					plotwin.refresh;
-					drawview.refresh;
-					0.1.wait;
-				})
-			}, AppClock);
-			plotwinrefresh.start;
+	 		plotwinrefresh = Task({
+	 			inf.do({|index|
+	 				//plotwin.refresh;
+	 				drawview.refresh;
+	 				0.1.wait;
+	 			})
+	 		}, AppClock);
+	 		plotwinrefresh.start;
 
-			"To zoom in/out: Shift + right-click + mouse-up/down".postln;
-			"To scroll: right-click + mouse-left/right".postln;
-		});
-		this.updateplot(abuf); // draw the data and refresh
-	}
+	 		"To zoom in/out: Shift + right-click + mouse-up/down".postln;
+	 		"To scroll: right-click + mouse-left/right".postln;
+	 	});
+	 	this.updateplot(abuf); // draw the data and refresh
+	 }
 
 	updateplot {|buf| // draw the choosen buffer
 		if (plotwin.isNil.not, {
 			var f = { |b,v|
 				b.loadToFloatArray(action: { |a| { v.setData(a) }.defer });
-				v.gridResolution(b.duration/10); // I would like to divide the window in 10 parts no matter what the sound dur is. Cannot change gridRes on the fly?
+				//v.gridResolution(b.duration/10); // I would like to divide the window in 10 parts no matter what the sound dur is. Cannot change gridRes on the fly?
 			};
-
-			// TO DO: thiss does not work for some reason. maybe something to do with the supercollider version
-			/*{
-				plotview.timeCursorOn = true;
-				plotview.setSelectionStart(0, (buf.numFrames*buf.numChannels) * st); // loop the selection
-				plotview.setSelectionSize(0, (buf.numFrames*buf.numChannels) * (end-st));
-				plotview.readSelection.refresh;
-			}.defer;*/
-
 			if (buf.isNil.not, {f.(buf, plotview)}); // only if a buf is provided
 		});
 	}
 
+	openControlGUI{
+		var gap=0, height=0, f;
+		if (controlGUI.isNil, {
+			controlGUI = Window("All players", Rect(500, 200, 500, 700));
+			controlGUI.alwaysOnTop = true;
+
+			controlGUI.front;
+			controlGUI.onClose = {
+				controlGUI = nil;
+				plotwinrefresh.stop;
+			}; // needed?
+			"OPENING CONTROL GUI".postln;
+
+			height = controlGUI.bounds.height/howmany;
+
+			// 		"To zoom in/out: Shift + right-click + mouse-up/down".postln;
+			// 		"To scroll: right-click + mouse-left/right".postln;
+			views.do({|view, index|
+				views[index] = SoundFileView(controlGUI, Rect(0, height*index, controlGUI.bounds.width, height))
+				.elasticMode_(true)
+				.timeCursorOn_(true)
+				.timeCursorColor_(Color.red)
+				.drawsWaveForm_(true)
+				.gridOn_(true)
+				//.gridResolution_(10)
+				.gridColor_(Color.white)
+				.waveColors_([ Color.new255(103, 148, 103), Color.new255(103, 148, 103) ])
+				.background_(Color.new255(155, 205, 155))
+				.canFocus_(false)
+				.setSelectionColor(0, Color.blue)
+				.currentSelection_(0)
+				.setEditableSelectionStart(0, true)
+				.setEditableSelectionSize(0, true)
+				//.readFile(sfs[index], 0, sfs[index].numFrames) // file to display
+				//.setData(sfs[index].data)
+				.mouseDownAction_({ |view, x, y, mod, buttonNumber| // update selection bounds
+					ps[index].boundsA( x.linlin(0, view.bounds.width, 0,1) )
+				})
+				.mouseUpAction_({ |view, x, y, mod|
+					ps[index].boundsB( x.linlin(0, view.bounds.width, 0,1) )
+				});
+
+				this.newplotdata(ps[index].buf, views[index]);
+			});
+
+			plotwinrefresh = Task({
+				inf.do({|index|
+					views.do({|view, index|
+						//[index, ps[index].curpos].postln;
+						view.timeCursorPosition = ps[index].curpos * sfs[index].numFrames * sfs[index].numChannels; //(buf.numFrames*buf.numChannels);
+						0.1.wait;
+					});
+				})
+			}, AppClock);
+			plotwinrefresh.start;
+		});
+	}
+
+	newplotdata {|buf, view|
+		if (controlGUI.isNil.not, {
+			buf.loadToFloatArray(action: { |a| { view.setData(a) }.defer })
+		})
+	}
+
+	newselection {|st, end, view, buf|
+		if (controlGUI.isNil.not, {
+			view.setSelectionStart(0, (buf.numFrames*buf.numChannels) * st); // loop the selection
+			view.setSelectionSize(0, (buf.numFrames*buf.numChannels) * (end-st));
+		})
+	}
 }
 
