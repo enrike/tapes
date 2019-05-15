@@ -10,77 +10,108 @@ Layers{
 	var buses, <compressor;
 	var volume=1;
 
-	*new {| path = "~/", num = 24 |
-		^super.new.initLayers( path, num );
+	*new {| path = "~/", main, symbol="@" |
+		^super.new.initLayers( path, main, symbol );
 	}
 
-	initLayers {| apath, anum |
-		var limit;
-		server = Server.default;
+	initLayers {| apath, amain, asym |
 		path = apath;
-		howmany = anum;
-
-		views = Array.fill(howmany, {0});
+		("path is"+apath).postln;
 
 		procs = Dictionary.new; // stores all tasks
 
-		("path is"+apath).postln;
+		if (amain.isNil.not, {this.lang(amain, asym)});// preprocessor
+	}
+
+
+	lang {|main, symbol="@"|
+		var layervar = "~layers";//++Date.seed;
+
+		// this is to be able to use the systems using @ instead of l. and @1 instead of l.ps.[1]
+		// the global could have some random name to avoid collisions
+
+		//amain.interpret(layervar) = this;
+
+		~layers = this;
+
+		symbol.postln;
+
+		// should preProcessor = nil; when this is killed
+		main.preProcessor = { |code|
+			1000.do({|num|
+				code = code.replace(symbol++num.asString, layervar++".ps["++num.asString++"]"); // get each layer w @N
+			});
+			code = code.replace(symbol++"all", layervar++".ps");// array with all layers
+			code = code.replace(symbol, layervar++"."); // get the instance of this class
+		};
+	}
+
+	boot {|anum=6|
+		howmany = anum;
 		("players:"+howmany.asString).postln;
 
-		SynthDef( \StPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, index=0, trig=0, reset=0,
-			ampgate=0, ampdur=0, amptarget=1, ampcur=nil,
-			rategate=0, ratedur=0, ratetarget=1, ratecur=nil,
-			pangate=0, pandur=0, pantarget=1, pancur=nil;
+		views = Array.fill(howmany, {0});
 
-			var length, left, right, phasor, dur, env;
+		server = Server.default;
+		server.waitForBoot({
 
-			rate = EnvGen.kr(Env.new(levels: [ rate, ratetarget ], times: [ ratedur ], curve: ratecur), rategate);
-			env = EnvGen.kr(Env.new(levels: [ amp, amptarget ], times: [ ampdur ], curve: ampcur), ampgate);
-			pan = EnvGen.kr(Env.new(levels: [ pan, pantarget ], times: [ pandur ], curve: pancur), pangate);
+			SynthDef( \StPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, index=0, trig=0, reset=0,
+				ampgate=0, ampdur=0, amptarget=1, ampcur=nil,
+				rategate=0, ratedur=0, ratetarget=1, ratecur=nil,
+				pangate=0, pandur=0, pantarget=1, pancur=nil;
 
-			dur = BufFrames.kr(buffer);
-			phasor = Phasor.ar( trig, rate * BufRateScale.kr(buffer), start*dur, end*dur, resetPos: reset*dur);
-			SendTrig.kr( LFPulse.kr(12, 0), index, phasor/dur); //fps 12
+				var length, left, right, phasor, dur, env;
 
-			#left, right = BufRd.ar( 2, buffer, phasor, 1 ) * amp * env;
-			Out.ar(out, Balance2.ar(left, right, pan));
-		}).load;
+				rate = EnvGen.kr(Env.new(levels: [ rate, ratetarget ], times: [ ratedur ], curve: ratecur), rategate);
+				env = EnvGen.kr(Env.new(levels: [ amp, amptarget ], times: [ ampdur ], curve: ampcur), ampgate);
+				pan = EnvGen.kr(Env.new(levels: [ pan, pantarget ], times: [ pandur ], curve: pancur), pangate);
 
-		//Compander.ar(in: 0.0, control: 0.0, thresh: 0.5, slopeBelow: 1.0, slopeAbove: 1.0, clampTime: 0.01, relaxTime: 0.1, mul: 1.0, add: 0.0)
-		SynthDef(\comp, {|inbus=0, thr=0.5, slb=0.9, sla=0.5|
-			var signal = Compander.ar(In.ar(inbus, 2), In.ar(inbus, 2), thr, slopeBelow:slb, slopeAbove:sla);
-			Out.ar(0, signal);
-		}).load(server);
+				dur = BufFrames.kr(buffer);
+				phasor = Phasor.ar( trig, rate * BufRateScale.kr(buffer), start*dur, end*dur, resetPos: reset*dur);
+				SendTrig.kr( LFPulse.kr(12, 0), index, phasor/dur); //fps 12
 
-		this.free;
+				#left, right = BufRd.ar( 2, buffer, phasor, 1 ) * amp * env;
+				Out.ar(out, Balance2.ar(left, right, pan));
+			}).load;
 
-		if (PathName.new(path).isFile, {
-			sfs = List.newUsing( [SoundFile(path)] );
-		}, {
-			sfs = List.newUsing( SoundFile.collect( path++"*") ); // if a folder apply wildcards
-		});
+			//Compander.ar(in: 0.0, control: 0.0, thresh: 0.5, slopeBelow: 1.0, slopeAbove: 1.0, clampTime: 0.01, relaxTime: 0.1, mul: 1.0, add: 0.0)
+			SynthDef(\comp, {|inbus=0, thr=0.5, slb=0.9, sla=0.5|
+				var signal = Compander.ar(In.ar(inbus, 2), In.ar(inbus, 2), thr, slopeBelow:slb, slopeAbove:sla);
+				Out.ar(0, signal);
+			}).load(server);
 
-		bufs = Array.new(sfs.size);
-		// load ALL buffers
-		sfs.size.do({ arg n;
-			var buf = Buffer.read(server, sfs.wrapAt(n).path);
-			bufs = bufs.add( buf )
-		});
+			this.free;
 
-		(sfs.size + "buffers available").postln;
-		"... loading ... please wait ...".postln;
-
-		buses = Bus.audio(server, 2);
-		compressor = Synth(\comp, [\inbus, buses]);
-
-		{
-			ps.collect(_.free);
-			ps = Array.new(sfs.size);
-
-			howmany.do({arg index;
-				ps = ps.add( Layer.new(index, bufs.wrapAt(index), buses));
+			if (PathName.new(path).isFile, {
+				sfs = List.newUsing( [SoundFile(path)] );
+			}, {
+				sfs = List.newUsing( SoundFile.collect( path++"*") ); // if a folder apply wildcards
 			});
-		}.defer(4)
+
+			bufs = Array.new(sfs.size);// all files in the dir
+
+			// load ALL buffers
+			sfs.size.do({ arg n;
+				var buf = Buffer.read(server, sfs.wrapAt(n).path);
+				bufs = bufs.add( buf )
+			});
+
+			(sfs.size + "buffers available").postln;
+			"... loading ... please wait ...".postln;
+
+			buses = Bus.audio(server, 2);
+			compressor = Synth(\comp, [\inbus, buses]);
+
+			{// wait until all bufs had been loaded
+				ps.collect(_.free);
+				ps = Array.new(sfs.size);
+
+				howmany.do({arg index;
+					ps = ps.add( Layer.new(index, bufs.wrapAt(index), buses));
+				});
+			}.defer(3);
+
+		})
 	}
 
 	// TODO: a function to load all buffers from a directory
@@ -333,6 +364,18 @@ Layers{
 		})
 	}
 
+	fwd {|time=0, curve=\lin, offset=0|
+		ps.do({ |pl|
+			{pl.fwd(time, curve)}.defer(offset.asFloat.rand)
+		})
+	}
+
+	bwd {|time=0, curve=\lin, offset=0|
+		ps.do({ |pl|
+			{pl.bwd(time, curve)}.defer(offset.asFloat.rand)
+		})
+	}
+
 	rdir {|curve=\lin, offset=0|
 		ps.do({ |pl|
 			{pl.rdir}.defer(offset.asFloat.rand)
@@ -448,7 +491,7 @@ Layers{
 	sch {|name="", function, sleep=5.0, random=0, offset=0| // offset is passed to functions so that local events are not at the same time
 		var atask;
 
-		if (name=="", {"TASKS MUST HAVE A NAME".postln; ^false}); // TO DO: must be a string or symbol. sanitize
+		if (name=="", {"TASKS MUST HAVE A NAME".postln; ^false}); // TO DO: name must be a string or symbol. sanitize
 
 		if (procs[name].isNil.not, { this.stopT(name) }); // kill if already there before rebirth
 
@@ -458,18 +501,14 @@ Layers{
 			inf.do({|index|
 				var time = ""+Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second;
 				function.value(offset:offset); //CHECK: somehow the offsets gets added after the provided args
-				if( (name != ""), {("-- now:"+name++time).postln});
-				if (random!=0) {sleep = sleep + rrand(random.asFloat.neg, random.asFloat)};
+				if (name != "") {("-- now:"+name++time).postln};
+				if (random!=0) {sleep = sleep + rrand(random.asFloat.neg, random.asFloat)};// +/- rand gets added to sleep
 				sleep.wait
 			});
 		});
 
 		atask.start;
 		this.addTask(name, atask) // to keep track of them
-	}
-
-	gui {|test| // TO DO: a gui to see all layers
-
 	}
 
 	////////////////////////////
@@ -489,55 +528,55 @@ Layers{
 	/////////////////
 
 
-	 plot {|abuf|
-	 	//if (plotwin.isNil.not, {plotwin.close});
-	 	if (plotwin.isNil, {
-	 		// to do: bigger size win and view
-	 		// move playhead as it plays?
-	 		plotwin = Window("All players", Rect(100, 200, 600, 300));
-	 		plotwin.alwaysOnTop=true;
-	 		//plotwin.setSelectionColor(0, Color.red);
-	 		plotwin.front;
-	 		plotwin.onClose = {
-	 			plotwinrefresh.stop;
-	 			plotwin = nil;
-	 		}; // needed?
+	plot {|abuf|
+		//if (plotwin.isNil.not, {plotwin.close});
+		if (plotwin.isNil, {
+			// to do: bigger size win and view
+			// move playhead as it plays?
+			plotwin = Window("All players", Rect(100, 200, 600, 300));
+			plotwin.alwaysOnTop=true;
+			//plotwin.setSelectionColor(0, Color.red);
+			plotwin.front;
+			plotwin.onClose = {
+				plotwinrefresh.stop;
+				plotwin = nil;
+			}; // needed?
 
-	 		plotview = SoundFileView(plotwin, Rect(0, 0, 600, 300))
-	 		.elasticMode_(true)
-	 		.timeCursorOn_(true)
-	 		.timeCursorColor_(Color.red)
-	 		.drawsWaveForm_(true)
-	 		.gridOn_(true)
-	 		.gridResolution_(10)
-	 		.gridColor_(Color.white)
-	 		.waveColors_([ Color.new255(103, 148, 103), Color.new255(103, 148, 103) ])
-	 		.background_(Color.new255(155, 205, 155))
-	 		.canFocus_(false)
-	 		.setSelectionColor(0, Color.grey);
+			plotview = SoundFileView(plotwin, Rect(0, 0, 600, 300))
+			.elasticMode_(true)
+			.timeCursorOn_(true)
+			.timeCursorColor_(Color.red)
+			.drawsWaveForm_(true)
+			.gridOn_(true)
+			.gridResolution_(10)
+			.gridColor_(Color.white)
+			.waveColors_([ Color.new255(103, 148, 103), Color.new255(103, 148, 103) ])
+			.background_(Color.new255(155, 205, 155))
+			.canFocus_(false)
+			.setSelectionColor(0, Color.grey);
 
-	 		drawview = UserView(plotwin, Rect(0, 0, 600, 300))
-	 		.drawFunc_({ arg view; // AND CAN DRAW AS WELL
-	 			ps.do({|ps, index|
-	 				Pen.line( ps.curpos*600 @ 0, ps.curpos*600 @ 300 ); //playhead
-	 			});
-	 			Pen.stroke;
-	 		});
+			drawview = UserView(plotwin, Rect(0, 0, 600, 300))
+			.drawFunc_({ arg view; // AND CAN DRAW AS WELL
+				ps.do({|ps, index|
+					Pen.line( ps.curpos*600 @ 0, ps.curpos*600 @ 300 ); //playhead
+				});
+				Pen.stroke;
+			});
 
-	 		plotwinrefresh = Task({
-	 			inf.do({|index|
-	 				//plotwin.refresh;
-	 				drawview.refresh;
-	 				0.1.wait;
-	 			})
-	 		}, AppClock);
-	 		plotwinrefresh.start;
+			plotwinrefresh = Task({
+				inf.do({|index|
+					//plotwin.refresh;
+					drawview.refresh;
+					0.1.wait;
+				})
+			}, AppClock);
+			plotwinrefresh.start;
 
-	 		"To zoom in/out: Shift + right-click + mouse-up/down".postln;
-	 		"To scroll: right-click + mouse-left/right".postln;
-	 	});
-	 	this.updateplot(abuf); // draw the data and refresh
-	 }
+			"To zoom in/out: Shift + right-click + mouse-up/down".postln;
+			"To scroll: right-click + mouse-left/right".postln;
+		});
+		this.updateplot(abuf); // draw the data and refresh
+	}
 
 	updateplot {|buf| // draw the choosen buffer
 		if (plotwin.isNil.not, {
@@ -582,6 +621,7 @@ Layers{
 				.currentSelection_(0)
 				.setEditableSelectionStart(0, true)
 				.setEditableSelectionSize(0, true)
+				//.readFile(SoundFile(ps[index].buf.path), 0, ps[index].buf.numFrames) // file to display
 				//.readFile(sfs[index], 0, sfs[index].numFrames) // file to display
 				//.setData(sfs[index].data)
 				.mouseDownAction_({ |view, x, y, mod, buttonNumber| // update selection bounds
@@ -609,7 +649,7 @@ Layers{
 
 	newplotdata {|buf, view|
 		if (controlGUI.isNil.not, {
-			buf.loadToFloatArray(action: { |a| { view.setData(a) }.defer })
+			//buf.loadToFloatArray(action: { |a| { view.setData(a) }.defer })
 		})
 	}
 
