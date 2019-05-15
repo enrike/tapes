@@ -32,7 +32,7 @@ Layer{
 
 		statesDic = Dictionary.new;
 
-		("ready layer"+id).postln;
+		("ready layer @"++id).postln;
 	}
 
 	/*newplayer {|asynth| // experimental. not used.
@@ -235,6 +235,12 @@ Layer{
 		if (rate<0, {this.reverse})
 	}
 	gobwd {
+		if (rate>0, {this.reverse})
+	}
+	fwd {
+		if (rate<0, {this.reverse})
+	}
+	bwd {
 		if (rate>0, {this.reverse})
 	}
 
