@@ -186,7 +186,7 @@ Layer{
 	}
 
 	pan {|apan=nil, time=0, curve=\lin|
-		if (pan.isNil.not, {
+		if (apan.isNil.not, {
 			pan = apan;
 			play.set(\pancur, curve);
 			play.set(\pangate, 0);
@@ -228,6 +228,14 @@ Layer{
 		this.vol(vol+0.02)
 	}
 
+	fadeout {|time=1, curve=\exp|
+		this.vol(0, time, curve)
+	}
+
+	fadein {|time=1, curve=\exp|
+		this.vol(vol, time, curve)
+	}
+
 	rate {|arate=nil, time=0, curve=\lin|
 		if (arate.isNil.not, {
 			rate = arate;
@@ -241,7 +249,6 @@ Layer{
 
 			this.post("rate", rate);
 		}, {
-			"return rate".postln;
 			^rate
 		})
 	}
@@ -250,7 +257,8 @@ Layer{
 		this.rate(rate.neg)
 	}
 
-	boom {|target=0, tIn=1, tStay=0.5, tOut=1, curve=\lin| // boomerang like pitch change
+	// mirror? boomerang??
+	mirror {|target=0, tIn=1, tStay=0.5, tOut=1, curve=\lin| // boomerang like pitch change
 		var restore = rate;//
 		this.rate(target, tIn, curve);
 		{this.rate(restore, tOut, curve)}.defer(tIn+tStay);
@@ -302,7 +310,7 @@ Layer{
 		})
 	}
 
-	end {|p=0|
+	end {|p|
 		if (p.isNil.not, {
 			end=p;
 			play.set(\end, end)
@@ -345,7 +353,7 @@ Layer{
 			buf = abuf;
 			play.set(\buffer, buf.bufnum);
 			this.post("buffer", this.file());
-			//this.updateplot; //only if w open
+			this.updateplot; //only if w open
 		}, {
 			^buf
 		})

@@ -5,7 +5,10 @@ license GPL
 Layers allows to create and control multiple layers of samplers
 */
 
-// use @? this collides with 5@6
+/* use @? this collides with 5@6 points. # colllides with #a,b=[1,2]
+@N.plot not implemened
+bounds, rbounds and bbounds decide whether they should be one or two args or 4@4 or some other solution
+*/
 
 
 (
@@ -18,7 +21,7 @@ a = "/home/r2d2/Mahaigaina/audio/00_mbv/isntanything/";
 Layers(a, this);
 )
 
-@boot(4);
+@boot(12);
 
 @plot(@bufs[0])
 
@@ -26,6 +29,7 @@ Layers(a, this);
 @resume;
 @info;
 )
+
 @verbose(true)
 @rate(1)
 
@@ -36,7 +40,7 @@ Layers(a, this);
 @fwd
 @bwd
 @rdir
-@rrate
+@rrate1
 @rjump
 @plot
 
@@ -62,16 +66,10 @@ Layers(a, this);
 
 
 
-
-
-
-
 // to create a single independent layer out of the main control
 n = Buffer.new(s, "~/tm-2018-06-01T14_40_59.flac") // load a buffer
 m = Layer.new(1000, n); //1000 is just any unique ID
 m.resume;
-// or to control a single layer from Layers
-@0.pause
 
 
 
@@ -84,18 +82,19 @@ m.resume;
 
 
 /////////////////////////////////////
-// global controls. for all layers //
+// global controls. control all layers at the same time //
 /////////////////////////////////////
 
-@allbufs // posts buffers available
+@bufs // posts buffers available
 @curbufs // posts buffers actually being used by which players
-@ps // list containing all players
+@all // list containing all players
+@some // returns a list with randomly chosen layers
 @info // post internal states for all available layers
 @verbose(true)
 @buf( @bufs[34] ); // set this buffer to all layers
 @asignbufs // asign the loaded buffers to layers, it happens by default on Layers.new
-@normalize
-@plot; // draws the play heads of each layer in a window
+@normalize // normalise buffers
+@plot; // draws the play heads of each layer the same window
 @plot(@bufs[4]) // optional pass the buffer to draw on the background of the window. useful when all layers share the same buffer
 
 @resume
@@ -104,18 +103,20 @@ m.resume;
 @reverse // reverse play direction. +rate to -rate and - to +
 @fwd // turn current rate positive
 @bwd // turn current rate negative
-@volu // UP
-@vold // DOWN
+@volu // UP by 2/100th
+@vold // DOWN by 2/100th
 @vol(0.5)
 @fadein
 @fadeout
 @pan(0) //-1 to 1
-@rate(1) // rate
+@rate(1)
 @bounds([0, 0.01]) // st, end. in 0 to 1 range
+@st //bounds start
+@end // bounds end
 @jump(0.5, offset:0.3) // jump there
 @len(600) // length, **in milliseconds** useful if they are using different buffers and you want the same loop duration
 
-@boom
+@mirror
 
 // RESET: calling some functions with no args should reset its corresponding state for instance...
 @reset // reset bounds to 0-1, play from 0, pitch to 1
@@ -392,7 +393,7 @@ var len=10, gap=5, fade=0.5;
 @0.info
 @0.file
 @0.buf
-@10.plot // opens a window that displays the buffer and the current loop selection. it allows to change the selection by click
+@5.plot // opens a window that displays the buffer and the current loop selection. it allows to change the selection by click
 @0.end // get
 @0.st //get
 @0.curpos
@@ -400,7 +401,7 @@ var len=10, gap=5, fade=0.5;
 
 // SET
 @0.buf( @bufs[1] )
-@0.volume( 1 )
+@0.vol(1)
 @0.pan( 0 ) // -1 to 1
 @0.rate(1)
 @0.bounds(0.1, 0.12) // st and end. range 0-1

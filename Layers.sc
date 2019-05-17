@@ -27,18 +27,16 @@ Layers{
 	lang {|main, sym|
 		var layervar = "~layers";//++Date.seed; // ++sym.ascii
 
-		// this is to be able to use the systems using @ instead of l. and @1 instead of l.ps.[1]
+		// this is to be able to use the systems using a symbol instead of l. and symbol1 instead of l.ps.[1]
 		// the global could have some random name to avoid collisions
 
 		//amain.interpret(layervar) = this;
 
 		~layers = this;
 
-		//symbol.postln;
-
-		// should preProcessor = nil; when this is killed
+		// should preProcessor = nil; when instance is killed
 		main.preProcessor = { |code|
-			100.do({|num|
+			100.reverseDo({|num| // reverse to avoid errors with index > 1 digit
 				var dest = layervar++".ps["+num.asString+"]";
 				code = code.replace(sym++num.asString, dest); // get each layer w @N
 			});
@@ -370,9 +368,9 @@ Layers{
 		})
 	}
 
-	boom {|target=0, tIn=1, tStay=0.5, tOut=1, curve=\lin, offset=0| // boomerang like pitch change
+	mirror {|target=0, tIn=1, tStay=0.5, tOut=1, curve=\lin, offset=0| // boomerang like pitch change
 		ps.do({ |pl|
-			{pl.boom(target, tIn, tStay, tOut, curve)}.defer(offset.asFloat.rand)
+			{pl.mirror(target, tIn, tStay, tOut, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
