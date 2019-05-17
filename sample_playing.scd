@@ -15,12 +15,17 @@ l.rrate // all get random rate now
 
 s.boot;// BOOT SERVER FIRST
 
-// CREATE LAYERS: instantiating Layers
+
+
+// CREATE LAYERS //
 // l = Layers.new("pathtofileorfolder", NUMOFLAYERS);
 
 // you can pass the path to a folder with many sounds files
 // each player gets a buffer. if more players than buffers it
 // wraps like (p1->b1, p2->b2, p3->b1 and so on)
+
+
+
 
 //a = "/home/r2d2/Mahaigaina/audio/00works/";
 //a = "/home/r2d2/Mahaigaina/audio/00_mbv/isntanything/";
@@ -29,9 +34,11 @@ a = "/home/r2d2/Mahaigaina/audio/beat_happening_cuts/";
 // you can pass a single soundfile too and all layers play that one
 //a = "/home/r2d2/Mahaigaina/audio/00songs/03_Pinebox_Derby.flac";
 
-
-//l.free
-l = Layers.new(a, 7); // this takes a few seconds... please wait...
+l = Layers.new(a); // this takes a few seconds... please wait...
+l.boot(2)
+// you can have more than one set of Layers at the same time
+l = Layers.new("/some/sounds/", 3);
+f = Layers.new("/other/sounds/", 6);
 
 
 // to create a single independent layer
@@ -68,7 +75,7 @@ l.plot(l.bufs[4]) // optional pass the buffer to draw on the background of the w
 
 l.resume
 l.pause
-l.solo( l.ps[0] ) // pause all but this layer
+l.solo(0) // pause all but this layer
 l.reverse // reverse play direction. +rate to -rate and - to +
 l.gofwd // turn current rate positive
 l.gobwd // turn current rate negative
@@ -82,12 +89,13 @@ l.rat(1) // rate
 l.bounds(0, 0.01) // st, end. in 0 to 1 range
 l.jump(0.5, offset:0.3) // jump there
 l.len(600) // length, **in milliseconds** useful if they are using different buffers and you want the same loop duration
-l.reset // reset bounds to 0-1, play from 0, pitch to 1
 
-// reset: calling some functions with no args should reset its corresponding state for instance...
+
+// RESET: calling some functions with no args should reset its corresponding state for instance...
+l.reset // reset bounds to 0-1, play from 0, pitch to 1
 l.bounds // resets bounds to 0-1
 l.jump // resets rate to 0
-// SAME for l.pan, l.rat, l.vol
+// AND THE SAME with l.pan, l.rat, l.vol
 
 
 // store and retrieve named states. they dont get deleted from memory until the session ends
@@ -145,6 +153,8 @@ l.brat(0.1, 20, \sqr, offset:8) // offset can be use here too
 // scheduling functions
 l.sch(\randpan, {l.rpan}, 15); //schedule a function every N secs. args: NAME, FUNCTION, TICK TIME, OFFSET
 l.sch(\randpan, {l.rpan}, 15, offset:5); // ... optional offset delay so that each layer fires at N+(offset.rand)
+l.sch(\randpan, {l.rpan}, 15, random:1); // rand swing: the next sch will happen after 15 + rrand(-1,+1) secs
+
 l.pauseT(\randpan)
 l.resumeT(\randpan)
 l.stopT(\randpan)

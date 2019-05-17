@@ -4,20 +4,31 @@
 Layer{
 
 	var <id, <play, <curpos;
-	var <buf, <st=0, <end=1, <volume=1, <rate=0, <panning=0; // state variables
+	var buf, st=0, end=1, vol=1, rate=0, pan=0, bus=0, len=0, dur=0, bounds=0; // state variables
 	var memrate=1; // to store rate while paused
 	//var <ptask, <vtask, <rtask;
 	//var plotview, plotwin=nil;
 	var <>statesDic, <>verbose=false;
+//	var test;
 
 	*new {| id=0, buffer = nil, bus |
 		^super.new.initLayer( id, buffer, bus );
 	}
 
+/*	test{|val|
+		if (val.isNil.not, {
+			test = val;
+		}, {
+			^test;
+		})
+	}*/
+
 	initLayer {| aid, abuffer, abus |
 		var initbuf;
 		id = aid; // just in case I need to identify later
 		buf = abuffer;
+
+		bounds = [0,1];
 
 		if(buf.isNil.not, { initbuf = buf.bufnum }); // only if specified. otherwise nil
 
@@ -61,9 +72,9 @@ Layer{
 		state.put(\buf, buf);
 		state.put(\st, st);
 		state.put(\end, end);
-		state.put(\vol, volume);
+		state.put(\vol, vol);
 		state.put(\rate, rate);
-		state.put(\panning, panning);
+		state.put(\panning, pan);
 
 		statesDic[which] = state;
 
@@ -77,11 +88,11 @@ Layer{
 		state = statesDic[which];
 
 		//statesDic.postln;
-		this.setbuf( state[\buf] );
+		this.buf( state[\buf] );
 		this.bounds( state[\st], state[\end] );
 		this.vol( state[\vol] );
-		this.rat( state[\rate] );
-		this.pan( state[\panning] );
+		this.rate( state[\rate] );
+		this.pan( state[pan] );
 		this.post("poping state", which);
 		if(verbose.asBoolean, {["poping state", which].postln});
 	}
@@ -97,16 +108,16 @@ Layer{
 			plotwin.onClose = { plotwin = nil }; // needed?
 
 			plotview = SoundFileView(plotwin, Rect(0, 0, 600, 300))
-			.elasticMode_(true)
-			.timeCursorOn_(true)
-			.timeCursorColor_(Color.red)
-			.drawsWaveForm_(true)
-			.gridOn_(true)
-			.gridResolution_(1)
-			.gridColor_(Color.white)
-			.waveColors_([ Color.new255(103, 148, 103), Color.new255(103, 148, 103) ])
-			.background_(Color.new255(155, 205, 155))
-			.canFocus_(false)
+			.elasticMode(true)
+			.timeCursorOn(true)
+			.timeCursorColor(Color.red)
+			.drawsWaveForm(true)
+			.gridOn(true)
+			.gridResolution(1)
+			.gridColor(Color.white)
+			.waveColors([ Color.new255(103, 148, 103), Color.new255(103, 148, 103) ])
+			.background(Color.new255(155, 205, 155))
+			.canFocus(false)
 			.setSelectionColor(0, Color.grey);
 			plotview.mouseUpAction = {
 				var cs = plotview.selections[plotview.currentSelection];
@@ -141,10 +152,10 @@ Layer{
 	info {
 		("-- Layer"+id+"--").postln;
 		this.file().postln;
-		["volume", volume].postln;
+		["volume", vol].postln;
 		["bounds", st, end].postln;
 		["rate", rate].postln;
-		["panning", panning].postln;
+		["panning", pan].postln;
 		["verbose", verbose].postln;
 		"--------------".postln;
 	}
@@ -165,78 +176,90 @@ Layer{
 		^buf.path.split($/).last;
 	}
 
-	outb {|bus=0|
-		play.set(\out, bus)
+	outb {|abus=nil|
+		if (abus.isNil.not, {
+			bus = abus;
+			play.set(\out, bus)
+		}, {
+			^bus
+		})
 	}
 
-	pan {|apan=0, time=0, curve=\lin|
-		panning = apan;
-		play.set(\pancur, curve);
-		play.set(\pangate, 0);
+	pan {|apan=nil, time=0, curve=\lin|
+		if (pan.isNil.not, {
+			pan = apan;
+			play.set(\pancur, curve);
+			play.set(\pangate, 0);
 
-		play.set(\pantarget, panning);
-		play.set(\pandur, time);
+			play.set(\pantarget, pan);
+			play.set(\pandur, time);
 
-		{play.set(\pangate, 1)}.defer(0.01);
+			{play.set(\pangate, 1)}.defer(0.01);
 
-		this.post("pan", panning);
+			this.post("pan", pan);
+		}, {
+			^pan
+		})
 	}
 
-	vol {|avol=1, time=0, curve=\exp|
-		if (avol< 0, {avol=0}); //lower limit
-		volume = avol;
+	vol {|avol=nil, time=0, curve=\exp|
+		if (avol.isNil.not, {
+			if (avol< 0, {avol=0}); //lower limit
+			vol = avol;
 
-		play.set(\ampcur, curve);
-		play.set(\ampgate, 0);
+			play.set(\ampcur, curve);
+			play.set(\ampgate, 0);
 
-		play.set(\amptarget, volume);
-		play.set(\ampdur, time);
+			play.set(\amptarget, vol);
+			play.set(\ampdur, time);
 
-		{play.set(\ampgate, 1)}.defer(0.01);
+			{play.set(\ampgate, 1)}.defer(0.01);
 
-		this.post("volume", (volume.asString + time.asString + curve.asString) );
+			this.post("volume", (vol.asString + time.asString + curve.asString) );
+		}, {
+			^vol
+		})
 	}
 
 	vold {
-		this.vol(volume-0.02)
+		this.vol(vol-0.02)
 	}
 	volu {
-		this.vol(volume+0.02)
+		this.vol(vol+0.02)
 	}
 
-	rat {|arate=1, time=0, curve=\lin|
-		rate = arate;
-		play.set(\ratecur, curve);
-		play.set(\rategate, 0);
+	rate {|arate=nil, time=0, curve=\lin|
+		if (arate.isNil.not, {
+			rate = arate;
+			play.set(\ratecur, curve);
+			play.set(\rategate, 0);
 
-		play.set(\ratetarget, rate);
-		play.set(\ratedur, time);
+			play.set(\ratetarget, rate);
+			play.set(\ratedur, time);
 
-		{play.set(\rategate, 1)}.defer(0.01);
+			{play.set(\rategate, 1)}.defer(0.01);
 
-		this.post("rate", rate);
+			this.post("rate", rate);
+		}, {
+			"return rate".postln;
+			^rate
+		})
 	}
 
 	reverse {
-		this.rat(rate.neg)
+		this.rate(rate.neg)
 	}
 
 	boom {|target=0, tIn=1, tStay=0.5, tOut=1, curve=\lin| // boomerang like pitch change
 		var restore = rate;//
-		this.rat(target, tIn, curve);
-		{this.rat(restore, tOut, curve)}.defer(tIn+tStay);
+		this.rate(target, tIn, curve);
+		{this.rate(restore, tOut, curve)}.defer(tIn+tStay);
 	}
 
-	mir{ |time=0| // mirror
+	mir { |time=0| // mirror
 		// this should change play mode to mirror <>
 	}
 
-	gofwd {
-		if (rate<0, {this.reverse})
-	}
-	gobwd {
-		if (rate>0, {this.reverse})
-	}
 	fwd {
 		if (rate<0, {this.reverse})
 	}
@@ -247,47 +270,85 @@ Layer{
 	reset {
 		this.bounds(0,1);
 		this.jump(0);
-		this.rat(1);
+		this.rate(1);
 	}
 
-	bounds {|p1=0, p2=1|
-		st = p1; // st and end are variables in this class. they must be updated as well
-		end = p2;
-		play.set(\start, st);
-		play.set(\end, end);
-		this.post("bounds", st.asString+"-"+end.asString);
-		//this.updateplot; //only if w open
+	bounds {|...args|
+		if (args.size==0, {
+			^bounds
+		}, {
+			if (args.size==1, {
+				st = args[0][0]; // st and end are variables in this class. they must be updated as well
+				end = args[0][1]
+			});
+			if (args.size==2, {
+				st = args[0]; // st and end are variables in this class. they must be updated as well
+				end = args[1]
+			});
+
+			play.set(\start, st);
+			play.set(\end, end);
+			this.post("bounds", st.asString+"-"+end.asString);
+			//this.updateplot; //only if w open
+		})
 	}
 
-	boundsA {|p=0| st=p; play.set(\start, st)}
-	boundsB {|p=0| end=p; play.set(\end, end)}
+	st {|p|
+		if (p.isNil.not, {
+			st=p;
+			play.set(\start, st)
+		}, {
+			^st
+		})
+	}
+
+	end {|p=0|
+		if (p.isNil.not, {
+			end=p;
+			play.set(\end, end)
+		}, {
+			^end
+		})
+	}
 
 	dur {|adur|
-		end = st + adur;
-		play.set(\end, end);
-		this.post("end", end);
-		//this.updateplot; //only if w open
+		if (adur.isNil.not, {
+			end = st + adur;
+			play.set(\end, end);
+			this.post("end", end);
+			//this.updateplot; //only if w open
+		}, {
+			^dur
+		})
 	}
 
-	len {|ms=100| // IN MILLISECONDS
-		var adur= ms / ((buf.numFrames/buf.sampleRate)*1000 ); // from millisecs to 0-1
-		this.dur(adur)
+	len {|ms| // IN MILLISECONDS
+		if (ms.isNil.not, {
+			var adur= ms / ((buf.numFrames/buf.sampleRate)*1000 ); // from millisecs to 0-1
+			this.dur(adur)
+		}, {
+			^len
+		})
 	}
 
 	pause {
 		memrate = rate; // store
-		this.rat(0)
+		this.rate(0)
 	}
 
 	resume {
-		this.rat(memrate); // retrieve stored value
+		this.rate(memrate); // retrieve stored value
 	}
 
-	setbuf {|abuf|
-		buf = abuf;
-		play.set(\buffer, buf.bufnum);
-		this.post("buffer", this.file());
-		//this.updateplot; //only if w open
+	buf {|abuf|
+		if (abuf.isNil.not, {
+			buf = abuf;
+			play.set(\buffer, buf.bufnum);
+			this.post("buffer", this.file());
+			//this.updateplot; //only if w open
+		}, {
+			^buf
+		})
 	}
 
 	rvol {|limit=1.0, time=0, curve=\lin |
@@ -333,31 +394,31 @@ Layer{
 		this.updateplot; //only if w open
 	}
 
-	rdir{|time=0, curve=\lin|
-		this.rat(rate * [1,-1].choose, time, curve)
+	rdir {|time=0, curve=\lin|
+		this.rate(rate * [1,-1].choose, time, curve)
 	}
 
-	rrat {|time=0, curve=\lin|
-		this.rat(1.0.rand2, time, curve)
+	rrate {|time=0, curve=\lin|
+		this.rate(1.0.rand2, time, curve)
 	}
 
 	// set start
 	// set len
 
-	bbounds {|range=0.01| this.bounds( st+(range.rand2), end+(range.rand2)) }// single step brown variation
+	bbounds {|range=0.01| this.bounds() }// **** NOT WORKING ***** single step brown variation
 
 	bjump {|range=0.01| this.jump( curpos+(range.rand2)) }// single step brown variation
 
 	bvol {|range=0.05, time=0, curve=\lin|
-		this.vol( volume+(range.rand2), time, curve)
+		this.vol( vol+(range.rand2), time, curve)
 	}// single step brown variation
 
 	bpan {|range=0.1, time=0, curve=\lin|
-		this.pan( panning+(range.rand2), time, curve)
+		this.pan( pan+(range.rand2), time, curve)
 	}
 
-	brat {|range=0.05, time=0, curve=\lin|
-		this.rat( rate+(range.rand2), time, curve )
+	brate {|range=0.05, time=0, curve=\lin|
+		this.rate( rate+(range.rand2), time, curve )
 	}// single step brown variation
 /*
 	brownpos {|step=0.01, sleep=5.0, dsync=0, delta=0|

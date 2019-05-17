@@ -10,7 +10,7 @@ Layers{
 	var buses, <compressor;
 	var volume=1;
 
-	*new {| path = "~/", main, symbol="@" |
+	*new {| path="~/", main=nil, symbol="@" |
 		^super.new.initLayers( path, main, symbol );
 	}
 
@@ -24,8 +24,8 @@ Layers{
 	}
 
 
-	lang {|main, symbol="@"|
-		var layervar = "~layers";//++Date.seed;
+	lang {|main, sym|
+		var layervar = "~layers";//++Date.seed; // ++sym.ascii
 
 		// this is to be able to use the systems using @ instead of l. and @1 instead of l.ps.[1]
 		// the global could have some random name to avoid collisions
@@ -34,15 +34,16 @@ Layers{
 
 		~layers = this;
 
-		symbol.postln;
+		//symbol.postln;
 
 		// should preProcessor = nil; when this is killed
 		main.preProcessor = { |code|
-			1000.do({|num|
-				code = code.replace(symbol++num.asString, layervar++".ps["++num.asString++"]"); // get each layer w @N
+			100.do({|num|
+				var dest = layervar++".ps["+num.asString+"]";
+				code = code.replace(sym++num.asString, dest); // get each layer w @N
 			});
-			code = code.replace(symbol++"all", layervar++".ps");// array with all layers
-			code = code.replace(symbol, layervar++"."); // get the instance of this class
+			code = code.replace(sym++"all", layervar++".ps");// array with all layers
+			code = code.replace(sym, layervar++"."); // get the instance of this class
 		};
 	}
 
@@ -179,10 +180,10 @@ Layers{
 	})
 	}*/
 
-	setbuf {|buf, offset=0|
+	buf {|buf, offset=0|
 		ps.do({ |pl, index|
 			{
-				pl.setbuf(buf);
+				pl.buf(buf);
 				this.newplotdata(buf, views[index]);
 			}.defer(offset.asFloat.rand)
 		})
@@ -190,17 +191,40 @@ Layers{
 
 	asignbufs { // asign buffers sequentially if more layers than buffers then wrap
 		ps.do({ |pl, index|
-			pl.setbuf( bufs.wrapAt(index))
+			pl.buf( bufs.wrapAt(index))
 		})
 	}
 
 	newplayer {|asynth| ps.do({ |pl| pl.newplayer(asynth)}) }
 
-	bounds {|st=0, end=1, offset=0|
+	test{|... args|
+		args.postln;
+		if(args.size==1, {"1".postln})
+	}
+
+	bounds {|p, offset=0|
 		ps.do({ |pl, index|
 			{
-				pl.bounds(st,end);
-				this.newselection(st, end, views[index], pl.buf);
+				pl.bounds(p[0], p[1]);
+				this.newselection(p[0], p[1], views[index], pl.buf);
+			}.defer(offset.asFloat.rand)
+		})
+	}
+
+	st {|pos=0, offset=0|
+		ps.do({ |pl, index|
+			{
+				pl.st(pos);
+				//this.newselection(st, end, views[index], pl.buf);
+			}.defer(offset.asFloat.rand)
+		})
+	}
+
+	end {|pos=1, offset=0|
+			ps.do({ |pl, index|
+			{
+				pl.end(pos);
+				//this.newselection(st, end, views[index], pl.buf);
 			}.defer(offset.asFloat.rand)
 		})
 	}
@@ -280,11 +304,11 @@ Layers{
 			this.rbuf(offset);
 			this.rvol(time, curve, offset);
 			this.rpan(time, curve, offset);
-			this.rrat(time, curve, offset);//??
+			this.rrate(time, curve, offset);//??
 			//this.rdir(time, curve, offset); / not needed
 			this.rbounds(offset);
 			this.rjump;// this should be limited to the current bounds
-			ps.do({ |pl| pl.vol(pl.volume)}); //restore
+			ps.do({ |pl| pl.vol(pl.vol)}); //restore
 		})
 	}
 
@@ -334,33 +358,21 @@ Layers{
 		})
 	}
 
-	rat { |rate=1, time=0, curve=\lin, offset=0|
+	rate { |rate=1, time=0, curve=\lin, offset=0|
 		ps.do({ |pl|
-			{pl.rat(rate, time, curve)}.defer(offset.asFloat.rand)
+			{pl.rate(rate, time, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
 	reverse {|time=0, curve=\lin, offset=0|
 		ps.do({ |pl|
-			{pl.rat(pl.rate.neg, time, curve)}.defer(offset.asFloat.rand)
+			{pl.rate(pl.rate.neg, time, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
 	boom {|target=0, tIn=1, tStay=0.5, tOut=1, curve=\lin, offset=0| // boomerang like pitch change
 		ps.do({ |pl|
 			{pl.boom(target, tIn, tStay, tOut, curve)}.defer(offset.asFloat.rand)
-		})
-	}
-
-	gofwd {|time=0, curve=\lin, offset=0|
-		ps.do({ |pl|
-			{pl.gofwd(time, curve)}.defer(offset.asFloat.rand)
-		})
-	}
-
-	gobwd {|time=0, curve=\lin, offset=0|
-		ps.do({ |pl|
-			{pl.gobwd(time, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -382,16 +394,16 @@ Layers{
 		})
 	}
 
-	rrat {|time=0, curve=\lin, offset=0|
+	rrate {|time=0, curve=\lin, offset=0|
 		ps.do({ |pl|
-			{pl.rrat(time, curve)}.defer(offset.asFloat.rand)
+			{pl.rrate(time, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
 	rbuf {|offset=0|
 		ps.do({ |pl, index|
 			{
-				pl.setbuf(bufs.choose);
+				pl.buf(bufs.choose);
 				this.newplotdata(pl.buf, views[index]);
 			}.defer(offset.asFloat.rand)
 		})
@@ -463,9 +475,9 @@ Layers{
 		})
 	}
 
-	brat {|range=0.01, time=0, curve=\lin, offset=0|
+	brate {|range=0.01, time=0, curve=\lin, offset=0|
 		ps.do({|pl|
-			{pl.brat(range, time, curve)}.defer(offset.asFloat.rand)
+			{pl.brate(range, time, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -607,27 +619,27 @@ Layers{
 			// 		"To scroll: right-click + mouse-left/right".postln;
 			views.do({|view, index|
 				views[index] = SoundFileView(controlGUI, Rect(0, height*index, controlGUI.bounds.width, height))
-				.elasticMode_(true)
-				.timeCursorOn_(true)
-				.timeCursorColor_(Color.red)
-				.drawsWaveForm_(true)
-				.gridOn_(true)
-				//.gridResolution_(10)
-				.gridColor_(Color.white)
-				.waveColors_([ Color.new255(103, 148, 103), Color.new255(103, 148, 103) ])
-				.background_(Color.new255(155, 205, 155))
-				.canFocus_(false)
+				.elasticMode(true)
+				.timeCursorOn(true)
+				.timeCursorColor(Color.red)
+				.drawsWaveForm(true)
+				.gridOn(true)
+				//.gridResolution(10)
+				.gridColor(Color.white)
+				.waveColors([ Color.new255(103, 148, 103), Color.new255(103, 148, 103) ])
+				.background(Color.new255(155, 205, 155))
+				.canFocus(false)
 				.setSelectionColor(0, Color.blue)
-				.currentSelection_(0)
+				.currentSelection(0)
 				.setEditableSelectionStart(0, true)
 				.setEditableSelectionSize(0, true)
 				//.readFile(SoundFile(ps[index].buf.path), 0, ps[index].buf.numFrames) // file to display
 				//.readFile(sfs[index], 0, sfs[index].numFrames) // file to display
 				//.setData(sfs[index].data)
-				.mouseDownAction_({ |view, x, y, mod, buttonNumber| // update selection bounds
+				.mouseDownAction({ |view, x, y, mod, buttonNumber| // update selection bounds
 					ps[index].boundsA( x.linlin(0, view.bounds.width, 0,1) )
 				})
-				.mouseUpAction_({ |view, x, y, mod|
+				.mouseUpAction({ |view, x, y, mod|
 					ps[index].boundsB( x.linlin(0, view.bounds.width, 0,1) )
 				});
 
