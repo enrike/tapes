@@ -1,8 +1,8 @@
-Layers by ixi-audio.net.  2018/04
+Layers by ixi-audio.net  
 
 Supercollider based sample loop system. I use it to control loops of docens of samples at the same time
 
-check the .scd file for usage example.
+check the documentation.scd file for usage example.
 
 License : GNU GPL
 
