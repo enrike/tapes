@@ -18,6 +18,8 @@ Layers{
 		path = apath;
 		("path is"+apath).postln;
 
+		~layers = this; // keep me in a global
+
 		procs = Dictionary.new; // stores all tasks
 
 		if (amain.isNil.not, {this.lang(amain, asym)});// preprocessor
@@ -31,8 +33,6 @@ Layers{
 		// the global could have some random name to avoid collisions
 
 		//amain.interpret(layervar) = this;
-
-		~layers = this;
 
 		// should preProcessor = nil; when instance is killed
 		main.preProcessor = { |code|
@@ -138,6 +138,10 @@ Layers{
 			});
 		})
 		^positives
+	}
+
+	one {
+		^ps.choose;
 	}
 
 	some {|howmany|
@@ -413,7 +417,8 @@ Layers{
 		volume = avol; // remember for the fadein/out
 		ps.do({ |pl|
 			{pl.vol(volume, time, curve)}.defer(offset.asFloat.rand)
-		})
+		});
+		["set vol", avol].postln
 	}
 
 	vold { ps.collect(_.vold) }

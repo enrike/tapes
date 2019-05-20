@@ -238,7 +238,6 @@ Layer{
 	}
 
 	rate {|arate=nil, time=0, curve=\lin|
-		[arate, time, curve].postln;
 		if (arate.isNil.not, {
 			rate = arate;
 			play.set(\ratecur, curve);
