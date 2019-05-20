@@ -4,7 +4,7 @@
 Layer{
 
 	var <id, <play, <curpos;
-	var buf, st=0, end=1, vol=1, rate=0, pan=0, bus=0, len=0, dur=0, bounds=0; // state variables
+	var buf, st=0, end=1, vol=1, rate=0, pan=0, bus=0, len=0, dur=0, bounds=0; // state variables hidden
 	var memrate=1; // to store rate while paused
 	//var <ptask, <vtask, <rtask;
 	//var plotview, plotwin=nil;
@@ -194,7 +194,7 @@ Layer{
 			play.set(\pantarget, pan);
 			play.set(\pandur, time);
 
-			{play.set(\pangate, 1)}.defer(0.01);
+			{play.set(\pangate, 1)}.defer(0.05);
 
 			this.post("pan", pan);
 		}, {
@@ -213,7 +213,7 @@ Layer{
 			play.set(\amptarget, vol);
 			play.set(\ampdur, time);
 
-			{play.set(\ampgate, 1)}.defer(0.01);
+			{play.set(\ampgate, 1)}.defer(0.05);
 
 			this.post("volume", (vol.asString + time.asString + curve.asString) );
 		}, {
@@ -224,6 +224,7 @@ Layer{
 	vold {
 		this.vol(vol-0.02)
 	}
+
 	volu {
 		this.vol(vol+0.02)
 	}
@@ -237,6 +238,7 @@ Layer{
 	}
 
 	rate {|arate=nil, time=0, curve=\lin|
+		[arate, time, curve].postln;
 		if (arate.isNil.not, {
 			rate = arate;
 			play.set(\ratecur, curve);
@@ -245,7 +247,7 @@ Layer{
 			play.set(\ratetarget, rate);
 			play.set(\ratedur, time);
 
-			{play.set(\rategate, 1)}.defer(0.01);
+			{play.set(\rategate, 1)}.defer(0.05);
 
 			this.post("rate", rate);
 		}, {
