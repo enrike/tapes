@@ -204,10 +204,10 @@ Layers{
 		if(args.size==1, {"1".postln})
 	}
 
-	bounds {|p, offset=0|
+	loop {|p, offset=0|
 		ps.do({ |pl, index|
 			{
-				pl.bounds(p[0], p[1]);
+				pl.loop(p[0], p[1]);
 				this.newselection(p[0], p[1], views[index], pl.buf);
 			}.defer(offset.asFloat.rand)
 		})
@@ -299,7 +299,7 @@ Layers{
 
 	/////
 
-	//random file, pan, vol, rate, bounds (st, end), dir and jump
+	//random file, pan, vol, rate, loop (st, end), dir and jump
 	rand {|time=0, curve=\lin, offset=0|
 		ps.do({ |pl|
 			ps.do({ |pl| pl.vol(0)});// mute. necessary?
@@ -308,8 +308,8 @@ Layers{
 			this.rpan(time, curve, offset);
 			this.rrate(time, curve, offset);//??
 			//this.rdir(time, curve, offset); / not needed
-			this.rbounds(offset);
-			this.rjump;// this should be limited to the current bounds
+			this.rloop(offset);
+			this.rjump;// this should be limited to the current loop
 			ps.do({ |pl| pl.vol(pl.vol)}); //restore
 		})
 	}
@@ -333,10 +333,10 @@ Layers{
 		})
 	}
 
-	rbounds {|offset=0|
+	rloop {|offset=0|
 		ps.do({ |pl, index|
 			{
-				pl.rbounds;
+				pl.rloop;
 				this.newselection(pl.st, pl.end, views[index], pl.buf);
 			}.defer(offset.asFloat.rand)
 		})
@@ -451,10 +451,10 @@ Layers{
 
 	//
 
-	bbounds {|range=0.01, time=0, curve=\lin, offset=0|
+	bloop {|range=0.01, time=0, curve=\lin, offset=0|
 		ps.do({|pl, index|
 			{
-				pl.bbounds(range, time, curve);
+				pl.bloop(range, time, curve);
 				this.newselection(pl.st, pl.end, views[index], pl.buf);
 			}.defer(offset.asFloat.rand)
 		})
@@ -517,7 +517,7 @@ Layers{
 				var time = ""+Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second;
 				function.value(offset:offset); //CHECK: somehow the offsets gets added after the provided args
 				if (name != "") {("-- now:"+name++time).postln};
-				if (random!=0) {sleep = sleep + rrand(random.asFloat.neg, random.asFloat)};// +/- rand gets added to sleep
+				if (random!=0) {sleep = sleep + (random.rand2)};// +/- rand gets added to sleep
 				sleep.wait
 			});
 		});
@@ -616,12 +616,12 @@ Layers{
 			}; // needed?
 			"OPENING CONTROL GUI".postln;
 
-			height = controlGUI.bounds.height/howmany;
+			height = controlGUI.loop.height/howmany;
 
 			// 		"To zoom in/out: Shift + right-click + mouse-up/down".postln;
 			// 		"To scroll: right-click + mouse-left/right".postln;
 			views.do({|view, index|
-				views[index] = SoundFileView(controlGUI, Rect(0, height*index, controlGUI.bounds.width, height))
+				views[index] = SoundFileView(controlGUI, Rect(0, height*index, controlGUI.loop.width, height))
 				.elasticMode(true)
 				.timeCursorOn(true)
 				.timeCursorColor(Color.red)
@@ -639,11 +639,11 @@ Layers{
 				//.readFile(SoundFile(ps[index].buf.path), 0, ps[index].buf.numFrames) // file to display
 				//.readFile(sfs[index], 0, sfs[index].numFrames) // file to display
 				//.setData(sfs[index].data)
-				.mouseDownAction({ |view, x, y, mod, buttonNumber| // update selection bounds
-					ps[index].boundsA( x.linlin(0, view.bounds.width, 0,1) )
+				.mouseDownAction({ |view, x, y, mod, buttonNumber| // update selection loop
+					ps[index].loopA( x.linlin(0, view.loop.width, 0,1) )
 				})
 				.mouseUpAction({ |view, x, y, mod|
-					ps[index].boundsB( x.linlin(0, view.bounds.width, 0,1) )
+					ps[index].loopB( x.linlin(0, view.loop.width, 0,1) )
 				});
 
 				this.newplotdata(ps[index].buf, views[index]);
