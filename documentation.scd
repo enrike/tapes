@@ -7,15 +7,17 @@ Layers allows to create and control multiple layers of samplers
 
 /* use @? this collides with 5@6 points. # colllides with #a,b=[1,2]
 @N.plot not implemened
-bounds, rbounds and bbounds decide whether they should be one or two args or 4@4 or some other solution
+loop, rloop and bloop decide whether they should be one or two args or 4@4 or some other solution
 
 len / rlen: if len is in msecs rlen should be in millisecs
+
+is it posible to generate variable names on the fly? like: eval("~layers"+1234) = Layer()
 */
 
 
 (
-//a = "~/Mahaigaina/audio/00works/";
-a = "~/Mahaigaina/audio/00_mbv/isntanything/";
+a = "~/Mahaigaina/audio/00works/";
+//a = "~/Mahaigaina/audio/00_mbv/isntanything/";
 //a = "~/Mahaigaina/audio/00songs/";
 //a = "~/Mahaigaina/audio/beat_happening_cuts/";
 // you can pass a single soundfile too and all layers play that one
@@ -23,18 +25,8 @@ a = "~/Mahaigaina/audio/00_mbv/isntanything/";
 Layers(a, this);
 )
 
+@boot(1); // starts audio and instantiates 4 layers each playing one sample
 
-
-@boot(4); // starts audio and instantiates 4 layers each playing one sample
-
-
-
-
-
-// if you wanted to create a single independent layer out of the main control
-n = Buffer.new(s, "~/tm-2018-06-01T14_40_59.flac") // load a buffer
-m = Layer.new(1000, n); //1000 is just any unique ID
-m.resume;
 
 
 
@@ -42,6 +34,33 @@ m.resume;
 @normalize;
 @vol(0.3);
 @resume; // go play
+)
+
+@buf( @bufs[0] );
+@plot(@bufs[0])
+
+@reset
+@rate
+
+(
+@rdir;
+@sch(\rev, {
+	@bjump(0.01);
+	@reverse;
+}, 0.1, random:0.1)
+)
+
+(
+var st=0.8, end=0, speed=0.001, len=0.01, time=3;
+@sch(\jump, {
+	st = st+(speed.rand);
+	if ( (st+len)>1, {st=0});
+	st.postln;
+	@bpan(0.5, time:time);
+	@rdir;
+	@brate(0.0005);
+	@loop([st, st+len])
+}, time, random:time/3.0)
 )
 
 
@@ -74,17 +93,17 @@ m.resume;
 @fadeout
 @pan(0) //-1 to 1
 @rate(1)
-@bounds([0, 0.01]) // st, end. in 0 to 1 range
-@st(0.5) //bounds start
-@end(0.55) // bounds end
+@loop([0, 0.01]) // st, end. in 0 to 1 range
+@st(0.5) //loop start
+@end(0.55) // loop end
 @jump(0.5) // jump to point in sample
 @len(600) // length, **in milliseconds** useful if they are using different buffers and you want the same loop duration
 
 @mirror // experimental
 
 // RESET: calling some functions with no args should reset its corresponding state for instance...
-@reset // reset bounds to 0-1, play from 0, pitch to 1
-@bounds // resets bounds to 0-1
+@reset // reset loop to 0-1, play from 0, pitch to 1
+@loop // resets loop to 0-1
 @jump // resets pos to 0
 // SAME happens with @pan, @rat, @vol
 
@@ -110,17 +129,17 @@ p.do({|lay| lay.volume(0.3)}) // do whatever with the search results
 @rrate
 @rdir // + or - rate
 @rvol
-@rbounds // 0 to 1
-@rbounds([0.2, 0.1]) // set start and LENGTH limits for the random. in this case start will be rrange(0,0.2) and length start+(0.1.rand)
+@rloop // 0 to 1
+@rloop([0.2, 0.1]) // set start and LENGTH limits for the random. in this case start will be rrange(0,0.2) and length start+(0.1.rand)
 @rst // start point
 @rend // end point (not length)
 @rlen(0.1) // length. in range 0-1
 @rjump
-@rand // random file, pan, vol, rate, dir, bounds (st, end) and jump
+@rand // random file, pan, vol, rate, dir, loop (st, end) and jump
 
 // random walks
-@bbounds // small range jump. range defaults to 0.01
-@bbounds(0.05) // single step small random
+@bloop // small range jump. range defaults to 0.01
+@bloop(0.05) // single step small random
 @bvol // small range jump. range defaults to 0.01
 @bvol(0.05) // single step small random
 @bpan
@@ -173,8 +192,8 @@ p.do({|lay| lay.volume(0.3)}) // do whatever with the search results
 @sch(\brat, {@brate(0.01)}, 10, offset:4)
 @stopT(\brat)
 
-@sch(\bbounds, {@bbounds}, 4, offset:3)
-@stopT(\bbounds)
+@sch(\bloop, {@bloop}, 4, offset:3)
+@stopT(\bloop)
 
 @sch(\bvol, {@bvol}, 4)
 @stopT(\bvol)
@@ -200,11 +219,27 @@ p.do({|lay| lay.volume(0.3)}) // do whatever with the search results
 @stopT(\ramps)
 
 
+( //keeps mirror playing while slowly moving around the same area
+@rdir;
+@sch(\rev, {
+	@bjump(0.01);
+	@reverse
+}, 1, random:0.2)
+)
+
+( // moves forwards jumping
+var st=0, end;
+@sch(\jump, {
+	st = st+(0.001.rand);
+	@loop([st, st+0.001])
+}, 0.8)
+)
+
 (
 var len=10, gap=5, fade=0.5;
 @sch(\rum, {
 	@rbuf;
-	@rdir; @rrate; @rbounds;
+	@rdir; @rrate; @rloop;
 	@fadein(fade);
 	{@fadeout(fade)}.defer(len-gap);
 }, len)
@@ -234,7 +269,7 @@ var len=10, gap=5, fade=0.5;
 @0.vol(1)
 @0.pan(0) // -1 to 1
 @0.rate(1)
-@0.bounds([0.1, 0.12]) // st and end. range 0-1
+@0.loop([0.1, 0.12]) // st and end. range 0-1
 @0.len(1000) // in millisecs!!!
 // and so on...
 
@@ -251,13 +286,13 @@ var len=10, gap=5, fade=0.5;
 @0.pop
 
 // random
-@0.rbounds //
+@0.rloop //
 @0.rst
 @0.rend
 @0.rvol
 @0.rpan
 @0.rrate
 @0.rdir
-@0.bbounds(0.01) // single step small random
+@0.bloop(0.01) // single step small random
 // and so on...
 
