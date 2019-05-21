@@ -4,7 +4,7 @@
 Layer{
 
 	var <id, <play, <curpos;
-	var buf, st=0, end=1, vol=1, rate=0, pan=0, bus=0, len=0, dur=0, bounds=0; // state variables hidden
+	var buf, st=0, end=1, vol=1, rate=0, pan=0, bus=0, len=0, dur=0, loop=0; // state variables hidden
 	var memrate=1; // to store rate while paused
 	//var <ptask, <vtask, <rtask;
 	//var plotview, plotwin=nil;
@@ -28,7 +28,7 @@ Layer{
 		id = aid; // just in case I need to identify later
 		buf = abuffer;
 
-		bounds = [0,1];
+		loop = [0,1];
 
 		if(buf.isNil.not, { initbuf = buf.bufnum }); // only if specified. otherwise nil
 
@@ -89,7 +89,7 @@ Layer{
 
 		//statesDic.postln;
 		this.buf( state[\buf] );
-		this.bounds( state[\st], state[\end] );
+		this.loop( state[\st], state[\end] );
 		this.vol( state[\vol] );
 		this.rate( state[\rate] );
 		this.pan( state[pan] );
@@ -153,7 +153,7 @@ Layer{
 		("-- Layer"+id+"--").postln;
 		this.file().postln;
 		["volume", vol].postln;
-		["bounds", st, end].postln;
+		["loop", st, end].postln;
 		["rate", rate].postln;
 		["panning", pan].postln;
 		["verbose", verbose].postln;
@@ -277,14 +277,14 @@ Layer{
 	}
 
 	reset {
-		this.bounds(0,1);
+		this.loop(0,1);
 		this.jump(0);
 		this.rate(1);
 	}
 
-	bounds {|...args|
+	loop {|...args|
 		if (args.size==0, {
-			^bounds
+			^loop
 		}, {
 			if (args.size==1, {
 				st = args[0][0]; // st and end are variables in this class. they must be updated as well
@@ -297,7 +297,7 @@ Layer{
 
 			play.set(\start, st);
 			play.set(\end, end);
-			this.post("bounds", st.asString+"-"+end.asString);
+			this.post("loop", st.asString+"-"+end.asString);
 			//this.updateplot; //only if w open
 		})
 	}
@@ -378,11 +378,11 @@ Layer{
 		this.jump(target)
 	}
 
-	rbounds {|st_range=1, len_range=1|
+	rloop {|st_range=1, len_range=1|
 		st = st_range.asFloat.rand;
 		end = st + len_range.asFloat.rand;
 		if (end>1, {end=1}); //limit. maybe not needed
-		this.bounds(st, end);
+		this.loop(st, end);
 	}
 
 	rst {|range=1.0|
@@ -414,7 +414,7 @@ Layer{
 	// set start
 	// set len
 
-	bbounds {|range=0.01| this.bounds() }// **** NOT WORKING ***** single step brown variation
+	bloop {|range=0.01| this.loop() }// **** NOT WORKING ***** single step brown variation
 
 	bjump {|range=0.01| this.jump( curpos+(range.rand2)) }// single step brown variation
 
@@ -445,7 +445,7 @@ Layer{
 					if(end>1, {end=1});
 					if(st>(1-len), {st=(1-len)});// limits
 					//if(end>(1-len), {end=(1-len)});
-					this.bounds(st, end)
+					this.loop(st, end)
 				}.defer(dsync.asFloat.rand); //out of sync all of them?
 				sleep.wait;
 			});
