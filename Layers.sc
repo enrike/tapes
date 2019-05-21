@@ -616,12 +616,12 @@ Layers{
 			}; // needed?
 			"OPENING CONTROL GUI".postln;
 
-			height = controlGUI.loop.height/howmany;
+			height = controlGUI.bounds.height/howmany;
 
 			// 		"To zoom in/out: Shift + right-click + mouse-up/down".postln;
 			// 		"To scroll: right-click + mouse-left/right".postln;
 			views.do({|view, index|
-				views[index] = SoundFileView(controlGUI, Rect(0, height*index, controlGUI.loop.width, height))
+				views[index] = SoundFileView(controlGUI, Rect(0, height*index, controlGUI.bounds.width, height))
 				.elasticMode(true)
 				.timeCursorOn(true)
 				.timeCursorColor(Color.red)
@@ -640,10 +640,10 @@ Layers{
 				//.readFile(sfs[index], 0, sfs[index].numFrames) // file to display
 				//.setData(sfs[index].data)
 				.mouseDownAction({ |view, x, y, mod, buttonNumber| // update selection loop
-					ps[index].loopA( x.linlin(0, view.loop.width, 0,1) )
+					ps[index].loopA( x.linlin(0, view.bounds.width, 0,1) )
 				})
 				.mouseUpAction({ |view, x, y, mod|
-					ps[index].loopB( x.linlin(0, view.loop.width, 0,1) )
+					ps[index].loopB( x.linlin(0, view.bounds.width, 0,1) )
 				});
 
 				this.newplotdata(ps[index].buf, views[index]);
