@@ -5,63 +5,57 @@ license GPL
 Layers allows to create and control multiple layers of samplers
 */
 
-/* use @? this collides with 5@6 points. # colllides with #a,b=[1,2]
+
+
+
+
+/* use @? this collides with 5@6 points. # colllides with #a,b=[1,2]. maybe use regexp in preprocesor?
 @N.plot not implemened
 loop, rloop and bloop decide whether they should be one or two args or 4@4 or some other solution
 
+@plot all layers bufs in same window with playheads
+
 len / rlen: if len is in msecs rlen should be in millisecs
 
-is it posible to generate variable names on the fly? like: eval("~layers"+1234) = Layer()
+@r -> rate
+@rr -> rrate
+@br -> @brate
+etc...?
+
 */
 
 
-(
+Layers(this); // First: set up the system
+
+( //then load samples from that folder
 a = "~/Mahaigaina/audio/00works/";
 //a = "~/Mahaigaina/audio/00_mbv/isntanything/";
 //a = "~/Mahaigaina/audio/00songs/";
 //a = "~/Mahaigaina/audio/beat_happening_cuts/";
 // you can pass a single soundfile too and all layers play that one
 //a = "~/Mahaigaina/audio/00songs/03_Pinebox_Derby.flac";
-Layers(a, this);
+@loadfiles(a)
 )
 
-@boot(1); // starts audio and instantiates 4 layers each playing one sample
+// now instantiate N layers each playing one of the loaded files.
+// if more layers than sound files it wraps
+@do(4);
 
-
+// you could load new files and asign them again
+@loadfiles("some/another/directory"); // must wait until files are loaded
+@asignbufs // force re-asigns them
+//you could do it manually as well
+@2.buf( @bufs[5] ) // etc...
 
 
 ( //initial situation. for instance
-@normalize;
-@vol(0.3);
+@normalize; // normalize buffers
+@vol(0.5);
 @resume; // go play
 )
 
-@buf( @bufs[0] );
-@plot(@bufs[0])
 
-@reset
-@rate
 
-(
-@rdir;
-@sch(\rev, {
-	@bjump(0.01);
-	@reverse;
-}, 0.1, random:0.1)
-)
-
-(
-var st=0.8, end=0, speed=0.001, len=0.01, time=3;
-@sch(\jump, {
-	st = st+(speed.rand);
-	if ( (st+len)>1, {st=0});
-	st.postln;
-	@bpan(0.5, time:time);
-	@rdir;
-	@brate(0.0005);
-	@loop([st, st+len])
-}, time, random:time/3.0)
-)
 
 
 //////////////////////////////////////////////////////////
@@ -96,31 +90,33 @@ var st=0.8, end=0, speed=0.001, len=0.01, time=3;
 @loop([0, 0.01]) // st, end. in 0 to 1 range
 @st(0.5) //loop start
 @end(0.55) // loop end
-@jump(0.5) // jump to point in sample
+@go(0.5) // go to point in sample
 @len(600) // length, **in milliseconds** useful if they are using different buffers and you want the same loop duration
 
-@mirror // experimental
+@scratch // experimental
 
 // RESET: calling some functions with no args should reset its corresponding state for instance...
 @reset // reset loop to 0-1, play from 0, pitch to 1
 @loop // resets loop to 0-1
-@jump // resets pos to 0
-// SAME happens with @pan, @rat, @vol
+@go // resets pos to 0
+// SAME happens with @pan, @rate, @vol
 
 
 // store and retrieve named states. they dont get deleted from memory until the session ends
 @push(\dut)
 @pop(\dut)
-@save // save current states from memblahblahory into a file.
+@save // save current states from memory into a file.
 @save("caos") // optionally provide a name. if no name is provided it uses the timestamp
 @load // open a dialogue to search for a file containg states
+
+@control // opens a window with all layers. you can control de loop selection
 
 // search. identify which layers are playing which sound file
 p = @search("Roll") //return a list of layers whose buffer contains this string in the file name. no case sensitive
 p.do({|lay| lay.volume(0.3)}) // do whatever with the search results
 
 //random
-@one
+@one // choose and return a random layer
 @some // returns a list with a random number of random players
 @some(3) // returns a list with N random items from all players
 
@@ -134,16 +130,16 @@ p.do({|lay| lay.volume(0.3)}) // do whatever with the search results
 @rst // start point
 @rend // end point (not length)
 @rlen(0.1) // length. in range 0-1
-@rjump
-@rand // random file, pan, vol, rate, dir, loop (st, end) and jump
+@rgo // go to a random point in the sound
+@rand // random file, pan, vol, rate, dir, loop (st, end) and go
 
 // random walks
-@bloop // small range jump. range defaults to 0.01
+@bloop // small range go. range defaults to 0.01
 @bloop(0.05) // single step small random
-@bvol // small range jump. range defaults to 0.01
+@bvol // small range go. range defaults to 0.01
 @bvol(0.05) // single step small random
 @bpan
-@bjump(0.9)
+@bgo(0.9)
 @brate
 
 
@@ -175,12 +171,12 @@ p.do({|lay| lay.volume(0.3)}) // do whatever with the search results
 
 @pauseT(\randpan)
 @resumeT(\randpan)
-@stopT(\randpan)
+@stopT(\randpan) // STOPS the task
 @procs // dictionary containing all Tasks alive
 @noT; // kills all tasks
 
 // some examples of scheduling tasks
-@sch(\backtoinit, {@reset}, 10)
+@sch(\backtoinit, {@reset}, 10) // resets every 10s
 @stopT(\backtoinit)
 
 @sch(\rev, {@reverse}, 10, offset:5)
@@ -198,8 +194,8 @@ p.do({|lay| lay.volume(0.3)}) // do whatever with the search results
 @sch(\bvol, {@bvol}, 4)
 @stopT(\bvol)
 
-@sch(\bjump, {@bjump(0.01)}, 1, offset:1)
-@stopT(\bjump)
+@sch(\bgo, {@bgo(0.01)}, 1, offset:1)
+@stopT(\bgo)
 
 @sch(\rst, {@rst}, 15, offset:10)
 @stopT(\rst)
@@ -222,14 +218,14 @@ p.do({|lay| lay.volume(0.3)}) // do whatever with the search results
 ( //keeps mirror playing while slowly moving around the same area
 @rdir;
 @sch(\rev, {
-	@bjump(0.01);
+	@bgo(0.01);
 	@reverse
 }, 1, random:0.2)
 )
 
-( // moves forwards jumping
+( // moves forwards going
 var st=0, end;
-@sch(\jump, {
+@sch(\go, {
 	st = st+(0.001.rand);
 	@loop([st, st+0.001])
 }, 0.8)
@@ -245,6 +241,19 @@ var len=10, gap=5, fade=0.5;
 }, len)
 )
 
+(
+var st=0, end=0, speed=0.001, len=0.01, time=3;
+@sch(\go, {
+	st = st+(speed.rand);
+	if ( (st+len)>1, {st=0});
+	st.postln;
+	@bpan(0.5, time:time);
+	@rdir;
+	@brate(0.0005);
+	@loop([st, st+len])
+}, time, random:time/3.0)
+)
+
 
 
 ///////////////////////////////
@@ -258,10 +267,9 @@ var len=10, gap=5, fade=0.5;
 @0.info
 @0.file
 @0.buf
-@5.plot // opens a window that displays the buffer and the current loop selection. it allows to change the selection by click
-@0.end // get
-@0.st //get
-@0.curpos
+@0.end
+@0.st
+@0.curpos // 0-1 playhead position
 @0.verbose
 
 // SET
@@ -278,7 +286,7 @@ var len=10, gap=5, fade=0.5;
 @0.fadein(100)
 @0.fadeout(5)
 @0.pause
-@0.jump(0.7) // go there now
+@0.go(0.7)
 // and so on...
 
 // memory

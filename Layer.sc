@@ -6,10 +6,9 @@ Layer{
 	var <id, <play, <curpos;
 	var buf, st=0, end=1, vol=1, rate=0, pan=0, bus=0, len=0, dur=0, loop=0; // state variables hidden
 	var memrate=1; // to store rate while paused
-	//var <ptask, <vtask, <rtask;
-	//var plotview, plotwin=nil;
+	var >view=nil;
+	//var >win=nil;
 	var <>statesDic, <>verbose=false;
-//	var test;
 
 	*new {| id=0, buffer = nil, bus |
 		^super.new.initLayer( id, buffer, bus );
@@ -97,57 +96,14 @@ Layer{
 		if(verbose.asBoolean, {["poping state", which].postln});
 	}
 
-/*	plot {
-		if (plotwin.isNil, {
-			// to do: bigger size win and view
-			// move playhead as it plays?
-			plotwin = Window("Buffer"+id, Rect(100, 200, 600, 300));
-			plotwin.alwaysOnTop=true;
-			//plotwin.setSelectionColor(0, Color.red);
-			plotwin.front;
-			plotwin.onClose = { plotwin = nil }; // needed?
-
-			plotview = SoundFileView(plotwin, Rect(0, 0, 600, 300))
-			.elasticMode(true)
-			.timeCursorOn(true)
-			.timeCursorColor(Color.red)
-			.drawsWaveForm(true)
-			.gridOn(true)
-			.gridResolution(1)
-			.gridColor(Color.white)
-			.waveColors([ Color.new255(103, 148, 103), Color.new255(103, 148, 103) ])
-			.background(Color.new255(155, 205, 155))
-			.canFocus(false)
-			.setSelectionColor(0, Color.grey);
-			plotview.mouseUpAction = {
-				var cs = plotview.selections[plotview.currentSelection];
-				st = (cs[0]/buf.numFrames)/buf.numChannels;
-				end = ((cs[0]+cs[1])/buf.numFrames)/buf.numChannels; //because view wants start and duration
-				play.set(\start, st);
-				play.set(\end, end);
-				["new loop:", st, end].postln;
-			};
-			"To zoom in/out: Shift + right-click + mouse-up/down".postln;
-			"To scroll: right-click + mouse-left/right".postln;
-		});
-		this.updateplot; // draw the data and refresh
-	}
-
-	updateplot {
-		if (plotwin.isNil.not, {
-			var f = { |b,v| b.loadToFloatArray(action: { |a| { v.setData(a) }.defer }) };
-
-			// TO DO: thiss does not work for some reason. maybe something to do with the supercollider version
-			{
-				plotview.timeCursorOn = true;
-				plotview.setSelectionStart(0, (buf.numFrames*buf.numChannels) * st); // loop the selection
-				plotview.setSelectionSize(0, (buf.numFrames*buf.numChannels) * (end-st));
-				plotview.readSelection.refresh;
+	updatelooppoints {
+		{
+				view.timeCursorOn = true;
+				view.setSelectionStart(0, (buf.numFrames*buf.numChannels) * st); // loop the selection
+				view.setSelectionSize(0, (buf.numFrames*buf.numChannels) * (end-st));
+				view.readSelection.refresh;
 			}.defer;
-
-			f.(buf, plotview); //
-		});
-	}*/
+	}
 
 	info {
 		("-- Layer"+id+"--").postln;
@@ -164,7 +120,7 @@ Layer{
 		if (verbose, {[id, action, value].postln});
 	}
 
-	jump {|pos=0|
+	go {|pos=0|
 		if (pos<st, {pos=st}); // limits
 		if (pos>end, {pos=end});
 		play.set(\reset, pos);
@@ -278,7 +234,7 @@ Layer{
 
 	reset {
 		this.loop(0,1);
-		this.jump(0);
+		this.go(0);
 		this.rate(1);
 	}
 
@@ -298,23 +254,25 @@ Layer{
 			play.set(\start, st);
 			play.set(\end, end);
 			this.post("loop", st.asString+"-"+end.asString);
-			//this.updateplot; //only if w open
+			this.updatelooppoints; //only if w open
 		})
 	}
 
 	st {|p|
 		if (p.isNil.not, {
 			st=p;
-			play.set(\start, st)
+			play.set(\start, st);
+			this.updatelooppoints; //only if w open
 		}, {
 			^st
-		})
+		});
 	}
 
 	end {|p|
 		if (p.isNil.not, {
 			end=p;
-			play.set(\end, end)
+			play.set(\end, end);
+			this.updatelooppoints; //only if w open
 		}, {
 			^end
 		})
@@ -325,7 +283,7 @@ Layer{
 			end = st + adur;
 			play.set(\end, end);
 			this.post("end", end);
-			//this.updateplot; //only if w open
+			this.updatelooppoints; //only if w open
 		}, {
 			^dur
 		})
@@ -354,7 +312,7 @@ Layer{
 			buf = abuf;
 			play.set(\buffer, buf.bufnum);
 			this.post("buffer", this.file());
-			this.updateplot; //only if w open
+			this.updatelooppoints; //only if w open
 		}, {
 			^buf
 		})
@@ -373,9 +331,9 @@ Layer{
 		play.set(\buffer, buf.bufnum)
 	}*/
 
-	rjump {|range=1|
+	rgo {|range=1|
 		var target = rrand(st.asFloat, end.asFloat);
-		this.jump(target)
+		this.go(target)
 	}
 
 	rloop {|st_range=1, len_range=1|
@@ -386,21 +344,24 @@ Layer{
 	}
 
 	rst {|range=1.0|
-		st = range.asFloat.rand;
-		play.set(\start, st);
-		this.updateplot; //only if w open
+		//st = range.asFloat.rand;
+		this.start(range.asFloat.rand);
+		//play.set(\start, st);
+		//this.updatelooppoints; //only if w open
 	}
 
 	rend {|range=1.0|
-		end = range.asFloat.rand; // total rand
-		play.set(\end, end);
-		this.updateplot; //only if w open
+		this.end(range.asFloat.rand)
+		//end = range.asFloat.rand; // total rand
+		//play.set(\end, end);
+		//this.updatelooppoints; //only if w open
 	}
 
 	rlen {|range=0.5|
-		end = st + range.asFloat.rand; // rand from st point
-		play.set(\end, end);
-		this.updateplot; //only if w open
+		this.end(st + range.asFloat.rand)
+		//end = st + range.asFloat.rand; // rand from st point
+		//play.set(\end, end);
+		//this.updatelooppoints; //only if w open
 	}
 
 	rdir {|time=0, curve=\lin|
@@ -416,7 +377,7 @@ Layer{
 
 	bloop {|range=0.01| this.loop() }// **** NOT WORKING ***** single step brown variation
 
-	bjump {|range=0.01| this.jump( curpos+(range.rand2)) }// single step brown variation
+	bgo {|range=0.01| this.go( curpos+(range.rand2)) }// single step brown variation
 
 	bvol {|range=0.05, time=0, curve=\lin|
 		this.vol( vol+(range.rand2), time, curve)
@@ -429,60 +390,4 @@ Layer{
 	brate {|range=0.05, time=0, curve=\lin|
 		this.rate( rate+(range.rand2), time, curve )
 	}// single step brown variation
-/*
-	brownpos {|step=0.01, sleep=5.0, dsync=0, delta=0|
-		if (sleep <= 0, {sleep = 0.01}); // limit
-		ptask.stop; // CORRECT??
-		ptask = Task({
-			inf.do({ arg i;
-				{
-					var len;
-					st = st + step.asFloat.rand2 + delta;
-					end = end + step.asFloat.rand2;
-					if (end<st, {end=st+0.005}); //correct this!!
-					len = end-st;
-					if(st<0, {st=0});// limits
-					if(end>1, {end=1});
-					if(st>(1-len), {st=(1-len)});// limits
-					//if(end>(1-len), {end=(1-len)});
-					this.loop(st, end)
-				}.defer(dsync.asFloat.rand); //out of sync all of them?
-				sleep.wait;
-			});
-		});
-
-		ptask.start;
-	}
-
-
-	brownvol {|step=0.01, sleep=5.0, dsync=0, delta=0|
-		if (sleep <= 0, {sleep = 0.01}); // limit
-		vtask.stop; // is this CORRECT???
-		vtask = Task({
-			inf.do({ arg i;
-				vol = vol + step.asFloat.rand2 + delta;
-				if (vol<0, {vol=0});// no negative volume values
-				{ play.set(\amp, vol) }.defer(dsync.asFloat.rand); //out of sync all of them?
-				sleep.wait;
-			});
-		});
-
-		vtask.start;
-	}
-
-	brownrate {|step=0.01, sleep=5.0, dsync=0, delta=0|
-		if (sleep <= 0, {sleep = 0.01}); // limit
-		rtask.stop; // is this CORRECT???
-		rtask = Task({
-			inf.do({ arg i;
-				var lag=0;
-				rate = rate + step.asFloat.rand2 + delta;
-				{ play.set(\rate, rate) }.defer(dsync.asFloat.rand); //out of sync all of them?
-				sleep.wait;
-			});
-		});
-
-		rtask.start;
-	}
-	*/
 }

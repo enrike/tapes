@@ -10,47 +10,37 @@ Layers{
 	var buses, <compressor;
 	var volume=1;
 
-	*new {| path="~/", main=nil, symbol="@" |
-		^super.new.initLayers( path, main, symbol );
+	*new {| main=nil, symbol="@" |
+		^super.new.initLayers( main, symbol );
 	}
 
-	initLayers {| apath, amain, asym |
-		path = apath;
-		("path is"+apath).postln;
-
+	initLayers {| amain, asym |
 		~layers = this; // keep me in a global
 
 		procs = Dictionary.new; // stores all tasks
+
+		this.boot;
 
 		if (amain.isNil.not, {this.lang(amain, asym)});// preprocessor
 	}
 
 
 	lang {|main, sym|
-		var layervar = "~layers";//++Date.seed; // ++sym.ascii
+		var layervar = "~layers";
 
-		// this is to be able to use the systems using a symbol instead of l. and symbol1 instead of l.ps.[1]
-		// the global could have some random name to avoid collisions
-
-		//amain.interpret(layervar) = this;
+		// this is to be able to use the systems using a symbol instead of l. and symbol2 instead of l.ps.[2]
 
 		// should preProcessor = nil; when instance is killed
 		main.preProcessor = { |code|
 			100.reverseDo({|num| // reverse to avoid errors with index > 1 digit
 				var dest = layervar++".ps["+num.asString+"]";
-				code = code.replace(sym++num.asString, dest); // get each layer w @N
+				code = code.replace(sym++num.asString, dest); // get each layer w @N. for eg ~layers.ps[2] --> @2
 			});
-			code = code.replace(sym++"all", layervar++".ps");// array with all layers
-			code = code.replace(sym, layervar++"."); // get the instance of this class
+			code = code.replace(sym, layervar++"."); // ~layers. --> @
 		};
 	}
 
-	boot {|anum=6|
-		howmany = anum;
-		("players:"+howmany.asString).postln;
-
-		views = Array.fill(howmany, {0});
-
+	boot {
 		server = Server.default;
 		server.waitForBoot({
 
@@ -79,46 +69,22 @@ Layers{
 				Out.ar(0, signal);
 			}).load(server);
 
-			this.free;
-
-			if (PathName.new(path).isFile, {
-				sfs = List.newUsing( [SoundFile(path)] );
-			}, {
-				sfs = List.newUsing( SoundFile.collect( path++"*") ); // if a folder apply wildcards
-			});
-
-			bufs = Array.new(sfs.size);// all files in the dir
-
-			// load ALL buffers
-			sfs.size.do({ arg n;
-				var buf = Buffer.read(server, sfs.wrapAt(n).path);
-				bufs = bufs.add( buf )
-			});
-
-			(sfs.size + "buffers available").postln;
-			"... loading ... please wait ...".postln;
-
 			buses = Bus.audio(server, 2);
 			compressor = Synth(\comp, [\inbus, buses]);
-
-			{// wait until all bufs had been loaded
-				ps.collect(_.free);
-				ps = Array.new(sfs.size);
-
-				howmany.do({arg index;
-					ps = ps.add( Layer.new(index, bufs.wrapAt(index), buses));
-				});
-			}.defer(3);
-
 		})
 	}
 
-	// TODO: a function to load all buffers from a directory
-	loadall {|path| // flag to overwrite or add to existing array???
-		sfs = List.newUsing( SoundFile.collect( path ) );
-		//sfs.clear; // delete all items
-		this.free;
-		bufs = Array.new(sfs.size);
+	loadfiles {|apath="~/"|
+		path = apath;
+		("path is"+apath).postln;
+
+		if (PathName.new(apath).isFile, {
+			sfs = List.newUsing( [SoundFile(apath)] );
+		}, {
+			sfs = List.newUsing( SoundFile.collect( apath++"*") ); // if a folder apply wildcards
+		});
+
+		bufs = Array.new(sfs.size);// all files in the dir
 
 		// load ALL buffers
 		sfs.size.do({ arg n;
@@ -127,8 +93,26 @@ Layers{
 		});
 
 		(sfs.size + "buffers available").postln;
-		"... loading ... please wait ...".postln;
+		"... loading sound files ...".postln;
 	}
+
+	do {|anum=6|
+		howmany = anum;
+		("creating players:"+howmany.asString).postln;
+
+		views = Array.fill(howmany, {0});
+
+		//{// wait a bit until all bufs had been loaded
+			ps.collect(_.free);
+			ps = Array.new(anum);//sfs.size);
+
+			howmany.do({arg index;
+				ps = ps.add( Layer.new(index, bufs.wrapAt(index), buses));
+			});
+		//}.defer(3);
+	}
+
+	all {^ps}
 
 	search {|st|
 		var positives=[];
@@ -223,7 +207,7 @@ Layers{
 	}
 
 	end {|pos=1, offset=0|
-			ps.do({ |pl, index|
+		ps.do({ |pl, index|
 			{
 				pl.end(pos);
 				//this.newselection(st, end, views[index], pl.buf);
@@ -243,9 +227,9 @@ Layers{
 
 	pause { ps.collect(_.pause) }
 
-	jump {|point=0, offset=0|
+	go {|point=0, offset=0|
 		ps.do({ |pl|
-			{ pl.jump(point) }.defer(offset.asFloat.rand)
+			{ pl.go(point) }.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -299,7 +283,7 @@ Layers{
 
 	/////
 
-	//random file, pan, vol, rate, loop (st, end), dir and jump
+	//random file, pan, vol, rate, loop (st, end), dir and go
 	rand {|time=0, curve=\lin, offset=0|
 		ps.do({ |pl|
 			ps.do({ |pl| pl.vol(0)});// mute. necessary?
@@ -309,7 +293,7 @@ Layers{
 			this.rrate(time, curve, offset);//??
 			//this.rdir(time, curve, offset); / not needed
 			this.rloop(offset);
-			this.rjump;// this should be limited to the current loop
+			this.rgo;// this should be limited to the current loop
 			ps.do({ |pl| pl.vol(pl.vol)}); //restore
 		})
 	}
@@ -327,9 +311,9 @@ Layers{
 		})
 	}
 
-	rjump {|offset=0|
+	rgo {|offset=0|
 		ps.do({ |pl|
-			{pl.rjump}.defer(offset.asFloat.rand)
+			{pl.rgo}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -372,7 +356,7 @@ Layers{
 		})
 	}
 
-	mirror {|target=0, tIn=1, tStay=0.5, tOut=1, curve=\lin, offset=0| // boomerang like pitch change
+	scratch {|target=0, tIn=1, tStay=0.5, tOut=1, curve=\lin, offset=0| // boomerang like pitch change
 		ps.do({ |pl|
 			{pl.mirror(target, tIn, tStay, tOut, curve)}.defer(offset.asFloat.rand)
 		})
@@ -460,9 +444,9 @@ Layers{
 		})
 	}
 
-	bjump {|range=0.01, time=0, curve=\lin, offset=0|
+	bgo {|range=0.01, time=0, curve=\lin, offset=0|
 		ps.do({|pl|
-			{pl.bjump(range, time, curve)}.defer(offset.asFloat.rand)
+			{pl.bgo(range, time, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -603,7 +587,7 @@ Layers{
 		});
 	}
 
-	openControlGUI{
+	control {
 		var gap=0, height=0, f;
 		if (controlGUI.isNil, {
 			controlGUI = Window("All players", Rect(500, 200, 500, 700));
@@ -618,33 +602,41 @@ Layers{
 
 			height = controlGUI.bounds.height/howmany;
 
+			controlGUI.layout = VLayout();
+
 			// 		"To zoom in/out: Shift + right-click + mouse-up/down".postln;
 			// 		"To scroll: right-click + mouse-left/right".postln;
 			views.do({|view, index|
-				views[index] = SoundFileView(controlGUI, Rect(0, height*index, controlGUI.bounds.width, height))
-				.elasticMode(true)
-				.timeCursorOn(true)
-				.timeCursorColor(Color.red)
-				.drawsWaveForm(true)
-				.gridOn(true)
+				views[index] = SoundFileView().timeCursorOn_(true)//controlGUI, Rect(0, height*index, controlGUI.bounds.width, height));
+				.elasticMode_(true)
+				.timeCursorColor_(Color.red)
+				.drawsWaveForm_(true)
+				.gridOn_(true)
 				//.gridResolution(10)
-				.gridColor(Color.white)
-				.waveColors([ Color.new255(103, 148, 103), Color.new255(103, 148, 103) ])
-				.background(Color.new255(155, 205, 155))
-				.canFocus(false)
+				.gridColor_(Color.white)
+				.waveColors_([ Color.new255(103, 148, 103), Color.new255(103, 148, 103) ])
+				.background_(Color.new255(155, 205, 155))
+				.canFocus_(false)
 				.setSelectionColor(0, Color.blue)
-				.currentSelection(0)
+				.currentSelection_(0)
 				.setEditableSelectionStart(0, true)
 				.setEditableSelectionSize(0, true)
+
+
 				//.readFile(SoundFile(ps[index].buf.path), 0, ps[index].buf.numFrames) // file to display
 				//.readFile(sfs[index], 0, sfs[index].numFrames) // file to display
 				//.setData(sfs[index].data)
-				.mouseDownAction({ |view, x, y, mod, buttonNumber| // update selection loop
-					ps[index].loopA( x.linlin(0, view.bounds.width, 0,1) )
+
+				.mouseDownAction_({ |view, x, y, mod, buttonNumber| // update selection loop
+					ps[index].st( x.linlin(0, view.bounds.width, 0,1) )
 				})
-				.mouseUpAction({ |view, x, y, mod|
-					ps[index].loopB( x.linlin(0, view.bounds.width, 0,1) )
+				.mouseUpAction_({ |view, x, y, mod|
+					ps[index].end( x.linlin(0, view.bounds.width, 0,1) )
 				});
+
+				controlGUI.layout.add(views[index]);
+
+				ps[index].view = views[index];// to update loop point when they change
 
 				this.newplotdata(ps[index].buf, views[index]);
 			});
@@ -652,7 +644,6 @@ Layers{
 			plotwinrefresh = Task({
 				inf.do({|index|
 					views.do({|view, index|
-						//[index, ps[index].curpos].postln;
 						view.timeCursorPosition = ps[index].curpos * sfs[index].numFrames * sfs[index].numChannels; //(buf.numFrames*buf.numChannels);
 						0.1.wait;
 					});
@@ -664,7 +655,7 @@ Layers{
 
 	newplotdata {|buf, view|
 		if (controlGUI.isNil.not, {
-			//buf.loadToFloatArray(action: { |a| { view.setData(a) }.defer })
+			buf.loadToFloatArray(action: { |a| { view.setData(a) }.defer })
 		})
 	}
 
