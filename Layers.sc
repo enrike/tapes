@@ -27,17 +27,99 @@ Layers{
 
 	lang {|main, sym|
 		var layervar = "~layers";
+		// this is to be able to use the systems using a symbol (like @) instead of ~layers. and symbol2 (eg @2) instead of ~layers.ps[2]
+		main.preProcessor = { |code|
+			// list with all the commands used by layers
+			var mets = ["lp", "loop", "st", "step", "move", "end", "reverse", "go", "loadfiles", "do", "resume", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "all", "one", "some", "info", "verbose", "normalize", "plot", "scratch", "pause", "solo", "fwd", "bwd", "volu", "vold", "vol", "fadein", "fadeout", "pan", "rate", "len", "dur", "reset", "push", "pop", "save", "load", "control", "search", "rbuf", "rrate", "rpan", "rloop", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rand", "bloop", "bpan", "brate", "bvol", "bpan", "bgo", "sch", "comp", "thr", "slb", "sla", "pauseT", "resumeT", "stopT", "noT", "procs"];
 
-		// this is to be able to use the systems using a symbol instead of l. and symbol2 instead of l.ps.[2]
+			mets.do({|met| // @go --> ~layers.go
+				code = code.replace(sym++met, layervar++"."++met);
+			});
+
+			100.reverseDo({|num| // reverse to avoid errors with index > 1 digit
+				var dest = layervar++".ps["+num.asString+"]";
+				code = code.replace(sym++num.asString, dest); // @2 --> ~layers.ps[2]
+			});
+
+			code = code.replace("", ""); // THIS MUST BE HERE OTHERWISE THERE IS SOME WEIRD BUG
+		};
 
 		// should preProcessor = nil; when instance is killed
-		main.preProcessor = { |code|
+		/*main.preProcessor = { |code|
 			100.reverseDo({|num| // reverse to avoid errors with index > 1 digit
 				var dest = layervar++".ps["+num.asString+"]";
 				code = code.replace(sym++num.asString, dest); // get each layer w @N. for eg ~layers.ps[2] --> @2
 			});
-			code = code.replace(sym, layervar++"."); // ~layers. --> @
-		};
+
+			code = code.replace(sym++"loadfiles", layervar++"."++"loadfiles");
+			code = code.replace(sym++"st", layervar++"."++"st");
+			code = code.replace(sym++"end", layervar++"."++"end");
+			code = code.replace(sym++"reverse", layervar++"."++"reverse");
+			code = code.replace(sym++"go", layervar++"."++"go");
+			code = code.replace(sym++"do", layervar++"."++"do");
+			code = code.replace(sym++"resume", layervar++"."++"resume");
+			code = code.replace(sym++"asignbufs", layervar++"."++"asignbufs");
+			code = code.replace(sym++"bufs", layervar++"."++"bufs");
+			code = code.replace(sym++"buf", layervar++"."++"buf");
+			code = code.replace(sym++"curbufs", layervar++"."++"curbufs");
+			code = code.replace(sym++"all", layervar++"."++"all");
+			code = code.replace(sym++"one", layervar++"."++"one");
+			code = code.replace(sym++"some", layervar++"."++"some");
+			code = code.replace(sym++"info", layervar++"."++"info");
+			code = code.replace(sym++"verbose", layervar++"."++"verbose");
+			code = code.replace(sym++"normalize", layervar++"."++"normalize");
+			code = code.replace(sym++"plot", layervar++"."++"plot");
+			code = code.replace(sym++"scratch", layervar++"."++"scratch");
+			code = code.replace(sym++"pause", layervar++"."++"pause");
+			code = code.replace(sym++"solo", layervar++"."++"solo");
+			code = code.replace(sym++"fwd", layervar++"."++"fwd");
+			code = code.replace(sym++"bwd", layervar++"."++"bwd");
+			code = code.replace(sym++"volu", layervar++"."++"volu");
+			code = code.replace(sym++"vold", layervar++"."++"vold");
+			code = code.replace(sym++"vol", layervar++"."++"vol");
+			code = code.replace(sym++"fadein", layervar++"."++"fadein");
+			code = code.replace(sym++"fadeout", layervar++"."++"fadeout");
+			code = code.replace(sym++"pan", layervar++"."++"pan");
+			code = code.replace(sym++"rate", layervar++"."++"rate");
+			code = code.replace(sym++"lp", layervar++"."++"lp"); //loop
+			code = code.replace(sym++"len", layervar++"."++"len");
+			code = code.replace(sym++"reset", layervar++"."++"reset");
+			code = code.replace(sym++"push", layervar++"."++"push");
+			code = code.replace(sym++"pop", layervar++"."++"pop");
+			code = code.replace(sym++"save", layervar++"."++"save");
+			code = code.replace(sym++"load", layervar++"."++"load");
+			code = code.replace(sym++"control", layervar++"."++"control");
+			code = code.replace(sym++"search", layervar++"."++"search");
+			code = code.replace(sym++"rbuf", layervar++"."++"rbuf");
+			code = code.replace(sym++"rpan", layervar++"."++"rpan");
+			code = code.replace(sym++"rrate", layervar++"."++"rrate");
+			code = code.replace(sym++"rvol", layervar++"."++"rvol");
+			code = code.replace(sym++"rdir", layervar++"."++"rdir");
+			code = code.replace(sym++"rgo", layervar++"."++"rgo");
+			code = code.replace(sym++"rand", layervar++"."++"rand");
+			code = code.replace(sym++"rst", layervar++"."++"rst");
+			code = code.replace(sym++"rend", layervar++"."++"rend");
+			code = code.replace(sym++"rloop", layervar++"."++"rloop");
+			code = code.replace(sym++"rand", layervar++"."++"rand");
+			code = code.replace(sym++"bloop", layervar++"."++"bloop");
+			code = code.replace(sym++"bpan", layervar++"."++"bpan");
+			code = code.replace(sym++"brate", layervar++"."++"brate");
+			code = code.replace(sym++"bvol", layervar++"."++"bvol");
+			code = code.replace(sym++"bgo", layervar++"."++"bgo");
+			code = code.replace(sym++"sch", layervar++"."++"sch");
+
+			code = code.replace(sym++"comp", layervar++"."++"comp");
+			code = code.replace(sym++"thr", layervar++"."++"thr");
+			code = code.replace(sym++"slb", layervar++"."++"slb");
+			code = code.replace(sym++"sla", layervar++"."++"sla");
+
+			code = code.replace(sym++"ps", layervar++"."++"ps");
+
+			code = code.replace(sym++"pauseT", layervar++"."++"pauseT");
+			code = code.replace(sym++"resumeT", layervar++"."++"resumeT");
+			code = code.replace(sym++"stopT", layervar++"."++"stopT");
+			code = code.replace(sym++"noT", layervar++"."++"noT");*/
+		//};
 	}
 
 	boot {
@@ -57,16 +139,23 @@ Layers{
 
 				dur = BufFrames.kr(buffer);
 				phasor = Phasor.ar( trig, rate * BufRateScale.kr(buffer), start*dur, end*dur, resetPos: reset*dur);
+				SendTrig.ar(HPZ1.ar(HPZ1.ar(phasor).sign), index, 1); //loop
 				SendTrig.kr( LFPulse.kr(12, 0), index, phasor/dur); //fps 12
 
 				#left, right = BufRd.ar( 2, buffer, phasor, 1 ) * amp * env;
 				Out.ar(out, Balance2.ar(left, right, pan));
 			}).load;
 
-			//Compander.ar(in: 0.0, control: 0.0, thresh: 0.5, slopeBelow: 1.0, slopeAbove: 1.0, clampTime: 0.01, relaxTime: 0.1, mul: 1.0, add: 0.0)
 			SynthDef(\comp, {|inbus=0, thr=0.5, slb=0.9, sla=0.5|
 				var signal = Compander.ar(In.ar(inbus, 2), In.ar(inbus, 2), thr, slopeBelow:slb, slopeAbove:sla);
 				Out.ar(0, signal);
+			}).load(server);
+
+			SynthDef(\rev, {|inbus=0, out=0, mix= 0.33, room= 0.5, damp= 0.5|
+				// FreeVerb2.ar(in, in2, mix: 0.33, room: 0.5, damp: 0.5, mul: 1.0, add: 0.0)
+				var signal = In.ar(inbus, 2);
+				signal = FreeVerb2.ar(signal[0], signal[1], mix, room, damp);
+				Out.ar(out, signal);
 			}).load(server);
 
 			buses = Bus.audio(server, 2);
@@ -102,14 +191,12 @@ Layers{
 
 		views = Array.fill(howmany, {0});
 
-		//{// wait a bit until all bufs had been loaded
-			ps.collect(_.free);
-			ps = Array.new(anum);//sfs.size);
+		ps.collect(_.free);
+		ps = Array.new(anum);//sfs.size);
 
-			howmany.do({arg index;
-				ps = ps.add( Layer.new(index, bufs.wrapAt(index), buses));
-			});
-		//}.defer(3);
+		howmany.do({arg index;
+			ps = ps.add( Layer.new(index, bufs.wrapAt(index), buses));
+		});
 	}
 
 	all {^ps}
@@ -167,6 +254,8 @@ Layers{
 	}*/
 
 	buf {|buf, offset=0|
+		if (buf.isInteger, {buf = bufs[buf]}); // using the index
+
 		ps.do({ |pl, index|
 			{
 				pl.buf(buf);
@@ -183,16 +272,33 @@ Layers{
 
 	newplayer {|asynth| ps.do({ |pl| pl.newplayer(asynth)}) }
 
-	test{|... args|
-		args.postln;
-		if(args.size==1, {"1".postln})
-	}
-
-	loop {|p, offset=0|
+	// limits, bounds, points, hoop, ring, rim, roll
+/*	lp {|p, offset=0| // SCLANG DOES NOT LIKE THAT WE USE THE NAME "LOOP" FOR OUR METHOD. change
+		if (p.isNil, {p=[0,1]});
 		ps.do({ |pl, index|
 			{
-				pl.loop(p[0], p[1]);
+				pl.loop(p[0], p[1]); // this must change NAME as well
 				this.newselection(p[0], p[1], views[index], pl.buf);
+			}.defer(offset.asFloat.rand)
+		})
+	}*/
+
+	step {|gap, offset=0|
+		ps.do({ |pl, index|
+			{
+				pl.loop(pl.st + gap);
+				//this.newselection(st, end, views[index], pl.buf);
+			}.defer(offset.asFloat.rand)
+		})
+	}
+
+	lp {|st, end, shift, grainshift, offset=0| // SCLANG DOES NOT LIKE THAT WE USE THE NAME "LOOP" FOR OUR METHOD. change
+		if (st.isNil, {st=0; end=1}); // reset
+
+		ps.do({ |pl, index|
+			{
+				pl.loop(st, end);
+				this.newselection(st, end, views[index], pl.buf);
 			}.defer(offset.asFloat.rand)
 		})
 	}
@@ -215,7 +321,16 @@ Layers{
 		})
 	}
 
-	len {|ms| ps.do({ |pl| pl.len(ms)}) }
+	dur {|val, offset=0|
+		ps.do({ |pl, index|
+			{
+				pl.dur(val);
+				//this.newselection(st, end, views[index], pl.buf);
+			}.defer(offset.asFloat.rand)
+		})
+	}
+
+	len {|ms| ps.do({ |pl| pl.len(ms)}) } // in msecs
 
 	reset { |offset=0|
 		ps.do({ |pl|
@@ -230,6 +345,12 @@ Layers{
 	go {|point=0, offset=0|
 		ps.do({ |pl|
 			{ pl.go(point) }.defer(offset.asFloat.rand)
+		})
+	}
+
+	move {|pos, offset=0|
+		ps.do({ |pl|
+			{ pl.move(pos) }.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -280,8 +401,6 @@ Layers{
 			})
 		}, fileMode:1)
 	}
-
-	/////
 
 	//random file, pan, vol, rate, loop (st, end), dir and go
 	rand {|time=0, curve=\lin, offset=0|
@@ -469,11 +588,6 @@ Layers{
 	}
 
 	/////// task's stuff ////
-	addTask {|name, task|
-		("-- procs: adding"+name).postln;
-		procs.add(name.asSymbol -> task);
-	}
-
 	noT {
 		procs.collect(_.stop);
 		procs = Dictionary.new;
@@ -481,20 +595,21 @@ Layers{
 
 	stopT {|name|
 		("-- procs: killing"+name).postln;
-		procs[name].stop;
-		procs.removeAt(name);
+		procs[name.asSymbol].stop;
+		procs.removeAt(name.asSymbol);
 	}
-	resumeT {|name| procs[name].resume}
-	pauseT {|name| procs[name].pause}
+	resumeT {|name| procs[name.asSymbol].resume}
+	pauseT {|name| procs[name.asSymbol].pause}
 
 	sch {|name="", function, sleep=5.0, random=0, offset=0| // offset is passed to functions so that local events are not at the same time
 		var atask;
 
-		if (name=="", {"TASKS MUST HAVE A NAME".postln; ^false}); // TO DO: name must be a string or symbol. sanitize
+		if (name=="", {
+			"TASKS MUST HAVE A NAME. Making up one".postln;
+			name = ("T"++Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second).asSymbol;
+		});
 
-		if (procs[name].isNil.not, { this.stopT(name) }); // kill if already there before rebirth
-
-		if (sleep <= 0, {sleep = 0.01}); // force lower limit to task tick resolution
+		if (procs[name.asSymbol].isNil.not, { this.stopT(name.asSymbol) }); // kill if already there before rebirth
 
 		atask = Task({
 			inf.do({|index|
@@ -502,12 +617,24 @@ Layers{
 				function.value(offset:offset); //CHECK: somehow the offsets gets added after the provided args
 				if (name != "") {("-- now:"+name++time).postln};
 				if (random!=0) {sleep = sleep + (random.rand2)};// +/- rand gets added to sleep
+
+				/*	if (random.isArray, { // it would be nice to be able to use choose and wchoose to decide the sleep
+				if (random[0].isArray, //[[values], [weights]]
+				{random = random[0].wchoose(random[1])}, //weight rand from two arrays
+				{random = random.choose} //rand item in array
+				)
+				}, { //rand number
+
+				}); //rand number from 0 to off
+				*/	//sleep.asFloat.rand.wait
+
+				if (sleep <= 0, {sleep = 0.01}); // force lower limit to task tick resolution
 				sleep.wait
 			});
 		});
 
 		atask.start;
-		this.addTask(name, atask) // to keep track of them
+		procs.add(name.asSymbol -> atask);// to keep track of them
 	}
 
 	////////////////////////////
@@ -528,6 +655,7 @@ Layers{
 
 
 	plot {|abuf|
+		plotwin.postln;
 		//if (plotwin.isNil.not, {plotwin.close});
 		if (plotwin.isNil, {
 			// to do: bigger size win and view
@@ -574,7 +702,7 @@ Layers{
 			"To zoom in/out: Shift + right-click + mouse-up/down".postln;
 			"To scroll: right-click + mouse-left/right".postln;
 		});
-		this.updateplot(abuf); // draw the data and refresh
+		this.updateplot( bufs[abuf] ); // draw the data and refresh
 	}
 
 	updateplot {|buf| // draw the choosen buffer

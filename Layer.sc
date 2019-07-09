@@ -4,7 +4,7 @@
 Layer{
 
 	var <id, <play, <curpos;
-	var buf, st=0, end=1, vol=1, rate=0, pan=0, bus=0, len=0, dur=0, loop=0; // state variables hidden
+	var buf, st=0, end=1, vol=1, rate=0, pan=0, bus=0, len=0, dur=0;//, loop=0; // state variables hidden
 	var memrate=1; // to store rate while paused
 	var >view=nil;
 	//var >win=nil;
@@ -27,18 +27,24 @@ Layer{
 		id = aid; // just in case I need to identify later
 		buf = abuffer;
 
-		loop = [0,1];
+		//loop = [0,1];
 
 		if(buf.isNil.not, { initbuf = buf.bufnum }); // only if specified. otherwise nil
 
 		play.free;
 		play = Synth(\StPlayer, [\buffer, initbuf, \rate, rate, \index, id, \out, abus]);
 
-		OSCdef(\playhead++id).clear;
+		OSCdef(\playhead++id).clear; // playhead
 		OSCdef(\playhead++id).free;
 		OSCdef(\playhead++id, {|msg, time, addr, recvPort|
 			if (id==msg[2], { curpos = msg[3] });
 		}, '/tr', NetAddr("127.0.0.1", 57110));
+
+		OSCdef(\loop++id).clear; //loop crossing
+		OSCdef(\loop++id).free;
+		OSCdef(\loop++id, { |msg|
+			if (id==msg[2], { this.done });
+		}, '/tr');
 
 		statesDic = Dictionary.new;
 
@@ -49,6 +55,8 @@ Layer{
 		play.free; // get rid of the old one
 		play = Synth(asynth, [\buffer, buf.bufnum, \rate, rate]);
 	}*/
+
+	done {} // when loop crossing happens
 
 	loadbuf {|server, path| // actually loads a file from disk into the server and sets it as current buffer used by this player
 		var abuf = Buffer.read(server, path);
@@ -97,12 +105,14 @@ Layer{
 	}
 
 	updatelooppoints {
-		{
-				view.timeCursorOn = true;
-				view.setSelectionStart(0, (buf.numFrames*buf.numChannels) * st); // loop the selection
-				view.setSelectionSize(0, (buf.numFrames*buf.numChannels) * (end-st));
-				view.readSelection.refresh;
-			}.defer;
+			if (view.isNil.not, {
+				{
+					view.timeCursorOn = true;
+					view.setSelectionStart(0, (buf.numFrames*buf.numChannels) * st); // loop the selection
+					view.setSelectionSize(0, (buf.numFrames*buf.numChannels) * (end-st));
+					view.readSelection.refresh;
+				}.defer;
+			})
 	}
 
 	info {
@@ -121,11 +131,16 @@ Layer{
 	}
 
 	go {|pos=0|
-		if (pos<st, {pos=st}); // limits
-		if (pos>end, {pos=end});
+		//if (pos<st, {pos=st}); // limits
+		//if (pos>end, {pos=end});
 		play.set(\reset, pos);
 		play.set(\trig, 0);
 		{ play.set(\trig, 1) }.defer(0.05);
+	}
+
+	move {|pos=0|
+		this.loop(pos, pos+(end-st)); //keep len
+		//this.go(pos);
 	}
 
 	file {
@@ -240,16 +255,14 @@ Layer{
 
 	loop {|...args|
 		if (args.size==0, {
-			^loop
+			^[st, end]
 		}, {
-			if (args.size==1, {
-				st = args[0][0]; // st and end are variables in this class. they must be updated as well
-				end = args[0][1]
-			});
-			if (args.size==2, {
-				st = args[0]; // st and end are variables in this class. they must be updated as well
-				end = args[1]
-			});
+			if (args[1].isNil,
+				{end = args[0] + (end-st)}, // keep the len
+				{end = args[1]}
+			);
+
+			st = args[0];
 
 			play.set(\start, st);
 			play.set(\end, end);
@@ -309,6 +322,8 @@ Layer{
 
 	buf {|abuf|
 		if (abuf.isNil.not, {
+			//if (buf.isInteger, {buf = bufs[buf]}); // using the index
+
 			buf = abuf;
 			play.set(\buffer, buf.bufnum);
 			this.post("buffer", this.file());
@@ -345,7 +360,7 @@ Layer{
 
 	rst {|range=1.0|
 		//st = range.asFloat.rand;
-		this.start(range.asFloat.rand);
+		this.st(range.asFloat.rand);
 		//play.set(\start, st);
 		//this.updatelooppoints; //only if w open
 	}

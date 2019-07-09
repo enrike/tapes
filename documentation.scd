@@ -9,11 +9,10 @@ Layers allows to create and control multiple layers of samplers
 
 
 
-/* use @? this collides with 5@6 points. # colllides with #a,b=[1,2]. maybe use regexp in preprocesor?
-@N.plot not implemened
-loop, rloop and bloop decide whether they should be one or two args or 4@4 or some other solution
+/*
+use @? this collides with 5@6 points. # colllides with #a,b=[1,2]. maybe use regexp in preprocesor?
 
-@plot all layers bufs in same window with playheads
+loop, rloop and bloop decide whether they should be one or two args or 4@4 or some other solution
 
 len / rlen: if len is in msecs rlen should be in millisecs
 
@@ -25,37 +24,27 @@ etc...?
 */
 
 
-Layers(this); // First: set up the system
+// 1st: set up the system
+Layers(this);
 
-( //then load samples from that folder
-a = "~/Mahaigaina/audio/00works/";
-//a = "~/Mahaigaina/audio/00_mbv/isntanything/";
-//a = "~/Mahaigaina/audio/00songs/";
-//a = "~/Mahaigaina/audio/beat_happening_cuts/";
-// you can pass a single soundfile too and all layers play that one
-//a = "~/Mahaigaina/audio/00songs/03_Pinebox_Derby.flac";
-@loadfiles(a)
-)
+// 2nd: load all samples from this folder
+@loadfiles( "~/Mahaigaina/audio/00works/" );
+//@loadfiles( "~/Mahaigaina/audio/00_mbv/isntanything/" );
+//@loadfiles( "~/Mahaigaina/audio/00songs/" );
+//@loadfiles( "~/Mahaigaina/audio/beat_happening_cuts/");
 
-// now instantiate N layers each playing one of the loaded files.
+// 3rd: instantiate N layers each playing one of the loaded files.
 // if more layers than sound files it wraps
 @do(4);
+
+@resume; // everything is ready, go play
+
 
 // you could load new files and asign them again
 @loadfiles("some/another/directory"); // must wait until files are loaded
 @asignbufs // force re-asigns them
 //you could do it manually as well
 @2.buf( @bufs[5] ) // etc...
-
-
-( //initial situation. for instance
-@normalize; // normalize buffers
-@vol(0.5);
-@resume; // go play
-)
-
-
-
 
 
 //////////////////////////////////////////////////////////
@@ -69,10 +58,11 @@ a = "~/Mahaigaina/audio/00works/";
 @info // post internal states for all available layers
 @verbose(true)
 @buf( @bufs[1] ); // set this buffer to all layers
+@buf(1); // OR do it by index
 @asignbufs // asign the loaded buffers to layers, it happens by default on Layers.new
 @normalize // normalise buffers
 @plot; // draws the play heads of each layer the same window
-@plot(@bufs[4]) // optional pass the buffer to draw on the background of the window. useful when all layers share the same buffer
+@plot(4) // optional pass the buffer to draw on the background of the window. useful when all layers share the same buffer
 
 @resume
 @pause
@@ -86,18 +76,22 @@ a = "~/Mahaigaina/audio/00works/";
 @fadein
 @fadeout
 @pan(0) //-1 to 1
-@rate(1)
-@loop([0, 0.01]) // st, end. in 0 to 1 range
+@rate()
+
+@lp([0, 0.01]) // st, end. in 0 to 1 range
 @st(0.5) //loop start
 @end(0.55) // loop end
-@go(0.5) // go to point in sample
+@dur(0.006) // loop duration in 0-1 range from st
 @len(600) // length, **in milliseconds** useful if they are using different buffers and you want the same loop duration
+@step(0.01) // move st and end by that step from the current st position
+@move(0.5) // move playhead to that position, set st to that position and calculate the new end maintaning the loop duration
+@go(0.5) // send playhead to point in sample (only works if >st and <end)
 
 @scratch // experimental
 
 // RESET: calling some functions with no args should reset its corresponding state for instance...
 @reset // reset loop to 0-1, play from 0, pitch to 1
-@loop // resets loop to 0-1
+@lp // resets loop to 0-1
 @go // resets pos to 0
 // SAME happens with @pan, @rate, @vol
 
@@ -113,12 +107,15 @@ a = "~/Mahaigaina/audio/00works/";
 
 // search. identify which layers are playing which sound file
 p = @search("Roll") //return a list of layers whose buffer contains this string in the file name. no case sensitive
-p.do({|lay| lay.volume(0.3)}) // do whatever with the search results
+p.do({|lay| lay.vol(0.3)}) // do whatever with the search results
 
 //random
 @one // choose and return a random layer
 @some // returns a list with a random number of random players
 @some(3) // returns a list with N random items from all players
+// for instance
+@one.rrate // one gets random rate
+@some.collect(_.rrate) // some of them get random rate
 
 @rbuf // anyone gets a new buffer randomly
 @rpan
@@ -141,6 +138,8 @@ p.do({|lay| lay.volume(0.3)}) // do whatever with the search results
 @bpan
 @bgo(0.9)
 @brate
+
+
 
 
 // OFFSET:
@@ -168,6 +167,7 @@ p.do({|lay| lay.volume(0.3)}) // do whatever with the search results
 @sch(\randpan, {@rpan}, 15); //schedule a function every N secs. args: NAME, FUNCTION, TICK TIME, OFFSET, RANDOM
 @sch(\randpan, {@rpan}, 15, offset:5); // ... optional offset delay so that each layer fires at N+(offset.rand)
 @sch(\randpan, {@rpan}, 15, random:2); // rand swing: the next sch will happen after 15 + rrand(-2,+2) secs
+
 
 @pauseT(\randpan)
 @resumeT(\randpan)
