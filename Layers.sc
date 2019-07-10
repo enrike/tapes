@@ -30,7 +30,15 @@ Layers{
 		// this is to be able to use the systems using a symbol (like @) instead of ~layers. and symbol2 (eg @2) instead of ~layers.ps[2]
 		main.preProcessor = { |code|
 			// list with all the commands used by layers
-			var mets = ["lp", "loop", "st", "step", "move", "end", "reverse", "go", "loadfiles", "do", "resume", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "all", "one", "some", "info", "verbose", "normalize", "plot", "scratch", "pause", "solo", "fwd", "bwd", "volu", "vold", "vol", "fadein", "fadeout", "pan", "rate", "len", "dur", "reset", "push", "pop", "save", "load", "control", "search", "rbuf", "rrate", "rpan", "rloop", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rand", "bloop", "bpan", "brate", "bvol", "bpan", "bgo", "sch", "comp", "thr", "slb", "sla", "pauseT", "resumeT", "stopT", "noT", "procs"];
+			var mets = [
+				"do", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "all", "one", "some", "info", "verbose", "normalize", "plot", "sch",
+				"scratch", "pause", "solo", "fwd", "bwd", "reverse", "volu", "vold", "vol", "fadein", "fadeout", "pan", "rate", "reset", "resume",
+				"lp", "loop", "st", "step", "move", "end", "go", "dur", "len",
+				"push", "pop", "save", "load", "control", "search",
+				"rbuf", "rrate", "rpan", "rloop", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rand",
+				"bloop", "bpan", "brate", "bvol", "bpan", "bgo",
+				"comp", "thr", "slb", "sla",
+				"pauseT", "resumeT", "stopT", "noT", "procs"];
 
 			mets.do({|met| // @go --> ~layers.go
 				code = code.replace(sym++met, layervar++"."++met);
@@ -43,83 +51,6 @@ Layers{
 
 			code = code.replace("", ""); // THIS MUST BE HERE OTHERWISE THERE IS SOME WEIRD BUG
 		};
-
-		// should preProcessor = nil; when instance is killed
-		/*main.preProcessor = { |code|
-			100.reverseDo({|num| // reverse to avoid errors with index > 1 digit
-				var dest = layervar++".ps["+num.asString+"]";
-				code = code.replace(sym++num.asString, dest); // get each layer w @N. for eg ~layers.ps[2] --> @2
-			});
-
-			code = code.replace(sym++"loadfiles", layervar++"."++"loadfiles");
-			code = code.replace(sym++"st", layervar++"."++"st");
-			code = code.replace(sym++"end", layervar++"."++"end");
-			code = code.replace(sym++"reverse", layervar++"."++"reverse");
-			code = code.replace(sym++"go", layervar++"."++"go");
-			code = code.replace(sym++"do", layervar++"."++"do");
-			code = code.replace(sym++"resume", layervar++"."++"resume");
-			code = code.replace(sym++"asignbufs", layervar++"."++"asignbufs");
-			code = code.replace(sym++"bufs", layervar++"."++"bufs");
-			code = code.replace(sym++"buf", layervar++"."++"buf");
-			code = code.replace(sym++"curbufs", layervar++"."++"curbufs");
-			code = code.replace(sym++"all", layervar++"."++"all");
-			code = code.replace(sym++"one", layervar++"."++"one");
-			code = code.replace(sym++"some", layervar++"."++"some");
-			code = code.replace(sym++"info", layervar++"."++"info");
-			code = code.replace(sym++"verbose", layervar++"."++"verbose");
-			code = code.replace(sym++"normalize", layervar++"."++"normalize");
-			code = code.replace(sym++"plot", layervar++"."++"plot");
-			code = code.replace(sym++"scratch", layervar++"."++"scratch");
-			code = code.replace(sym++"pause", layervar++"."++"pause");
-			code = code.replace(sym++"solo", layervar++"."++"solo");
-			code = code.replace(sym++"fwd", layervar++"."++"fwd");
-			code = code.replace(sym++"bwd", layervar++"."++"bwd");
-			code = code.replace(sym++"volu", layervar++"."++"volu");
-			code = code.replace(sym++"vold", layervar++"."++"vold");
-			code = code.replace(sym++"vol", layervar++"."++"vol");
-			code = code.replace(sym++"fadein", layervar++"."++"fadein");
-			code = code.replace(sym++"fadeout", layervar++"."++"fadeout");
-			code = code.replace(sym++"pan", layervar++"."++"pan");
-			code = code.replace(sym++"rate", layervar++"."++"rate");
-			code = code.replace(sym++"lp", layervar++"."++"lp"); //loop
-			code = code.replace(sym++"len", layervar++"."++"len");
-			code = code.replace(sym++"reset", layervar++"."++"reset");
-			code = code.replace(sym++"push", layervar++"."++"push");
-			code = code.replace(sym++"pop", layervar++"."++"pop");
-			code = code.replace(sym++"save", layervar++"."++"save");
-			code = code.replace(sym++"load", layervar++"."++"load");
-			code = code.replace(sym++"control", layervar++"."++"control");
-			code = code.replace(sym++"search", layervar++"."++"search");
-			code = code.replace(sym++"rbuf", layervar++"."++"rbuf");
-			code = code.replace(sym++"rpan", layervar++"."++"rpan");
-			code = code.replace(sym++"rrate", layervar++"."++"rrate");
-			code = code.replace(sym++"rvol", layervar++"."++"rvol");
-			code = code.replace(sym++"rdir", layervar++"."++"rdir");
-			code = code.replace(sym++"rgo", layervar++"."++"rgo");
-			code = code.replace(sym++"rand", layervar++"."++"rand");
-			code = code.replace(sym++"rst", layervar++"."++"rst");
-			code = code.replace(sym++"rend", layervar++"."++"rend");
-			code = code.replace(sym++"rloop", layervar++"."++"rloop");
-			code = code.replace(sym++"rand", layervar++"."++"rand");
-			code = code.replace(sym++"bloop", layervar++"."++"bloop");
-			code = code.replace(sym++"bpan", layervar++"."++"bpan");
-			code = code.replace(sym++"brate", layervar++"."++"brate");
-			code = code.replace(sym++"bvol", layervar++"."++"bvol");
-			code = code.replace(sym++"bgo", layervar++"."++"bgo");
-			code = code.replace(sym++"sch", layervar++"."++"sch");
-
-			code = code.replace(sym++"comp", layervar++"."++"comp");
-			code = code.replace(sym++"thr", layervar++"."++"thr");
-			code = code.replace(sym++"slb", layervar++"."++"slb");
-			code = code.replace(sym++"sla", layervar++"."++"sla");
-
-			code = code.replace(sym++"ps", layervar++"."++"ps");
-
-			code = code.replace(sym++"pauseT", layervar++"."++"pauseT");
-			code = code.replace(sym++"resumeT", layervar++"."++"resumeT");
-			code = code.replace(sym++"stopT", layervar++"."++"stopT");
-			code = code.replace(sym++"noT", layervar++"."++"noT");*/
-		//};
 	}
 
 	boot {
