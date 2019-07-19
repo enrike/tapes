@@ -14,18 +14,19 @@ Layer{
 		^super.new.initLayer( id, buffer, bus );
 	}
 
-/*	test{|val|
-		if (val.isNil.not, {
-			test = val;
-		}, {
-			^test;
-		})
+	/*	test{|val|
+	if (val.isNil.not, {
+	test = val;
+	}, {
+	^test;
+	})
 	}*/
 
 	initLayer {| aid, abuffer, abus |
 		var initbuf;
 		id = aid; // just in case I need to identify later
 		buf = abuffer;
+		bus = abus;
 
 		//loop = [0,1];
 
@@ -52,8 +53,8 @@ Layer{
 	}
 
 	/*newplayer {|asynth| // experimental. not used.
-		play.free; // get rid of the old one
-		play = Synth(asynth, [\buffer, buf.bufnum, \rate, rate]);
+	play.free; // get rid of the old one
+	play = Synth(asynth, [\buffer, buf.bufnum, \rate, rate]);
 	}*/
 
 	done {} // when loop crossing happens
@@ -105,14 +106,14 @@ Layer{
 	}
 
 	updatelooppoints {
-			if (view.isNil.not, {
-				{
-					view.timeCursorOn = true;
-					view.setSelectionStart(0, (buf.numFrames*buf.numChannels) * st); // loop the selection
-					view.setSelectionSize(0, (buf.numFrames*buf.numChannels) * (end-st));
-					view.readSelection.refresh;
-				}.defer;
-			})
+		if (view.isNil.not, {
+			{
+				view.timeCursorOn = true;
+				view.setSelectionStart(0, (buf.numFrames*buf.numChannels) * st); // loop the selection
+				view.setSelectionSize(0, (buf.numFrames*buf.numChannels) * (end-st));
+				view.readSelection.refresh;
+			}.defer;
+		})
 	}
 
 	info {
@@ -173,9 +174,10 @@ Layer{
 		})
 	}
 
-	vol {|avol=nil, time=0, curve=\exp|
+	vol {|avol=nil, time=0, random=0, curve=\exp|
 		if (avol.isNil.not, {
 			if (avol< 0, {avol=0}); //lower limit
+			avol = avol.asFloat.rand2;
 			vol = avol;
 
 			play.set(\ampcur, curve);
@@ -208,17 +210,24 @@ Layer{
 		this.vol(vol, time, curve)
 	}
 
-	rate {|arate=nil, time=0, curve=\lin|
+	//getrate {
+	//play.get(\rate, { arg value;  ^value});
+	//}
+
+	rate {|arate=nil, time=0, rand=0, curve=\lin|
 		if (arate.isNil.not, {
-			rate = arate;
+			arate = arate + rand.asFloat.rand2;
+			//if (rate != 0, { // only update if playing
 			play.set(\ratecur, curve);
 			play.set(\rategate, 0);
 
-			play.set(\ratetarget, rate);
+			play.set(\ratetarget, arate);
 			play.set(\ratedur, time);
 
 			{play.set(\rategate, 1)}.defer(0.05);
-
+			//});
+			memrate = rate;
+			rate = arate;
 			this.post("rate", rate);
 		}, {
 			^rate
@@ -271,9 +280,9 @@ Layer{
 		})
 	}
 
-	st {|p|
+	st {|p, random=0|
 		if (p.isNil.not, {
-			st=p;
+			st = p + random.asFloat.rand2;
 			play.set(\start, st);
 			this.updatelooppoints; //only if w open
 		}, {
@@ -281,9 +290,9 @@ Layer{
 		});
 	}
 
-	end {|p|
+	end {|p, random=0|
 		if (p.isNil.not, {
-			end=p;
+			end = p + random.asFloat.rand2;
 			play.set(\end, end);
 			this.updatelooppoints; //only if w open
 		}, {
@@ -291,9 +300,9 @@ Layer{
 		})
 	}
 
-	dur {|adur|
+	dur {|adur, random=0|
 		if (adur.isNil.not, {
-			end = st + adur;
+			end = st + adur + random.asFloat.rand2;
 			play.set(\end, end);
 			this.post("end", end);
 			this.updatelooppoints; //only if w open
@@ -320,6 +329,12 @@ Layer{
 		this.rate(memrate); // retrieve stored value
 	}
 
+	shot { // this should play the sound only once but using all the properties. maybe use another synthdef to do it.
+		//if (rate!=0, { this.pause });
+		Synth(\ShotPlayer, [\buffer, buf, \start, st, \end, end, \amp, vol, \rate, memrate,
+			\pan, pan, \index, id, \out, bus]);
+	}
+
 	buf {|abuf|
 		if (abuf.isNil.not, {
 			//if (buf.isInteger, {buf = bufs[buf]}); // using the index
@@ -342,8 +357,8 @@ Layer{
 	}
 
 	/*rbuf {
-		buf = buffers.choose;
-		play.set(\buffer, buf.bufnum)
+	buf = buffers.choose;
+	play.set(\buffer, buf.bufnum)
 	}*/
 
 	rgo {|range=1|
