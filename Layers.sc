@@ -32,7 +32,7 @@ Layers{
 			// list with all the commands used by layers
 			var mets = [
 				"do", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "all", "one", "some", "info", "verbose", "normalize", "plot", "sch",
-				"scratch", "pause", "solo", "fwd", "bwd", "reverse", "volu", "vold", "vol", "fadein", "fadeout", "pan", "rate", "reset", "resume",
+				"scratch", "pause", "solo", "fwd", "bwd", "reverse", "volu", "vold", "vol", "fadein", "fadeout", "pan", "rate", "reset", "resume", "shot",
 				"lp", "loop", "st", "step", "move", "end", "go", "dur", "len",
 				"push", "pop", "save", "load", "control", "search",
 				"rbuf", "rrate", "rpan", "rloop", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rand",
@@ -57,7 +57,7 @@ Layers{
 		server = Server.default;
 		server.waitForBoot({
 
-			SynthDef( \StPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, index=0, trig=0, reset=0,
+			SynthDef( \StPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, index=0, trig=0, reset=0, loop=1,
 				ampgate=0, ampdur=0, amptarget=1, ampcur=nil,
 				rategate=0, ratedur=0, ratetarget=1, ratecur=nil,
 				pangate=0, pandur=0, pantarget=1, pancur=nil;
@@ -73,21 +73,29 @@ Layers{
 				SendTrig.ar(HPZ1.ar(HPZ1.ar(phasor).sign), index, 1); //loop
 				SendTrig.kr( LFPulse.kr(12, 0), index, phasor/dur); //fps 12
 
-				#left, right = BufRd.ar( 2, buffer, phasor, 1 ) * amp * env;
+				#left, right = BufRd.ar( 2, buffer, phasor, loop:loop ) * amp * env;
 				Out.ar(out, Balance2.ar(left, right, pan));
 			}).load;
 
-			SynthDef(\comp, {|inbus=0, thr=0.5, slb=0.9, sla=0.5|
-				var signal = Compander.ar(In.ar(inbus, 2), In.ar(inbus, 2), thr, slopeBelow:slb, slopeAbove:sla);
-				Out.ar(0, signal);
-			}).load(server);
+
+			SynthDef( \ShotPlayer, {|out, buffer=0, amp=1, pan=0, start=0, end=1, rate=1, index=0|
+				var left, right;
+				#left, right = BufRd.ar(2, buffer,
+					Line.ar(start: BufFrames.kr(buffer) * start,
+						end: BufFrames.kr(buffer) * end,
+						dur: BufDur.kr(buffer) * (end-start) / rate, // change this to set rate
+						doneAction: {SendTrig.kr( Impulse.kr(1), index, 1); Done.freeSelf})
+				) ;
+				Out.ar(out, Balance2.ar(left, right, pan) * amp);
+			}).load;
+
 
 			SynthDef(\rev, {|inbus=0, out=0, mix= 0.33, room= 0.5, damp= 0.5|
 				// FreeVerb2.ar(in, in2, mix: 0.33, room: 0.5, damp: 0.5, mul: 1.0, add: 0.0)
 				var signal = In.ar(inbus, 2);
 				signal = FreeVerb2.ar(signal[0], signal[1], mix, room, damp);
 				Out.ar(out, signal);
-			}).load(server);
+			}).load;
 
 			buses = Bus.audio(server, 2);
 			compressor = Synth(\comp, [\inbus, buses]);
@@ -204,14 +212,14 @@ Layers{
 	newplayer {|asynth| ps.do({ |pl| pl.newplayer(asynth)}) }
 
 	// limits, bounds, points, hoop, ring, rim, roll
-/*	lp {|p, offset=0| // SCLANG DOES NOT LIKE THAT WE USE THE NAME "LOOP" FOR OUR METHOD. change
-		if (p.isNil, {p=[0,1]});
-		ps.do({ |pl, index|
-			{
-				pl.loop(p[0], p[1]); // this must change NAME as well
-				this.newselection(p[0], p[1], views[index], pl.buf);
-			}.defer(offset.asFloat.rand)
-		})
+	/*	lp {|p, offset=0| // SCLANG DOES NOT LIKE THAT WE USE THE NAME "LOOP" FOR OUR METHOD. change
+	if (p.isNil, {p=[0,1]});
+	ps.do({ |pl, index|
+	{
+	pl.loop(p[0], p[1]); // this must change NAME as well
+	this.newselection(p[0], p[1], views[index], pl.buf);
+	}.defer(offset.asFloat.rand)
+	})
 	}*/
 
 	step {|gap, offset=0|
@@ -252,10 +260,10 @@ Layers{
 		})
 	}
 
-	dur {|val, offset=0|
+	dur {|val, random=0, offset=0|
 		ps.do({ |pl, index|
 			{
-				pl.dur(val);
+				pl.dur(val, random);
 				//this.newselection(st, end, views[index], pl.buf);
 			}.defer(offset.asFloat.rand)
 		})
@@ -268,6 +276,8 @@ Layers{
 			{ pl.reset }.defer(offset.asFloat.rand)
 		})
 	}
+
+	shot { ps.collect(_.shot) } // single play no loop
 
 	resume { ps.collect(_.resume) }
 
