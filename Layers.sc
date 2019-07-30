@@ -225,7 +225,8 @@ Layers{
 	step {|gap, offset=0|
 		ps.do({ |pl, index|
 			{
-				pl.loop(pl.st + gap);
+				pl.step(gap, offset);
+				//pl.loop(pl.st + gap);
 				//this.newselection(st, end, views[index], pl.buf);
 			}.defer(offset.asFloat.rand)
 		})
@@ -242,7 +243,7 @@ Layers{
 		})
 	}
 
-	st {|pos=0, offset=0|
+	st {|pos=0, random=0, offset=0|
 		ps.do({ |pl, index|
 			{
 				pl.st(pos);
@@ -251,7 +252,7 @@ Layers{
 		})
 	}
 
-	end {|pos=1, offset=0|
+	end {|pos=1, random=0, offset=0|
 		ps.do({ |pl, index|
 			{
 				pl.end(pos);
@@ -289,9 +290,9 @@ Layers{
 		})
 	}
 
-	move {|pos, offset=0|
+	move {|pos, random=0, offset=0|
 		ps.do({ |pl|
-			{ pl.move(pos) }.defer(offset.asFloat.rand)
+			{ pl.move(pos, random) }.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -404,7 +405,7 @@ Layers{
 		})
 	}
 
-	rate { |rate=1, time=0, curve=\lin, offset=0|
+	rate { |rate=1, time=0, random=0, curve=\lin, offset=0|
 		ps.do({ |pl|
 			{pl.rate(rate, time, curve)}.defer(offset.asFloat.rand)
 		})
@@ -606,6 +607,7 @@ Layers{
 			//plotwin.setSelectionColor(0, Color.red);
 			plotwin.front;
 			plotwin.onClose = {
+				"control window closed".postln;
 				plotwinrefresh.stop;
 				plotwin = nil;
 			}; // needed?

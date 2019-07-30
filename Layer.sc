@@ -139,9 +139,15 @@ Layer{
 		{ play.set(\trig, 1) }.defer(0.05);
 	}
 
-	move {|pos=0|
+	move {|pos=0, random=0|
+		pos = pos + random.asFloat.rand2;
 		this.loop(pos, pos+(end-st)); //keep len
 		//this.go(pos);
+	}
+
+	step {|gap=0, random=0|
+		var pos = st + gap + random.asFloat.rand2;
+		this.loop(pos, pos+(end-st))
 	}
 
 	file {
@@ -176,9 +182,10 @@ Layer{
 
 	vol {|avol=nil, time=0, random=0, curve=\exp|
 		if (avol.isNil.not, {
-			if (avol< 0, {avol=0}); //lower limit
-			avol = avol.asFloat.rand2;
-			vol = avol;
+			//if (random>0, {avol = random.asFloat.rand2});
+			avol = avol + random.asFloat.rand2;
+
+			vol = avol.clip(0,1); //limits
 
 			play.set(\ampcur, curve);
 			play.set(\ampgate, 0);
@@ -188,7 +195,7 @@ Layer{
 
 			{play.set(\ampgate, 1)}.defer(0.05);
 
-			this.post("volume", (vol.asString + time.asString + curve.asString) );
+			this.post("volume", (vol.asString + time.asString  + random.asString + curve.asString) );
 		}, {
 			^vol
 		})
@@ -214,9 +221,9 @@ Layer{
 	//play.get(\rate, { arg value;  ^value});
 	//}
 
-	rate {|arate=nil, time=0, rand=0, curve=\lin|
+	rate {|arate=nil, time=0, random=0, curve=\lin|
 		if (arate.isNil.not, {
-			arate = arate + rand.asFloat.rand2;
+			arate = arate + random.asFloat.rand2;
 			//if (rate != 0, { // only update if playing
 			play.set(\ratecur, curve);
 			play.set(\rategate, 0);
@@ -266,11 +273,12 @@ Layer{
 		if (args.size==0, {
 			^[st, end]
 		}, {
-			if (args[1].isNil,
+/*			if (args[1].isNil,
 				{end = args[0] + (end-st)}, // keep the len
 				{end = args[1]}
-			);
+			);*/
 
+			end = args[1];
 			st = args[0];
 
 			play.set(\start, st);
@@ -373,6 +381,11 @@ Layer{
 		this.loop(st, end);
 	}
 
+	rmove {|range=1|
+		// go to random point update the loop points but maintan the length
+		//this.loop()
+	}
+
 	rst {|range=1.0|
 		//st = range.asFloat.rand;
 		this.st(range.asFloat.rand);
@@ -410,11 +423,12 @@ Layer{
 	bgo {|range=0.01| this.go( curpos+(range.rand2)) }// single step brown variation
 
 	bvol {|range=0.05, time=0, curve=\lin|
-		this.vol( vol+(range.rand2), time, curve)
+		[vol, range.asFloat].postln;
+		this.vol( vol+(range.asFloat.rand2), time, curve)
 	}// single step brown variation
 
 	bpan {|range=0.1, time=0, curve=\lin|
-		this.pan( pan+(range.rand2), time, curve)
+		this.pan( pan+(range.asFloat.rand2), time, curve)
 	}
 
 	brate {|range=0.05, time=0, curve=\lin|
