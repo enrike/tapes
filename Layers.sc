@@ -38,7 +38,9 @@ Layers{
 				"rbuf", "rrate", "rpan", "rloop", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rand",
 				"bloop", "bpan", "brate", "bvol", "bpan", "bgo",
 				"comp", "thr", "slb", "sla",
-				"pauseT", "resumeT", "stopT", "noT", "procs"];
+				"pauseT", "resumeT", "stopT", "noT", "procs",
+				"slice"
+			];
 
 			mets.do({|met| // @go --> ~layers.go
 				code = code.replace(sym++met, layervar++"."++met);
@@ -222,6 +224,21 @@ Layers{
 	})
 	}*/
 
+//	     mysttime = self.app.sttime + self.z * self.app.shift
+//       myendtime = mysttime + self.app.grain + self.z * self.app.grainshift
+	slice {|sttime, shift, grain, grainshift, offset=0|
+		ps.do({ |pl, index|
+			var mysttime = sttime + (index * shift);
+			var myendtime = mysttime + grain + (index * grainshift);
+		//	myendtime = myendtime.clip(0,1);
+		//	mysttime = mysttime.clip(0,1);
+			{
+				pl.loop(mysttime, myendtime);
+				this.newselection(mysttime, myendtime, views[index], pl.buf);
+			}.defer(offset.asFloat.rand)
+		})
+	}
+
 	step {|gap, offset=0|
 		ps.do({ |pl, index|
 			{
@@ -232,7 +249,7 @@ Layers{
 		})
 	}
 
-	lp {|st, end, shift, grainshift, offset=0| // SCLANG DOES NOT LIKE THAT WE USE THE NAME "LOOP" FOR OUR METHOD. change
+	lp {|st, end, offset=0| // SCLANG DOES NOT LIKE THAT WE USE THE NAME "LOOP" FOR OUR METHOD. change
 		if (st.isNil, {st=0; end=1}); // reset
 
 		ps.do({ |pl, index|
@@ -664,6 +681,13 @@ Layers{
 			controlGUI = Window("All players", Rect(500, 200, 500, 700));
 			controlGUI.alwaysOnTop = true;
 
+/*
+			drawview = UserView(controlGUI, controlGUI.bounds)
+			.drawFunc_({ arg view; // AND CAN DRAW AS WELL
+				Pen.line( 600 @ 0, 600 @ 300 ); //playhead
+				Pen.stroke;
+			});*/
+
 			controlGUI.front;
 			controlGUI.onClose = {
 				controlGUI = nil;
@@ -721,6 +745,7 @@ Layers{
 				})
 			}, AppClock);
 			plotwinrefresh.start;
+
 		});
 	}
 

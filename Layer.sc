@@ -128,7 +128,7 @@ Layer{
 	}
 
 	post {|action, value|
-		if (verbose, {[id, action, value].postln});
+		if (verbose.asBoolean, {[id, action, value].postln});
 	}
 
 	go {|pos=0|
@@ -283,6 +283,7 @@ Layer{
 
 			play.set(\start, st);
 			play.set(\end, end);
+			//[st, end].postln;
 			this.post("loop", st.asString+"-"+end.asString);
 			this.updatelooppoints; //only if w open
 		})
