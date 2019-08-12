@@ -224,14 +224,14 @@ Layers{
 	})
 	}*/
 
-//	     mysttime = self.app.sttime + self.z * self.app.shift
-//       myendtime = mysttime + self.app.grain + self.z * self.app.grainshift
+	//	     mysttime = self.app.sttime + self.z * self.app.shift
+	//       myendtime = mysttime + self.app.grain + self.z * self.app.grainshift
 	slice {|sttime, shift, grain, grainshift, offset=0|
 		ps.do({ |pl, index|
-			var mysttime = sttime + (index * shift);
-			var myendtime = mysttime + grain + (index * grainshift);
-		//	myendtime = myendtime.clip(0,1);
-		//	mysttime = mysttime.clip(0,1);
+			var mysttime = sttime + (index * (shift/100.0));
+			var myendtime = mysttime + grain + (index * (grainshift/100.0));
+			//	myendtime = myendtime.clip(0,1);
+			//	mysttime = mysttime.clip(0,1);
 			{
 				pl.loop(mysttime, myendtime);
 				this.newselection(mysttime, myendtime, views[index], pl.buf);
@@ -676,32 +676,26 @@ Layers{
 	}
 
 	control {
-		var gap=0, height=0, f;
+		var gap=0, height=0;
 		if (controlGUI.isNil, {
 			controlGUI = Window("All players", Rect(500, 200, 500, 700));
 			controlGUI.alwaysOnTop = true;
-
-/*
-			drawview = UserView(controlGUI, controlGUI.bounds)
-			.drawFunc_({ arg view; // AND CAN DRAW AS WELL
-				Pen.line( 600 @ 0, 600 @ 300 ); //playhead
-				Pen.stroke;
-			});*/
-
 			controlGUI.front;
 			controlGUI.onClose = {
 				controlGUI = nil;
+				ps.do({|play| play.view = nil });
 				plotwinrefresh.stop;
-			}; // needed?
+			};
 			"OPENING CONTROL GUI".postln;
 
-			height = controlGUI.bounds.height/howmany;
+			//height = controlGUI.bounds.height/howmany;
 
 			controlGUI.layout = VLayout();
 
 			// 		"To zoom in/out: Shift + right-click + mouse-up/down".postln;
 			// 		"To scroll: right-click + mouse-left/right".postln;
 			views.do({|view, index|
+				var sf;
 				views[index] = SoundFileView().timeCursorOn_(true)//controlGUI, Rect(0, height*index, controlGUI.bounds.width, height));
 				.elasticMode_(true)
 				.timeCursorColor_(Color.red)
@@ -717,13 +711,12 @@ Layers{
 				.setEditableSelectionStart(0, true)
 				.setEditableSelectionSize(0, true)
 
-
 				//.readFile(SoundFile(ps[index].buf.path), 0, ps[index].buf.numFrames) // file to display
 				//.readFile(sfs[index], 0, sfs[index].numFrames) // file to display
 				//.setData(sfs[index].data)
 
 				.mouseDownAction_({ |view, x, y, mod, buttonNumber| // update selection loop
-					ps[index].st( x.linlin(0, view.bounds.width, 0,1) )
+					ps[index].st( x.linlin(0, view.bounds.width, 0,1) ) // what about when zoomed in?
 				})
 				.mouseUpAction_({ |view, x, y, mod|
 					ps[index].end( x.linlin(0, view.bounds.width, 0,1) )
@@ -731,7 +724,16 @@ Layers{
 
 				controlGUI.layout.add(views[index]);
 
+				// using sound file openRead instead of loading the data from the buffers
+				/*sf = SoundFile.new;
+				sf.openRead(ps[index].buf.path);
+
+				views[index].soundfile = sf;            // set soundfile
+				views[index].read(0, sf.numFrames);     // read in the entire file.
+				views[index].refresh;                  // refresh to display the file.
+*/
 				ps[index].view = views[index];// to update loop point when they change
+				ps[index].updatelooppoints();
 
 				this.newplotdata(ps[index].buf, views[index]);
 			});
@@ -739,26 +741,33 @@ Layers{
 			plotwinrefresh = Task({
 				inf.do({|index|
 					views.do({|view, index|
-						view.timeCursorPosition = ps[index].curpos * sfs[index].numFrames * sfs[index].numChannels; //(buf.numFrames*buf.numChannels);
+						//[index, ps[index].curpos].postln;
+						view.timeCursorPosition = ps[index].curpos * (ps[index].buf.numFrames);
 						0.1.wait;
 					});
+					//"----".postln;
 				})
 			}, AppClock);
 			plotwinrefresh.start;
-
 		});
 	}
 
 	newplotdata {|buf, view|
 		if (controlGUI.isNil.not, {
-			buf.loadToFloatArray(action: { |a| { view.setData(a) }.defer })
+				var sf = SoundFile.new;
+				sf.openRead(buf.path);
+
+				view.soundfile = sf;            // set soundfile
+				view.read(0, sf.numFrames);     // read in the entire file.
+				view.refresh;
+			//buf.loadToFloatArray(action: { |a| { view.setData(a) }.defer })
 		})
 	}
 
 	newselection {|st, end, view, buf|
 		if (controlGUI.isNil.not, {
-			view.setSelectionStart(0, (buf.numFrames*buf.numChannels) * st); // loop the selection
-			view.setSelectionSize(0, (buf.numFrames*buf.numChannels) * (end-st));
+			view.setSelectionStart(0, (buf.numFrames) * st); // loop the selection
+			view.setSelectionSize(0, (buf.numFrames) * (end-st));
 		})
 	}
 }

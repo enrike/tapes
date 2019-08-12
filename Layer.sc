@@ -109,8 +109,8 @@ Layer{
 		if (view.isNil.not, {
 			{
 				view.timeCursorOn = true;
-				view.setSelectionStart(0, (buf.numFrames*buf.numChannels) * st); // loop the selection
-				view.setSelectionSize(0, (buf.numFrames*buf.numChannels) * (end-st));
+				view.setSelectionStart(0, (buf.numFrames) * st); // loop the selection
+				view.setSelectionSize(0, (buf.numFrames) * (end-st));
 				view.readSelection.refresh;
 			}.defer;
 		})
