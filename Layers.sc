@@ -57,6 +57,8 @@ Layers{
 	}
 
 	boot {
+		OSCdef.freeAll;
+
 		server = Server.default;
 		server.waitForBoot({
 
@@ -74,8 +76,9 @@ Layers{
 
 				dur = BufFrames.kr(buffer);
 				phasor = Phasor.ar( trig, rate * BufRateScale.kr(buffer), start*dur, end*dur, resetPos: reset*dur);
-				SendTrig.ar(HPZ1.ar(HPZ1.ar(phasor).sign), index, 1); //loop
-				SendTrig.kr( LFPulse.kr(12, 0), index, phasor/dur); //fps 12
+
+				SendReply.ar( HPZ1.ar(HPZ1.ar(phasor).sign), '/loop', 1, index); //loop point
+				SendReply.kr( LFPulse.kr(12, 0), '/pos', phasor/dur, index); //fps 12
 
 				#left, right = BufRd.ar( 2, buffer, phasor, loop:loop ) * amp * env;
 				Out.ar(out, Balance2.ar(left, right, pan));

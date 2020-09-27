@@ -8,7 +8,7 @@ Layer{
 	var memrate=1; // to store rate while paused
 	var >view=nil;
 	//var >win=nil;
-	var <>statesDic, <>verbose=false;
+	var <>statesDic, <>verbose=false, loopOSC, playheadOSC;
 
 	*new {| id=0, buffer = nil, bus=0 |
 		^super.new.initLayer( id, buffer, bus );
@@ -34,38 +34,36 @@ Layer{
 
 		play.free;
 
-/*		SynthDef( \StPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, index=0, trig=0, reset=0, loop=1,
-				ampgate=0, ampdur=0, amptarget=1, ampcur=nil,
-				rategate=0, ratedur=0, ratetarget=1, ratecur=nil,
-				pangate=0, pandur=0, pantarget=1, pancur=nil;
+		/*		SynthDef( \StPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, index=0, trig=0, reset=0, loop=1,
+		ampgate=0, ampdur=0, amptarget=1, ampcur=nil,
+		rategate=0, ratedur=0, ratetarget=1, ratecur=nil,
+		pangate=0, pandur=0, pantarget=1, pancur=nil;
 
-				var length, left, right, phasor, dur, env;
+		var length, left, right, phasor, dur, env;
 
-/*				rate = EnvGen.kr(Env.new(levels: [ rate, ratetarget ], times: [ ratedur ], curve: ratecur), rategate);
-				env = EnvGen.kr(Env.new(levels: [ amp, amptarget ], times: [ ampdur ], curve: ampcur), ampgate);
-				pan = EnvGen.kr(Env.new(levels: [ pan, pantarget ], times: [ pandur ], curve: pancur), pangate);*/
+		/*				rate = EnvGen.kr(Env.new(levels: [ rate, ratetarget ], times: [ ratedur ], curve: ratecur), rategate);
+		env = EnvGen.kr(Env.new(levels: [ amp, amptarget ], times: [ ampdur ], curve: ampcur), ampgate);
+		pan = EnvGen.kr(Env.new(levels: [ pan, pantarget ], times: [ pandur ], curve: pancur), pangate);*/
 
-				dur = BufFrames.kr(buffer);
-				phasor = Phasor.ar( trig, rate * BufRateScale.kr(buffer), start*dur, end*dur);
-/*				SendTrig.ar(HPZ1.ar(HPZ1.ar(phasor).sign), index, 1); //loop
-				SendTrig.kr( LFPulse.kr(12, 0), index, phasor/dur); //fps 12*/
+		dur = BufFrames.kr(buffer);
+		phasor = Phasor.ar( trig, rate * BufRateScale.kr(buffer), start*dur, end*dur);
+		/*				SendTrig.ar(HPZ1.ar(HPZ1.ar(phasor).sign), index, 1); //loop
+		SendTrig.kr( LFPulse.kr(12, 0), index, phasor/dur); //fps 12*/
 
-				#left, right = BufRd.ar( 2, buffer, phasor, loop:loop ) * amp ;
-				Out.ar(out, Balance2.ar(left, right, pan));
-}).load;*/
+		#left, right = BufRd.ar( 2, buffer, phasor, loop:loop ) * amp ;
+		Out.ar(out, Balance2.ar(left, right, pan));
+		}).load;*/
 		play = Synth(\StPlayer, [\buffer, initbuf, \rate, rate, \index, id, \out, abus]);
 
-		OSCdef(\playhead++id).clear; // playhead
-		OSCdef(\playhead++id).free;
-		OSCdef(\playhead++id, {|msg, time, addr, recvPort|
-			if (id==msg[2], { curpos = msg[3] });
-		}, '/tr', NetAddr("127.0.0.1", 57110));
-
-		OSCdef(\loop++id).clear; //loop crossing
-		OSCdef(\loop++id).free;
-		OSCdef(\loop++id, { |msg|
+		loopOSC.free;
+		loopOSC = OSCdef(\loop++id, {|msg, time, addr, recvPort|
 			if (id==msg[2], { this.done });
-		}, '/tr');
+		}, '/loop');
+
+		playheadOSC.free;
+		playheadOSC = OSCdef(\playhead++id, {|msg, time, addr, recvPort|
+			if (id==msg[2], { curpos = msg[3] });
+		}, '/pos');
 
 		statesDic = Dictionary.new;
 
@@ -297,9 +295,9 @@ Layer{
 		if (args.size==0, {
 			^[st, end]
 		}, {
-/*			if (args[1].isNil,
-				{end = args[0] + (end-st)}, // keep the len
-				{end = args[1]}
+			/*			if (args[1].isNil,
+			{end = args[0] + (end-st)}, // keep the len
+			{end = args[1]}
 			);*/
 
 			end = args[1];
