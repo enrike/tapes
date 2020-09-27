@@ -10,7 +10,7 @@ Layer{
 	//var >win=nil;
 	var <>statesDic, <>verbose=false;
 
-	*new {| id=0, buffer = nil, bus |
+	*new {| id=0, buffer = nil, bus=0 |
 		^super.new.initLayer( id, buffer, bus );
 	}
 
@@ -33,6 +33,26 @@ Layer{
 		if(buf.isNil.not, { initbuf = buf.bufnum }); // only if specified. otherwise nil
 
 		play.free;
+
+/*		SynthDef( \StPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, index=0, trig=0, reset=0, loop=1,
+				ampgate=0, ampdur=0, amptarget=1, ampcur=nil,
+				rategate=0, ratedur=0, ratetarget=1, ratecur=nil,
+				pangate=0, pandur=0, pantarget=1, pancur=nil;
+
+				var length, left, right, phasor, dur, env;
+
+/*				rate = EnvGen.kr(Env.new(levels: [ rate, ratetarget ], times: [ ratedur ], curve: ratecur), rategate);
+				env = EnvGen.kr(Env.new(levels: [ amp, amptarget ], times: [ ampdur ], curve: ampcur), ampgate);
+				pan = EnvGen.kr(Env.new(levels: [ pan, pantarget ], times: [ pandur ], curve: pancur), pangate);*/
+
+				dur = BufFrames.kr(buffer);
+				phasor = Phasor.ar( trig, rate * BufRateScale.kr(buffer), start*dur, end*dur);
+/*				SendTrig.ar(HPZ1.ar(HPZ1.ar(phasor).sign), index, 1); //loop
+				SendTrig.kr( LFPulse.kr(12, 0), index, phasor/dur); //fps 12*/
+
+				#left, right = BufRd.ar( 2, buffer, phasor, loop:loop ) * amp ;
+				Out.ar(out, Balance2.ar(left, right, pan));
+}).load;*/
 		play = Synth(\StPlayer, [\buffer, initbuf, \rate, rate, \index, id, \out, abus]);
 
 		OSCdef(\playhead++id).clear; // playhead
@@ -139,6 +159,10 @@ Layer{
 		{ play.set(\trig, 1) }.defer(0.05);
 	}
 
+	gost {this.go(st)}
+
+	goend {this.go(end)}
+
 	move {|pos=0, random=0|
 		pos = pos + random.asFloat.rand2;
 		this.loop(pos, pos+(end-st)); //keep len
@@ -231,7 +255,7 @@ Layer{
 			play.set(\ratetarget, arate);
 			play.set(\ratedur, time);
 
-			{play.set(\rategate, 1)}.defer(0.05);
+			{play.set(\rategate, 1)}.defer(0.1);
 			//});
 			memrate = rate;
 			rate = arate;
@@ -246,7 +270,7 @@ Layer{
 	}
 
 	// mirror? boomerang??
-	mirror {|target=0, tIn=1, tStay=0.5, tOut=1, curve=\lin| // boomerang like pitch change
+	scratch {|target=0, tIn=1, tStay=0.5, tOut=1, curve=\lin| // boomerang like pitch change
 		var restore = rate;//
 		this.rate(target, tIn, curve);
 		{this.rate(restore, tOut, curve)}.defer(tIn+tStay);
@@ -419,12 +443,13 @@ Layer{
 	// set start
 	// set len
 
-	bloop {|range=0.01| this.loop() }// **** NOT WORKING ***** single step brown variation
+	bloop {|range=0.01|
+		this.loop(this.st+range.rand2, this.end+range.rand2)
+	}
 
 	bgo {|range=0.01| this.go( curpos+(range.rand2)) }// single step brown variation
 
 	bvol {|range=0.05, time=0, curve=\lin|
-		[vol, range.asFloat].postln;
 		this.vol( vol+(range.asFloat.rand2), time, curve)
 	}// single step brown variation
 

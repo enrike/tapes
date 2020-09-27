@@ -9,6 +9,7 @@ Layers{
 	var controlGUI, views;
 	var buses, <compressor;
 	var volume=1;
+	var it, them; // to remember @one and @some
 
 	*new {| main=nil, symbol="@" |
 		^super.new.initLayers( main, symbol );
@@ -31,9 +32,9 @@ Layers{
 		main.preProcessor = { |code|
 			// list with all the commands used by layers
 			var mets = [
-				"do", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "all", "one", "some", "info", "verbose", "normalize", "plot", "sch",
+				"do", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "all", "one", "it", "some", "them", "info", "verbose", "normalize", "plot", "sch",
 				"scratch", "pause", "solo", "fwd", "bwd", "reverse", "volu", "vold", "vol", "fadein", "fadeout", "pan", "rate", "reset", "resume", "shot",
-				"lp", "loop", "st", "step", "move", "end", "go", "dur", "len",
+				"lp", "loop", "st", "step", "move", "end", "go", "gost", "goend", "dur", "len",
 				"push", "pop", "save", "load", "control", "search",
 				"rbuf", "rrate", "rpan", "rloop", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rand",
 				"bloop", "bpan", "brate", "bvol", "bpan", "bgo",
@@ -67,6 +68,7 @@ Layers{
 				var length, left, right, phasor, dur, env;
 
 				rate = EnvGen.kr(Env.new(levels: [ rate, ratetarget ], times: [ ratedur ], curve: ratecur), rategate);
+
 				env = EnvGen.kr(Env.new(levels: [ amp, amptarget ], times: [ ampdur ], curve: ampcur), ampgate);
 				pan = EnvGen.kr(Env.new(levels: [ pan, pantarget ], times: [ pandur ], curve: pancur), pangate);
 
@@ -136,7 +138,7 @@ Layers{
 		ps = Array.new(anum);//sfs.size);
 
 		howmany.do({arg index;
-			ps = ps.add( Layer.new(index, bufs.wrapAt(index), buses));
+			ps = ps.add( Layer.new(index, bufs.wrapAt(index)));
 		});
 	}
 
@@ -153,13 +155,19 @@ Layers{
 	}
 
 	one {
-		^ps.choose;
+		it = ps.choose;
+		^it;
 	}
+
+	it {^it;}
 
 	some {|howmany|
 		if (howmany.isNil, {howmany=ps.size.rand});
-		^ps.scramble[0..howmany-1];
+		this.them = ps.scramble[0..howmany-1];
+		^them;
 	}
+
+	them {^them;}
 
 	free { bufs.collect(_.free) }
 
@@ -307,6 +315,18 @@ Layers{
 		})
 	}
 
+	gost {|offset=0|
+		ps.do({ |pl|
+			{ pl.gost }.defer(offset.asFloat.rand)
+		})
+	}
+
+	goend {|offset=0|
+		ps.do({ |pl|
+			{ pl.goend }.defer(offset.asFloat.rand)
+		})
+	}
+
 	move {|pos, random=0, offset=0|
 		ps.do({ |pl|
 			{ pl.move(pos, random) }.defer(offset.asFloat.rand)
@@ -436,7 +456,7 @@ Layers{
 
 	scratch {|target=0, tIn=1, tStay=0.5, tOut=1, curve=\lin, offset=0| // boomerang like pitch change
 		ps.do({ |pl|
-			{pl.mirror(target, tIn, tStay, tOut, curve)}.defer(offset.asFloat.rand)
+			{pl.scratch(target, tIn, tStay, tOut, curve)}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -573,21 +593,16 @@ Layers{
 		atask = Task({
 			inf.do({|index|
 				var time = ""+Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second;
-				function.value(offset:offset); //CHECK: somehow the offsets gets added after the provided args
 				if (name != "") {("-- now:"+name++time).postln};
-				if (random!=0) {sleep = sleep + (random.rand2)};// +/- rand gets added to sleep
-
-				/*	if (random.isArray, { // it would be nice to be able to use choose and wchoose to decide the sleep
-				if (random[0].isArray, //[[values], [weights]]
-				{random = random[0].wchoose(random[1])}, //weight rand from two arrays
-				{random = random.choose} //rand item in array
-				)
-				}, { //rand number
-
-				}); //rand number from 0 to off
-				*/	//sleep.asFloat.rand.wait
+				if ((random.isArray),
+					{sleep = random[0].wchoose(random[1])} ,
+					{sleep = sleep + (random.rand2)}
+				);// +/- rand gets added to sleep
 
 				if (sleep <= 0, {sleep = 0.01}); // force lower limit to task tick resolution
+
+				function.value(offset:offset); //CHECK: somehow the offsets gets added after the provided args
+
 				sleep.wait
 			});
 		});
@@ -675,10 +690,10 @@ Layers{
 		});
 	}
 
-	control {
+	control {|cwidth, cheight|
 		var gap=0, height=0;
 		if (controlGUI.isNil, {
-			controlGUI = Window("All players", Rect(500, 200, 500, 700));
+			controlGUI = Window("All players", Rect(500, 200, cwidth?500, cheight?700));
 			controlGUI.alwaysOnTop = true;
 			controlGUI.front;
 			controlGUI.onClose = {
