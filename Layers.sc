@@ -166,7 +166,7 @@ Layers{
 
 	some {|howmany|
 		if (howmany.isNil, {howmany=ps.size.rand});
-		this.them = ps.scramble[0..howmany-1];
+		them = ps.scramble[0..howmany-1];
 		^them;
 	}
 
