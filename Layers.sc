@@ -33,7 +33,7 @@ Layers{
 			// list with all the commands used by layers
 			var mets = [
 				"do", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "all", "one", "it", "some", "them", "info", "verbose", "normalize", "plot", "sch",
-				"scratch", "pause", "solo", "fwd", "bwd", "reverse", "volu", "vold", "vol", "fadein", "fadeout", "pan", "rate", "reset", "resume", "shot",
+				"scratch", "pause", "solo", "fwd", "bwd", "reverse", "volu", "vold", "vol", "fadein", "fadeout", "pan", "rate", "wobble", "reset", "resume", "shot", "out",
 				"lp", "loop", "st", "step", "move", "end", "go", "gost", "goend", "dur", "len",
 				"push", "pop", "save", "load", "control", "search",
 				"rbuf", "rrate", "rpan", "rloop", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rand",
@@ -62,7 +62,7 @@ Layers{
 		server = Server.default;
 		server.waitForBoot({
 
-			SynthDef( \StPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, index=0, trig=0, reset=0, loop=1,
+			SynthDef( \StPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, index=0, trig=0, reset=0, loop=1, wobble=0,
 				ampgate=0, ampdur=0, amptarget=1, ampcur=nil,
 				rategate=0, ratedur=0, ratetarget=1, ratecur=nil,
 				pangate=0, pandur=0, pantarget=1, pancur=nil;
@@ -75,7 +75,7 @@ Layers{
 				pan = EnvGen.kr(Env.new(levels: [ pan, pantarget ], times: [ pandur ], curve: pancur), pangate);
 
 				dur = BufFrames.kr(buffer);
-				phasor = Phasor.ar( trig, rate * BufRateScale.kr(buffer), start*dur, end*dur, resetPos: reset*dur);
+				phasor = Phasor.ar( trig, (rate + wobble.rand2.lag(0.001)) * BufRateScale.kr(buffer), start*dur, end*dur, resetPos: reset*dur);
 
 				SendReply.ar( HPZ1.ar(HPZ1.ar(phasor).sign), '/loop', 1, index); //loop point
 				SendReply.kr( LFPulse.kr(12, 0), '/pos', phasor/dur, index); //fps 12
@@ -85,7 +85,7 @@ Layers{
 			}).load;
 
 
-			SynthDef( \ShotPlayer, {|out, buffer=0, amp=1, pan=0, start=0, end=1, rate=1, index=0|
+			SynthDef( \ShotPlayer, {|out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=1, index=0|
 				var left, right;
 				#left, right = BufRd.ar(2, buffer,
 					Line.ar(start: BufFrames.kr(buffer) * start,
@@ -451,6 +451,10 @@ Layers{
 		})
 	}
 
+	wobble {|arate=0.05|
+		ps.collect(_.wobble(arate))
+	}
+
 	reverse {|time=0, curve=\lin, offset=0|
 		ps.do({ |pl|
 			{pl.rate(pl.rate.neg, time, curve)}.defer(offset.asFloat.rand)
@@ -497,6 +501,12 @@ Layers{
 	}
 
 	//
+	out { |ch=0| ps.collect(_.out(ch)) }
+/*	out {|ch=0|
+		ps.do({ |pl|
+			pl.out(ch);
+		})
+	}*/
 
 	vol {|avol=1, time=0, curve=\exp, offset=0|
 		volume = avol; // remember for the fadein/out
@@ -570,9 +580,13 @@ Layers{
 	}
 
 	/////// task's stuff ////
-	noT {
-		procs.collect(_.stop);
-		procs = Dictionary.new;
+	noT {|name|
+		if (name.isNil, {
+			procs.collect(_.stop);
+			procs = Dictionary.new;
+		},{
+			this.stopT(name)
+		})
 	}
 
 	stopT {|name|
@@ -749,7 +763,7 @@ Layers{
 				views[index].soundfile = sf;            // set soundfile
 				views[index].read(0, sf.numFrames);     // read in the entire file.
 				views[index].refresh;                  // refresh to display the file.
-*/
+				*/
 				ps[index].view = views[index];// to update loop point when they change
 				ps[index].updatelooppoints();
 
@@ -772,12 +786,12 @@ Layers{
 
 	newplotdata {|buf, view|
 		if (controlGUI.isNil.not, {
-				var sf = SoundFile.new;
-				sf.openRead(buf.path);
+			var sf = SoundFile.new;
+			sf.openRead(buf.path);
 
-				view.soundfile = sf;            // set soundfile
-				view.read(0, sf.numFrames);     // read in the entire file.
-				view.refresh;
+			view.soundfile = sf;            // set soundfile
+			view.read(0, sf.numFrames);     // read in the entire file.
+			view.refresh;
 			//buf.loadToFloatArray(action: { |a| { view.setData(a) }.defer })
 		})
 	}

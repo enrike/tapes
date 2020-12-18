@@ -53,7 +53,7 @@ Layer{
 		#left, right = BufRd.ar( 2, buffer, phasor, loop:loop ) * amp ;
 		Out.ar(out, Balance2.ar(left, right, pan));
 		}).load;*/
-		play = Synth(\StPlayer, [\buffer, initbuf, \rate, rate, \index, id, \out, abus]);
+		play = Synth.tail(Server.default, \StPlayer, [\buffer, initbuf, \rate, rate, \index, id, \out, abus]);
 
 		loopOSC.free;
 		loopOSC = OSCdef(\loop++id, {|msg, time, addr, recvPort|
@@ -202,6 +202,10 @@ Layer{
 		})
 	}
 
+	out {|ch=0|
+		play.set(\out, ch);
+	}
+
 	vol {|avol=nil, time=0, random=0, curve=\exp|
 		if (avol.isNil.not, {
 			//if (random>0, {avol = random.asFloat.rand2});
@@ -242,6 +246,9 @@ Layer{
 	//getrate {
 	//play.get(\rate, { arg value;  ^value});
 	//}
+	wobble {|arate=0.05|
+		play.set(\wobble, arate);
+	}
 
 	rate {|arate=nil, time=0, random=0, curve=\lin|
 		if (arate.isNil.not, {

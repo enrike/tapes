@@ -64,8 +64,9 @@ Layers(this);
 @plot; // draws the play heads of each layer the same window
 @plot(4) // optional pass the buffer to draw on the background of the window. useful when all layers share the same buffer
 
-@resume
+@resume // loop play
 @pause
+@shot // single shot play
 @solo(0) // pause all but this layer
 @reverse // reverse play direction. +rate to -rate
 @fwd // turn current rate positive
@@ -78,21 +79,23 @@ Layers(this);
 @pan(0) //-1 to 1
 @rate()
 
-@lp([0, 0.01]) // st, end. in 0 to 1 range
+@lp(0, 0.01) // st, end. in 0 to 1 range
 @st(0.5) //loop start
 @end(0.55) // loop end
 @dur(0.006) // loop duration in 0-1 range from st
 @len(600) // length, **in milliseconds** useful if they are using different buffers and you want the same loop duration
-@step(0.01) // move st and end by that step from the current st position
+@step(0.01) // move st and end by that step from the current st position. maintains the loop duration
 @move(0.5) // move playhead to that position, set st to that position and calculate the new end maintaning the loop duration
 @go(0.5) // send playhead to point in sample (only works if >st and <end)
 
-@scratch // experimental
+@scratch // experimental. |target=0, tIn=1, tStay=0.5, tOut=1, curve=\lin, offset=0| // boomerang like pitch change
 
 // RESET: calling some functions with no args should reset its corresponding state for instance...
 @reset // reset loop to 0-1, play from 0, pitch to 1
 @lp // resets loop to 0-1
 @go // resets pos to 0
+@gost // to to loop start point
+@goend // go to loops end point
 // SAME happens with @pan, @rate, @vol
 
 
@@ -104,6 +107,7 @@ Layers(this);
 @load // open a dialogue to search for a file containg states
 
 @control // opens a window with all layers. you can control de loop selection
+@control( 300, 200 )
 
 // search. identify which layers are playing which sound file
 p = @search("Roll") //return a list of layers whose buffer contains this string in the file name. no case sensitive
@@ -155,6 +159,10 @@ p.do({|lay| lay.vol(0.3)}) // do whatever with the search results
 @brate(0.1, 20, \sin) // this will start a shift to a random rate ranging -0.1 to 0.1 from the current rate that will take 20 secs and will describe a sinusoidal ramp during the change
 @brate(0.1, 20, \sqr, offset:8) // offset can be use here too
 
+//local randoms
+@rate(1, random:0.1); // each of them will apply a small random variation around 1 ranging -0.1 to 0.1
+@end(0.5, random:0.01);
+@dur(0.1, random:0.05)
 
 // compressor. yes, there is a built in compressor/expander. inactive by default
 @comp(0.2, 0.6, 0.2) //threshold, slopeBelow, slopeAbove
@@ -165,14 +173,21 @@ p.do({|lay| lay.vol(0.3)}) // do whatever with the search results
 
 // scheduling functions
 @sch(\randpan, {@rpan}, 15); //schedule a function every N secs. args: NAME, FUNCTION, TICK TIME, OFFSET, RANDOM
+
+// random periods
 @sch(\randpan, {@rpan}, 15, offset:5); // ... optional offset delay so that each layer fires at N+(offset.rand)
 @sch(\randpan, {@rpan}, 15, random:2); // rand swing: the next sch will happen after 15 + rrand(-2,+2) secs
+@sch(\wrand, {
+	"two options".postln;
+}, random:[[1,3],[0.9, 0.1]])// run every every 1 sec (90% chances) or 3 secs (10%chances)
+
 
 
 @pauseT(\randpan)
 @resumeT(\randpan)
 @stopT(\randpan) // STOPS the task
 @procs // dictionary containing all Tasks alive
+@stopT // kills all tasks
 @noT; // kills all tasks
 
 // some examples of scheduling tasks
@@ -260,7 +275,7 @@ var st=0, end=0, speed=0.001, len=0.01, time=3;
 // control individual layers //
 ///////////////////////////////
 
-// you can also control each layer individually
+// you can also control each layer individually with @0, @1 etc...
 
 // GET
 @0.vol
