@@ -62,12 +62,11 @@ Layers{
 		server = Server.default;
 		server.waitForBoot({
 
-			SynthDef( \StPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, index=0, trig=0, reset=0, loop=1, wobble=0, amplag=0, ratelag=0,panlag=0,wobblelag=0;
-
+			SynthDef( \StPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, dir=1, index=0, trig=0, reset=0, loop=1, wobble=0, amplag=0, ratelag=0,panlag=0,wobblelag=0;
 
 				var left, right, phasor, dur;
 
-				rate = (rate.lag(ratelag) + wobble.rand2.lag(wobblelag));
+				rate = (rate.lag(ratelag) + wobble.rand2.lag(wobblelag)) * dir;
 				amp = amp.lag(amplag);
 				pan = pan.lag(panlag);
 

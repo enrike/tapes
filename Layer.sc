@@ -4,7 +4,7 @@
 Layer{
 
 	var <id, <play, <curpos;
-	var buf, st=0, end=1, vol=1, rate=0, pan=0, bus=0, len=0, dur=0;//, loop=0; // state variables hidden
+	var buf, st=0, end=1, vol=1, rate=0, pan=0, bus=0, len=0, dur=0, dir=1; // state variables hidden
 	var memrate=1; // to store rate while paused
 	var >view=nil;
 	var <>statesDic, <>verbose=false, loopOSC, playheadOSC;
@@ -113,6 +113,10 @@ Layer{
 		if (verbose.asBoolean, {[id, action, value].postln});
 	}
 
+/*	actualsynthrate {
+		play.get(\rate, {|val| rate=val})
+	}*/
+
 	go {|pos=0|
 		//if (pos<st, {pos=st}); // limits
 		//if (pos>end, {pos=end});
@@ -198,11 +202,13 @@ Layer{
 		this.vol(vol, time)
 	}
 
-	//getrate {
-	//play.get(\rate, { arg value;  ^value});
-	//}
 	wobble {|arate=0.05|
 		play.set(\wobble, arate);
+	}
+
+	dir {|adir=1, time=0|
+		dir = adir;
+		play.set(\dir, adir)
 	}
 
 	rate {|arate=nil, time=0, random=0|
@@ -221,7 +227,7 @@ Layer{
 	}
 
 	reverse {
-		this.rate(rate.neg)
+		this.dir(dir.neg)
 	}
 
 	// mirror? boomerang??
@@ -236,10 +242,10 @@ Layer{
 	}
 
 	fwd {
-		if (rate<0, {this.reverse})
+		if (dir<0, {this.reverse})
 	}
 	bwd {
-		if (rate>0, {this.reverse})
+		if (dir>0, {this.reverse})
 	}
 
 	reset {
@@ -388,7 +394,7 @@ Layer{
 	}
 
 	rdir {|time=0|
-		this.rate(rate * [1,-1].choose, time)
+		this.dir([1,-1].choose, time)
 	}
 
 	rrate {|time=0|
