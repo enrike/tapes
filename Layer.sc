@@ -7,20 +7,11 @@ Layer{
 	var buf, st=0, end=1, vol=1, rate=0, pan=0, bus=0, len=0, dur=0;//, loop=0; // state variables hidden
 	var memrate=1; // to store rate while paused
 	var >view=nil;
-	//var >win=nil;
 	var <>statesDic, <>verbose=false, loopOSC, playheadOSC;
 
 	*new {| id=0, buffer = nil, bus=0 |
 		^super.new.initLayer( id, buffer, bus );
 	}
-
-	/*	test{|val|
-	if (val.isNil.not, {
-	test = val;
-	}, {
-	^test;
-	})
-	}*/
 
 	initLayer {| aid, abuffer, abus |
 		var initbuf;
@@ -28,31 +19,10 @@ Layer{
 		buf = abuffer;
 		bus = abus;
 
-		//loop = [0,1];
-
 		if(buf.isNil.not, { initbuf = buf.bufnum }); // only if specified. otherwise nil
 
 		play.free;
 
-		/*		SynthDef( \StPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, index=0, trig=0, reset=0, loop=1,
-		ampgate=0, ampdur=0, amptarget=1, ampcur=nil,
-		rategate=0, ratedur=0, ratetarget=1, ratecur=nil,
-		pangate=0, pandur=0, pantarget=1, pancur=nil;
-
-		var length, left, right, phasor, dur, env;
-
-		/*				rate = EnvGen.kr(Env.new(levels: [ rate, ratetarget ], times: [ ratedur ], curve: ratecur), rategate);
-		env = EnvGen.kr(Env.new(levels: [ amp, amptarget ], times: [ ampdur ], curve: ampcur), ampgate);
-		pan = EnvGen.kr(Env.new(levels: [ pan, pantarget ], times: [ pandur ], curve: pancur), pangate);*/
-
-		dur = BufFrames.kr(buffer);
-		phasor = Phasor.ar( trig, rate * BufRateScale.kr(buffer), start*dur, end*dur);
-		/*				SendTrig.ar(HPZ1.ar(HPZ1.ar(phasor).sign), index, 1); //loop
-		SendTrig.kr( LFPulse.kr(12, 0), index, phasor/dur); //fps 12*/
-
-		#left, right = BufRd.ar( 2, buffer, phasor, loop:loop ) * amp ;
-		Out.ar(out, Balance2.ar(left, right, pan));
-		}).load;*/
 		play = Synth.tail(Server.default, \StPlayer, [\buffer, initbuf, \rate, rate, \index, id, \out, abus]);
 
 		loopOSC.free;
@@ -69,11 +39,6 @@ Layer{
 
 		("ready layer @"++id).postln;
 	}
-
-	/*newplayer {|asynth| // experimental. not used.
-	play.free; // get rid of the old one
-	play = Synth(asynth, [\buffer, buf.bufnum, \rate, rate]);
-	}*/
 
 	done {} // when loop crossing happens
 
@@ -113,7 +78,6 @@ Layer{
 		statesDic.postln;
 		state = statesDic[which];
 
-		//statesDic.postln;
 		this.buf( state[\buf] );
 		this.loop( state[\st], state[\end] );
 		this.vol( state[\vol] );
@@ -185,17 +149,11 @@ Layer{
 		})
 	}
 
-	pan {|apan=nil, time=0, curve=\lin|
+	pan {|apan=nil, time=0|
 		if (apan.isNil.not, {
 			pan = apan;
-			play.set(\pancur, curve);
-			play.set(\pangate, 0);
-
-			play.set(\pantarget, pan);
-			play.set(\pandur, time);
-
-			{play.set(\pangate, 1)}.defer(0.05);
-
+			play.set(\panlag, time);
+			play.set(\pan, apan);
 			this.post("pan", pan);
 		}, {
 			^pan
@@ -206,22 +164,19 @@ Layer{
 		play.set(\out, ch);
 	}
 
-	vol {|avol=nil, time=0, random=0, curve=\exp|
+	vol {|avol=nil, time=0, random=0|
 		if (avol.isNil.not, {
 			//if (random>0, {avol = random.asFloat.rand2});
 			avol = avol + random.asFloat.rand2;
 
 			vol = avol.clip(0,1); //limits
 
-			play.set(\ampcur, curve);
-			play.set(\ampgate, 0);
-
-			play.set(\amptarget, vol);
-			play.set(\ampdur, time);
+			play.set(\amplag, time);
+			play.set(\amp, avol);
 
 			{play.set(\ampgate, 1)}.defer(0.05);
 
-			this.post("volume", (vol.asString + time.asString  + random.asString + curve.asString) );
+			this.post("volume", (vol.asString + time.asString  + random.asString) );
 		}, {
 			^vol
 		})
@@ -235,12 +190,12 @@ Layer{
 		this.vol(vol+0.02)
 	}
 
-	fadeout {|time=1, curve=\exp|
-		this.vol(0, time, curve)
+	fadeout {|time=1|
+		this.vol(0, time)
 	}
 
-	fadein {|time=1, curve=\exp|
-		this.vol(vol, time, curve)
+	fadein {|time=1|
+		this.vol(vol, time)
 	}
 
 	//getrate {
@@ -250,17 +205,12 @@ Layer{
 		play.set(\wobble, arate);
 	}
 
-	rate {|arate=nil, time=0, random=0, curve=\lin|
+	rate {|arate=nil, time=0, random=0|
 		if (arate.isNil.not, {
 			arate = arate + random.asFloat.rand2;
 			//if (rate != 0, { // only update if playing
-			play.set(\ratecur, curve);
-			play.set(\rategate, 0);
-
-			play.set(\ratetarget, arate);
-			play.set(\ratedur, time);
-
-			{play.set(\rategate, 1)}.defer(0.1);
+			play.set(\ratelag, time);
+			play.set(\rate, arate);
 			//});
 			memrate = rate;
 			rate = arate;
@@ -275,10 +225,10 @@ Layer{
 	}
 
 	// mirror? boomerang??
-	scratch {|target=0, tIn=1, tStay=0.5, tOut=1, curve=\lin| // boomerang like pitch change
+	scratch {|target=0, tIn=1, tStay=0.5, tOut=1| // boomerang like pitch change
 		var restore = rate;//
-		this.rate(target, tIn, curve);
-		{this.rate(restore, tOut, curve)}.defer(tIn+tStay);
+		this.rate(target, tIn);
+		{this.rate(restore, tOut)}.defer(tIn+tStay);
 	}
 
 	mir { |time=0| // mirror
@@ -386,12 +336,12 @@ Layer{
 		})
 	}
 
-	rvol {|limit=1.0, time=0, curve=\lin |
-		this.vol( limit.rand, time, curve );
+	rvol {|limit=1.0, time=0 |
+		this.vol( limit.rand, time );
 	}
 
-	rpan {|time=0, curve=\lin| // -1 to 1
-		this.pan( 1.asFloat.rand2, time, curve )
+	rpan {|time=0| // -1 to 1
+		this.pan( 1.asFloat.rand2, time )
 	}
 
 	/*rbuf {
@@ -437,12 +387,12 @@ Layer{
 		//this.updatelooppoints; //only if w open
 	}
 
-	rdir {|time=0, curve=\lin|
-		this.rate(rate * [1,-1].choose, time, curve)
+	rdir {|time=0|
+		this.rate(rate * [1,-1].choose, time)
 	}
 
-	rrate {|time=0, curve=\lin|
-		this.rate(1.0.rand2, time, curve)
+	rrate {|time=0|
+		this.rate(1.0.rand2, time)
 	}
 
 	// set start
@@ -454,15 +404,15 @@ Layer{
 
 	bgo {|range=0.01| this.go( curpos+(range.rand2)) }// single step brown variation
 
-	bvol {|range=0.05, time=0, curve=\lin|
-		this.vol( vol+(range.asFloat.rand2), time, curve)
+	bvol {|range=0.05, time=0|
+		this.vol( vol+(range.asFloat.rand2), time)
 	}// single step brown variation
 
-	bpan {|range=0.1, time=0, curve=\lin|
-		this.pan( pan+(range.asFloat.rand2), time, curve)
+	bpan {|range=0.1, time=0|
+		this.pan( pan+(range.asFloat.rand2), time)
 	}
 
-	brate {|range=0.05, time=0, curve=\lin|
-		this.rate( rate+(range.rand2), time, curve )
+	brate {|range=0.05, time=0|
+		this.rate( rate+(range.rand2), time )
 	}// single step brown variation
 }

@@ -88,7 +88,7 @@ Layers(this);
 @move(0.5) // move playhead to that position, set st to that position and calculate the new end maintaning the loop duration
 @go(0.5) // send playhead to point in sample (only works if >st and <end)
 
-@scratch // experimental. |target=0, tIn=1, tStay=0.5, tOut=1, curve=\lin, offset=0| // boomerang like pitch change
+@scratch // experimental. |target=0, tIn=1, tStay=0.5, tOut=1, offset=0| // boomerang like pitch change
 
 // RESET: calling some functions with no args should reset its corresponding state for instance...
 @reset // reset loop to 0-1, play from 0, pitch to 1
@@ -154,10 +154,10 @@ p.do({|lay| lay.vol(0.3)}) // do whatever with the search results
 
 // TRANSITION TIME:
 // some functions (the ones related to panning, amplitude and pitch) can perform a transition between the current state and the target state in N secs
-// go to a value in N secs describing a shape: \lin, \exp, \sin, \wel, \cub, \sqr
-@rate(0.1, 10, \lin)// check this out, the sound is self explanatory :)
-@brate(0.1, 20, \sin) // this will start a shift to a random rate ranging -0.1 to 0.1 from the current rate that will take 20 secs and will describe a sinusoidal ramp during the change
-@brate(0.1, 20, \sqr, offset:8) // offset can be use here too
+// go to a value in N secs
+@rate(0.1, 10)// check this out, the sound is self explanatory :)
+@brate(0.1, 20) // this will start a shift to a random rate ranging -0.1 to 0.1 from the current rate that will take 20s
+@brate(0.1, 20, offset:8) // offset can be use here too
 
 //local randoms
 @rate(1, random:0.1); // each of them will apply a small random variation around 1 ranging -0.1 to 0.1

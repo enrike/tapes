@@ -62,17 +62,14 @@ Layers{
 		server = Server.default;
 		server.waitForBoot({
 
-			SynthDef( \StPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, index=0, trig=0, reset=0, loop=1, wobble=0,
-				ampgate=0, ampdur=0, amptarget=1, ampcur=nil,
-				rategate=0, ratedur=0, ratetarget=1, ratecur=nil,
-				pangate=0, pandur=0, pantarget=1, pancur=nil;
+			SynthDef( \StPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, index=0, trig=0, reset=0, loop=1, wobble=0, amplag=0, ratelag=0,panlag=0,wobblelag=0;
 
-				var length, left, right, phasor, dur, env;
 
-				rate = EnvGen.kr(Env.new(levels: [ rate, ratetarget ], times: [ ratedur ], curve: ratecur), rategate);
+				var left, right, phasor, dur;
 
-				env = EnvGen.kr(Env.new(levels: [ amp, amptarget ], times: [ ampdur ], curve: ampcur), ampgate);
-				pan = EnvGen.kr(Env.new(levels: [ pan, pantarget ], times: [ pandur ], curve: pancur), pangate);
+				rate = (rate.lag(ratelag) + wobble.rand2.lag(wobblelag));
+				amp = amp.lag(amplag);
+				pan = pan.lag(panlag);
 
 				dur = BufFrames.kr(buffer);
 				phasor = Phasor.ar( trig, (rate + wobble.rand2.lag(0.001)) * BufRateScale.kr(buffer), start*dur, end*dur, resetPos: reset*dur);
@@ -80,7 +77,7 @@ Layers{
 				SendReply.ar( HPZ1.ar(HPZ1.ar(phasor).sign), '/loop', 1, index); //loop point
 				SendReply.kr( LFPulse.kr(12, 0), '/pos', phasor/dur, index); //fps 12
 
-				#left, right = BufRd.ar( 2, buffer, phasor, loop:loop ) * amp * env;
+				#left, right = BufRd.ar( 2, buffer, phasor, loop:loop ) * amp;
 				Out.ar(out, Balance2.ar(left, right, pan));
 			}).load;
 
@@ -502,10 +499,10 @@ Layers{
 
 	//
 	out { |ch=0| ps.collect(_.out(ch)) }
-/*	out {|ch=0|
-		ps.do({ |pl|
-			pl.out(ch);
-		})
+	/*	out {|ch=0|
+	ps.do({ |pl|
+	pl.out(ch);
+	})
 	}*/
 
 	vol {|avol=1, time=0, curve=\exp, offset=0|
