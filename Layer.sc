@@ -23,7 +23,7 @@ Layer{
 
 		play.free;
 
-		play = Synth.tail(Server.default, \StPlayer, [\buffer, initbuf, \rate, rate, \index, id, \out, abus]);
+		play = Synth.tail(Server.default, \rPlayer, [\buffer, initbuf, \rate, rate, \index, id, \out, abus]);
 
 		loopOSC.free;
 		loopOSC = OSCdef(\loop++id, {|msg, time, addr, recvPort|
@@ -202,7 +202,9 @@ Layer{
 		this.vol(vol, time)
 	}
 
-	wobble {|arate=0.05|
+	wobble {|arate=0, time=0, random=0|
+		arate = arate + random.asFloat.rand2;
+		play.set(\wobblelag, time);
 		play.set(\wobble, arate);
 	}
 

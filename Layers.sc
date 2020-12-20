@@ -62,16 +62,16 @@ Layers{
 		server = Server.default;
 		server.waitForBoot({
 
-			SynthDef( \StPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, dir=1, index=0, trig=0, reset=0, loop=1, wobble=0, amplag=0, ratelag=0,panlag=0,wobblelag=0;
+			SynthDef( \rPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, dir=1, index=0, trig=0, reset=0, loop=1, wobble=0, amplag=0, ratelag=0, panlag=0, wobblelag=0;
 
 				var left, right, phasor, dur;
 
-				rate = (rate.lag(ratelag) + wobble.rand2.lag(wobblelag)) * dir;
+				rate = (rate.lag(ratelag) + wobble.lag(wobblelag).rand2) * dir;
 				amp = amp.lag(amplag);
 				pan = pan.lag(panlag);
 
 				dur = BufFrames.kr(buffer);
-				phasor = Phasor.ar( trig, (rate + wobble.rand2.lag(0.001)) * BufRateScale.kr(buffer), start*dur, end*dur, resetPos: reset*dur);
+				phasor = Phasor.ar( trig, rate * BufRateScale.kr(buffer), start*dur, end*dur, resetPos: reset*dur);
 
 				SendReply.ar( HPZ1.ar(HPZ1.ar(phasor).sign), '/loop', 1, index); //loop point
 				SendReply.kr( LFPulse.kr(12, 0), '/pos', phasor/dur, index); //fps 12
@@ -381,14 +381,14 @@ Layers{
 	}
 
 	//random file, pan, vol, rate, loop (st, end), dir and go
-	rand {|time=0, curve=\lin, offset=0|
+	rand {|time=0, offset=0|
 		ps.do({ |pl|
 			ps.do({ |pl| pl.vol(0)});// mute. necessary?
 			this.rbuf(offset);
-			this.rvol(time, curve, offset);
-			this.rpan(time, curve, offset);
-			this.rrate(time, curve, offset);//??
-			//this.rdir(time, curve, offset); / not needed
+			this.rvol(time, offset);
+			this.rpan(time, offset);
+			this.rrate(time, offset);//??
+			//this.rdir(time, offset); / not needed
 			this.rloop(offset);
 			this.rgo;// this should be limited to the current loop
 			ps.do({ |pl| pl.vol(pl.vol)}); //restore
@@ -396,15 +396,15 @@ Layers{
 	}
 
 
-	rvol {|time=0, curve=\exp, offset=0|
+	rvol {|time=0, offset=0|
 		ps.do({ |pl|
 			{pl.rvol(1.0/ps.size)}.defer(offset.asFloat.rand)
 		})
 	}
 
-	rpan {|time=0, curve=\lin, offset=0|
+	rpan {|time=0, offset=0|
 		ps.do({ |pl|
-			{pl.rpan(time, curve)}.defer(offset.asFloat.rand)
+			{pl.rpan(time)}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -441,37 +441,39 @@ Layers{
 		})
 	}
 
-	rate { |rate=1, time=0, random=0, curve=\lin, offset=0|
+	rate { |rate=1, time=0, random=0, offset=0|
 		ps.do({ |pl|
-			{pl.rate(rate, time, curve)}.defer(offset.asFloat.rand)
+			{pl.rate(rate, time)}.defer(offset.asFloat.rand)
 		})
 	}
 
-	wobble {|arate=0.05|
-		ps.collect(_.wobble(arate))
-	}
-
-	reverse {|time=0, curve=\lin, offset=0|
+	wobble {|arate=0, time=0, random=0, offset=0|
 		ps.do({ |pl|
-			{pl.rate(pl.rate.neg, time, curve)}.defer(offset.asFloat.rand)
+			{pl.wobble(arate, time, random)}.defer(offset.asFloat.rand)
 		})
 	}
 
-	scratch {|target=0, tIn=1, tStay=0.5, tOut=1, curve=\lin, offset=0| // boomerang like pitch change
+	reverse {|time=0, offset=0|
 		ps.do({ |pl|
-			{pl.scratch(target, tIn, tStay, tOut, curve)}.defer(offset.asFloat.rand)
+			{pl.rate(pl.rate.neg, time)}.defer(offset.asFloat.rand)
 		})
 	}
 
-	fwd {|time=0, curve=\lin, offset=0|
+	scratch {|target=0, tIn=1, tStay=0.5, tOut=1, offset=0| // boomerang like pitch change
 		ps.do({ |pl|
-			{pl.fwd(time, curve)}.defer(offset.asFloat.rand)
+			{pl.scratch(target, tIn, tStay, tOut)}.defer(offset.asFloat.rand)
 		})
 	}
 
-	bwd {|time=0, curve=\lin, offset=0|
+	fwd {|time=0, offset=0|
 		ps.do({ |pl|
-			{pl.bwd(time, curve)}.defer(offset.asFloat.rand)
+			{pl.fwd(time)}.defer(offset.asFloat.rand)
+		})
+	}
+
+	bwd {|time=0, offset=0|
+		ps.do({ |pl|
+			{pl.bwd(time)}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -481,9 +483,9 @@ Layers{
 		})
 	}
 
-	rrate {|time=0, curve=\lin, offset=0|
+	rrate {|time=0, offset=0|
 		ps.do({ |pl|
-			{pl.rrate(time, curve)}.defer(offset.asFloat.rand)
+			{pl.rrate(time)}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -504,10 +506,10 @@ Layers{
 	})
 	}*/
 
-	vol {|avol=1, time=0, curve=\exp, offset=0|
+	vol {|avol=1, time=0, offset=0|
 		volume = avol; // remember for the fadein/out
 		ps.do({ |pl|
-			{pl.vol(volume, time, curve)}.defer(offset.asFloat.rand)
+			{pl.vol(volume, time)}.defer(offset.asFloat.rand)
 		});
 		["set vol", avol].postln
 	}
@@ -516,21 +518,21 @@ Layers{
 
 	volu { ps.collect(_.volu) }
 
-	fadeout {|time=1, curve=\exp, offset=0|
+	fadeout {|time=1, offset=0|
 		ps.do({ |pl|
-			{pl.vol(0, time, curve)}.defer(offset.asFloat.rand)
+			{pl.vol(0, time)}.defer(offset.asFloat.rand)
 		})
 	}
 
-	fadein {|time=1, curve=\exp, offset=0|
+	fadein {|time=1, offset=0|
 		ps.do({ |pl|
-			{pl.vol(volume, time, curve)}.defer(offset.asFloat.rand) // fade in to volume. not to 1
+			{pl.vol(volume, time)}.defer(offset.asFloat.rand) // fade in to volume. not to 1
 		})
 	}
 
-	pan { |pan=0, time=0, curve=\lin, offset=0|
+	pan { |pan=0, time=0, offset=0|
 		ps.do({ |pl|
-			{pl.pan(pan, time, curve)}.defer(offset.asFloat.rand)
+			{pl.pan(pan, time)}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -542,36 +544,36 @@ Layers{
 
 	//
 
-	bloop {|range=0.01, time=0, curve=\lin, offset=0|
+	bloop {|range=0.01, time=0, offset=0|
 		ps.do({|pl, index|
 			{
-				pl.bloop(range, time, curve);
+				pl.bloop(range, time);
 				this.newselection(pl.st, pl.end, views[index], pl.buf);
 			}.defer(offset.asFloat.rand)
 		})
 	}
 
-	bgo {|range=0.01, time=0, curve=\lin, offset=0|
+	bgo {|range=0.01, time=0, offset=0|
 		ps.do({|pl|
-			{pl.bgo(range, time, curve)}.defer(offset.asFloat.rand)
+			{pl.bgo(range, time)}.defer(offset.asFloat.rand)
 		})
 	}
 
-	bvol {|range=0.01, time=0, curve=\lin, offset=0|
+	bvol {|range=0.01, time=0, offset=0|
 		ps.do({|pl|
-			{pl.bvol(range, time, curve)}.defer(offset.asFloat.rand)
+			{pl.bvol(range, time)}.defer(offset.asFloat.rand)
 		})
 	}
 
-	bpan {|range=0.1, time=0, curve=\lin, offset=0|
+	bpan {|range=0.1, time=0, offset=0|
 		ps.do({|pl|
-			{pl.bpan(range, time, curve)}.defer(offset.asFloat.rand)
+			{pl.bpan(range, time)}.defer(offset.asFloat.rand)
 		})
 	}
 
-	brate {|range=0.01, time=0, curve=\lin, offset=0|
+	brate {|range=0.01, time=0, offset=0|
 		ps.do({|pl|
-			{pl.brate(range, time, curve)}.defer(offset.asFloat.rand)
+			{pl.brate(range, time)}.defer(offset.asFloat.rand)
 		})
 	}
 
