@@ -4,7 +4,7 @@
 
 Layers{
 
-	var server, <path, <bufs, <sfs, <ps, <howmany=24, <procs;
+	var server, <path, <bufs, <sfs, <ps, <procs;
 	var plotwin=nil, plotview, drawview, plotwinrefresh;
 	var controlGUI, views;
 	var buses, <compressor;
@@ -32,7 +32,7 @@ Layers{
 		main.preProcessor = { |code|
 			// list with all the commands used by layers
 			var mets = [
-				"do", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "all", "one", "it", "some", "them", "info", "verbose", "normalize", "plot", "sch",
+				"do", "add", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "all", "one", "it", "some", "them", "info", "verbose", "normalize", "plot", "sch",
 				"scratch", "pause", "solo", "fwd", "bwd", "reverse", "volu", "vold", "vol", "fadein", "fadeout", "pan", "rate", "wobble", "reset", "resume", "shot", "out",
 				"lp", "loop", "st", "step", "move", "end", "go", "gost", "goend", "dur", "len",
 				"push", "pop", "save", "load", "control", "search",
@@ -127,18 +127,22 @@ Layers{
 		"... loading sound files ...".postln;
 	}
 
-	do {|anum=6|
-		howmany = anum;
-		("creating players:"+howmany.asString).postln;
+	do {|anum=4|
+		("creating players:"+anum.asString).postln;
 
-		views = Array.fill(howmany, {0});
+		views = List.new;//.fill(howmany, {0});
 
 		ps.collect(_.free);
-		ps = Array.new(anum);//sfs.size);
+		ps = List.new;//(anum);//sfs.size);
 
-		howmany.do({arg index;
+		anum.do({arg index;
 			ps = ps.add( Layer.new(index, bufs.wrapAt(index)));
 		});
+	}
+
+	add {|anum=1|
+		var index = ps.size;
+		ps = ps.add( Layer.new(index, bufs.wrapAt(index)));
 	}
 
 	all {^ps}
@@ -160,7 +164,7 @@ Layers{
 
 	it {^it;}
 
-	some {|howmany|
+	some {|howmany=1|
 		if (howmany.isNil, {howmany=ps.size.rand});
 		them = ps.scramble[0..howmany-1];
 		^them;
@@ -595,7 +599,7 @@ Layers{
 	resumeT {|name| procs[name.asSymbol].resume}
 	pauseT {|name| procs[name.asSymbol].pause}
 
-	sch {|name="", function, sleep=5.0, random=0, offset=0| // offset is passed to functions so that local events are not at the same time
+	sch {|name="", function, sleep=5.0, random=0, offset=0, clock=0| // offset is passed to functions so that local events are not at the same time
 		var atask;
 
 		if (name=="", {
@@ -604,6 +608,12 @@ Layers{
 		});
 
 		if (procs[name.asSymbol].isNil.not, { this.stopT(name.asSymbol) }); // kill if already there before rebirth
+
+		if (clock==0, {
+			clock = TempoClock
+		},{
+			clock = SystemClock
+		});
 
 		atask = Task({
 			inf.do({|index|
@@ -619,7 +629,7 @@ Layers{
 				function.value(offset:offset); //CHECK: somehow the offsets gets added after the provided args
 
 				sleep.wait
-			});
+			}, clock);
 		});
 
 		atask.start;

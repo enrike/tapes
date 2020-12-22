@@ -14,16 +14,13 @@ Layer{
 	}
 
 	initLayer {| aid, abuffer, abus |
-		var initbuf;
 		id = aid; // just in case I need to identify later
 		buf = abuffer;
 		bus = abus;
 
-		if(buf.isNil.not, { initbuf = buf.bufnum }); // only if specified. otherwise nil
-
 		play.free;
 
-		play = Synth.tail(Server.default, \rPlayer, [\buffer, initbuf, \rate, rate, \index, id, \out, abus]);
+		play = Synth.tail(Server.default, \rPlayer, [\buffer, buf ? buf.bufnum, \rate, rate, \index, id, \out, abus]);
 
 		loopOSC.free;
 		loopOSC = OSCdef(\loop++id, {|msg, time, addr, recvPort|
@@ -101,6 +98,7 @@ Layer{
 	info {
 		("-- Layer"+id+"--").postln;
 		this.file().postln;
+		["curpos", curpos].postln;
 		["volume", vol].postln;
 		["loop", st, end].postln;
 		["rate", rate].postln;
@@ -122,7 +120,7 @@ Layer{
 		//if (pos>end, {pos=end});
 		play.set(\reset, pos);
 		play.set(\trig, 0);
-		{ play.set(\trig, 1) }.defer(0.05);
+		{ play.set(\trig, 1) }.defer(0.04);
 	}
 
 	gost {this.go(st)}
