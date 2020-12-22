@@ -37,6 +37,13 @@ Layer{
 		("ready layer @"++id).postln;
 	}
 
+	kill {
+		play.free;
+		loopOSC.free;
+		playheadOSC.free;
+		statesDic=nil;
+	}
+
 	done {} // when loop crossing happens
 
 	loadbuf {|server, path| // actually loads a file from disk into the server and sets it as current buffer used by this player
@@ -54,18 +61,20 @@ Layer{
 		^((buf.numFrames/buf.sampleRate)*1000).asInt // buf.numChannels/
 	}
 
-	push { |which|
-		var state = Dictionary.new;
-		which.postln;
+	state {
+		var state = Dictionary.new; // add curpos?
 		state.put(\buf, buf);
 		state.put(\st, st);
 		state.put(\end, end);
 		state.put(\vol, vol);
 		state.put(\rate, rate);
+		state.put(\dir, dir);
 		state.put(\panning, pan);
+		^state
+	}
 
-		statesDic[which] = state;
-
+	push { |which|
+		statesDic[which] = this.state;
 		this.post("pushing state", which);
 		if(verbose.asBoolean, {["pushing state", which].postln});
 	}
@@ -79,13 +88,14 @@ Layer{
 		this.loop( state[\st], state[\end] );
 		this.vol( state[\vol] );
 		this.rate( state[\rate] );
+		this.dir( state[\dir] );
 		this.pan( state[pan] );
 		this.post("poping state", which);
 		if(verbose.asBoolean, {["poping state", which].postln});
 	}
 
 	updatelooppoints {
-		if (view.isNil.not, {
+		if (view.notNil, {
 			{
 				view.timeCursorOn = true;
 				view.setSelectionStart(0, (buf.numFrames) * st); // loop the selection
@@ -102,6 +112,7 @@ Layer{
 		["volume", vol].postln;
 		["loop", st, end].postln;
 		["rate", rate].postln;
+		["direction", dir].postln;
 		["panning", pan].postln;
 		["verbose", verbose].postln;
 		"--------------".postln;
@@ -111,8 +122,8 @@ Layer{
 		if (verbose.asBoolean, {[id, action, value].postln});
 	}
 
-/*	actualsynthrate {
-		play.get(\rate, {|val| rate=val})
+	/*	actualsynthrate {
+	play.get(\rate, {|val| rate=val})
 	}*/
 
 	go {|pos=0|
@@ -143,7 +154,7 @@ Layer{
 	}
 
 	outb {|abus=nil|
-		if (abus.isNil.not, {
+		if (abus.notNil, {
 			bus = abus;
 			play.set(\out, bus)
 		}, {
@@ -152,7 +163,7 @@ Layer{
 	}
 
 	pan {|apan=nil, time=0|
-		if (apan.isNil.not, {
+		if (apan.notNil, {
 			pan = apan;
 			play.set(\panlag, time);
 			play.set(\pan, apan);
@@ -167,7 +178,7 @@ Layer{
 	}
 
 	vol {|avol=nil, time=0, random=0|
-		if (avol.isNil.not, {
+		if (avol.notNil, {
 			//if (random>0, {avol = random.asFloat.rand2});
 			avol = avol + random.asFloat.rand2;
 
@@ -212,7 +223,7 @@ Layer{
 	}
 
 	rate {|arate=nil, time=0, random=0|
-		if (arate.isNil.not, {
+		if (arate.notNil, {
 			arate = arate + random.asFloat.rand2;
 			//if (rate != 0, { // only update if playing
 			play.set(\ratelag, time);
@@ -275,7 +286,7 @@ Layer{
 	}
 
 	st {|p, random=0|
-		if (p.isNil.not, {
+		if (p.notNil, {
 			st = p + random.asFloat.rand2;
 			play.set(\start, st);
 			this.updatelooppoints; //only if w open
@@ -285,7 +296,7 @@ Layer{
 	}
 
 	end {|p, random=0|
-		if (p.isNil.not, {
+		if (p.notNil, {
 			end = p + random.asFloat.rand2;
 			play.set(\end, end);
 			this.updatelooppoints; //only if w open
@@ -295,7 +306,7 @@ Layer{
 	}
 
 	dur {|adur, random=0|
-		if (adur.isNil.not, {
+		if (adur.notNil, {
 			end = st + adur + random.asFloat.rand2;
 			play.set(\end, end);
 			this.post("end", end);
@@ -306,7 +317,7 @@ Layer{
 	}
 
 	len {|ms| // IN MILLISECONDS
-		if (ms.isNil.not, {
+		if (ms.notNil, {
 			var adur= ms / ((buf.numFrames/buf.sampleRate)*1000 ); // from millisecs to 0-1
 			this.dur(adur)
 		}, {
@@ -330,7 +341,7 @@ Layer{
 	}
 
 	buf {|abuf|
-		if (abuf.isNil.not, {
+		if (abuf.notNil, {
 			//if (buf.isInteger, {buf = bufs[buf]}); // using the index
 
 			buf = abuf;

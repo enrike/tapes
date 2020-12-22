@@ -22,7 +22,7 @@ Layers{
 
 		this.boot;
 
-		if (amain.isNil.not, {this.lang(amain, asym)});// preprocessor
+		amain !? this.lang(amain, asym)
 	}
 
 
@@ -32,8 +32,8 @@ Layers{
 		main.preProcessor = { |code|
 			// list with all the commands used by layers
 			var mets = [
-				"do", "add", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "all", "one", "it", "some", "them", "info", "verbose", "normalize", "plot", "sch",
-				"scratch", "pause", "solo", "fwd", "bwd", "reverse", "volu", "vold", "vol", "fadein", "fadeout", "pan", "rate", "wobble", "reset", "resume", "shot", "out",
+				"do", "add", "kill", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "all", "one", "it", "some", "them", "info", "verbose", "normalize", "plot", "sch",
+				"scratch", "pause", "solo", "fwd", "bwd", "dir", "reverse", "volu", "vold", "vol", "fadein", "fadeout", "pan", "rate", "wobble", "reset", "resume", "shot", "out",
 				"lp", "loop", "st", "step", "move", "end", "go", "gost", "goend", "dur", "len",
 				"push", "pop", "save", "load", "control", "search",
 				"rbuf", "rrate", "rpan", "rloop", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rand",
@@ -127,22 +127,30 @@ Layers{
 		"... loading sound files ...".postln;
 	}
 
-	do {|anum=4|
-		("creating players:"+anum.asString).postln;
-
-		views = List.new;//.fill(howmany, {0});
+	do {|howmany=4|
+		views = List.new;
 
 		ps.collect(_.free);
-		ps = List.new;//(anum);//sfs.size);
+		ps = List.new;
 
-		anum.do({arg index;
-			ps = ps.add( Layer.new(index, bufs.wrapAt(index)));
-		});
+		this.add(howmany);
+
+		/*		howmany.do({arg index;
+		ps = ps.add( Layer.new(index, bufs.wrapAt(index)));
+		});*/
 	}
 
-	add {|anum=1|
-		var index = ps.size;
-		ps = ps.add( Layer.new(index, bufs.wrapAt(index)));
+	add {|howmany=1|
+		("creating players:"+howmany.asString).postln;
+		howmany.do({
+			var index = ps.size;
+			ps = ps.add( Layer.new(index, bufs.wrapAt(index)));
+		})
+	}
+
+	kill {|index|
+		index ?? index = ps.size.rand;
+		ps.removeAt(index).kill;
 	}
 
 	all {^ps}
@@ -165,7 +173,7 @@ Layers{
 	it {^it;}
 
 	some {|howmany=1|
-		if (howmany.isNil, {howmany=ps.size.rand});
+		howmany ?? howmany = ps.size.rand;
 		them = ps.scramble[0..howmany-1];
 		^them;
 	}
@@ -224,20 +232,7 @@ Layers{
 
 	newplayer {|asynth| ps.do({ |pl| pl.newplayer(asynth)}) }
 
-	// limits, bounds, points, hoop, ring, rim, roll
-	/*	lp {|p, offset=0| // SCLANG DOES NOT LIKE THAT WE USE THE NAME "LOOP" FOR OUR METHOD. change
-	if (p.isNil, {p=[0,1]});
-	ps.do({ |pl, index|
-	{
-	pl.loop(p[0], p[1]); // this must change NAME as well
-	this.newselection(p[0], p[1], views[index], pl.buf);
-	}.defer(offset.asFloat.rand)
-	})
-	}*/
-
-	//	     mysttime = self.app.sttime + self.z * self.app.shift
-	//       myendtime = mysttime + self.app.grain + self.z * self.app.grainshift
-	slice {|sttime, shift, grain, grainshift, offset=0|
+	slice {|sttime, shift, grain, grainshift, offset=0| // SLICER like behaviour
 		ps.do({ |pl, index|
 			var mysttime = sttime + (index * (shift/100.0));
 			var myendtime = mysttime + grain + (index * (grainshift/100.0));
@@ -469,6 +464,13 @@ Layers{
 		})
 	}
 
+	dir {|to=1, time=0, offset=0|
+		ps.do({ |pl|
+			{pl.dir(to, time)}.defer(offset.asFloat.rand)
+		})
+
+	}
+
 	fwd {|time=0, offset=0|
 		ps.do({ |pl|
 			{pl.fwd(time)}.defer(offset.asFloat.rand)
@@ -599,7 +601,7 @@ Layers{
 	resumeT {|name| procs[name.asSymbol].resume}
 	pauseT {|name| procs[name.asSymbol].pause}
 
-	sch {|name="", function, sleep=5.0, random=0, offset=0, clock=0| // offset is passed to functions so that local events are not at the same time
+	sch {|name="", function, sleep=5.0, random=0, offset=0, clock=0, talk=true| // offset is passed to functions so that local events are not at the same time
 		var atask;
 
 		if (name=="", {
@@ -607,7 +609,7 @@ Layers{
 			name = ("T"++Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second).asSymbol;
 		});
 
-		if (procs[name.asSymbol].isNil.not, { this.stopT(name.asSymbol) }); // kill if already there before rebirth
+		if (procs[name.asSymbol].notNil, { this.stopT(name.asSymbol) }); // kill if already there before rebirth
 
 		if (clock==0, {
 			clock = TempoClock
@@ -618,7 +620,8 @@ Layers{
 		atask = Task({
 			inf.do({|index|
 				var time = ""+Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second;
-				if (name != "") {("-- now:"+name++time).postln};
+				//if ( ((name != "") && (procstalk == true), {("-- now:"+name++time).postln});
+				if ( ((name != "") && (talk == true)), {("-- now:"+name++time).postln});
 				if ((random.isArray),
 					{sleep = random[0].wchoose(random[1])} ,
 					{sleep = sleep + (random.rand2)}
@@ -706,12 +709,13 @@ Layers{
 	}
 
 	updateplot {|buf| // draw the choosen buffer
-		if (plotwin.isNil.not, {
+		if (plotwin.notNil, {
 			var f = { |b,v|
 				b.loadToFloatArray(action: { |a| { v.setData(a) }.defer });
 				//v.gridResolution(b.duration/10); // I would like to divide the window in 10 parts no matter what the sound dur is. Cannot change gridRes on the fly?
 			};
-			if (buf.isNil.not, {f.(buf, plotview)}); // only if a buf is provided
+			//if (buf.notNil, {f.(buf, plotview)}); // only if a buf is provided
+			buf !? f.(buf, plotview)
 		});
 	}
 
@@ -793,7 +797,7 @@ Layers{
 	}
 
 	newplotdata {|buf, view|
-		if (controlGUI.isNil.not, {
+		if (controlGUI.notNil, {
 			var sf = SoundFile.new;
 			sf.openRead(buf.path);
 
@@ -805,7 +809,7 @@ Layers{
 	}
 
 	newselection {|st, end, view, buf|
-		if (controlGUI.isNil.not, {
+		if (controlGUI.notNil, {
 			view.setSelectionStart(0, (buf.numFrames) * st); // loop the selection
 			view.setSelectionSize(0, (buf.numFrames) * (end-st));
 		})

@@ -39,12 +39,17 @@ Layers(this);
 
 @resume; // everything is ready, go play
 
+@add; // adds one new Layer (with rate 0)
+@add(5)// adds 5 new Layers
 
-// you could load new files and asign them again
+@kill(2) // kills layer at pos 2
+
+
+// you could load new files and asign them again after Layers are alive
 @loadfiles("some/another/directory"); // must wait until files are loaded
 @asignbufs // force re-asigns them
 //you could do it manually as well
-@2.buf( @bufs[5] ) // etc...
+@2.buf( @bufs[5] ) // layer 2 gets buffer 5
 
 
 //////////////////////////////////////////////////////////
@@ -56,6 +61,7 @@ Layers(this);
 @all // list containing all players
 @some // returns a list with randomly chosen layers
 @info // post internal states for all available layers
+@2.state // returns a dictionary with the state of layer at position 2
 @verbose(true)
 @buf( @bufs[1] ); // set this buffer to all layers
 @buf(1); // OR do it by index
@@ -77,7 +83,8 @@ Layers(this);
 @fadein
 @fadeout
 @pan(0) //-1 to 1
-@rate()
+@rate
+@wooble(0.07) // rand fluctuation in rate
 
 @lp(0, 0.01) // st, end. in 0 to 1 range
 @st(0.5) //loop start
