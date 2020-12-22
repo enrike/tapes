@@ -144,6 +144,7 @@ Layers{
 		("creating players:"+howmany.asString).postln;
 		howmany.do({
 			var index = ps.size;
+			views.add(nil); //prepare
 			ps = ps.add( Layer.new(index, bufs.wrapAt(index)));
 		})
 	}
