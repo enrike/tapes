@@ -8,9 +8,12 @@ check the documentation.scd file for usage example.
 
 to create and play 4 tapes:
 
-Tapes(this);
+Tapes(this)
+
 _loadfiles(/path/to/sound/files)
+
 _add(4)
+
 _resume
 
 
