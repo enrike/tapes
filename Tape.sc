@@ -1,22 +1,23 @@
-/* single layer
+/* single tape
 */
 
-Layer{
+Tape{
 
 	var <id, <play, <curpos;
 	var buf, st=0, end=1, vol=1, rate=0, pan=0, bus=0, len=0, dur=0, dir=1; // state variables hidden
 	var memrate=1; // to store rate while paused
-	var >view=nil;
+	var <>view=nil;
 	var <>statesDic, <>verbose=false, loopOSC, playheadOSC;
 
-	*new {| id=0, buffer = nil, bus=0 |
-		^super.new.initLayer( id, buffer, bus );
+	*new {| buffer=nil, bus=0 |
+		^super.new.initTape( buffer, bus );
 	}
 
-	initLayer {| aid, abuffer, abus |
-		id = aid; // just in case I need to identify later
+	initTape {| abuffer, abus |
 		buf = abuffer;
 		bus = abus;
+
+		id = UniqueID.next;
 
 		play.free;
 
@@ -34,7 +35,7 @@ Layer{
 
 		statesDic = Dictionary.new;
 
-		("ready layer @"++id).postln;
+		("ready tape ID"+id).postln;
 	}
 
 	kill {
@@ -61,16 +62,30 @@ Layer{
 		^((buf.numFrames/buf.sampleRate)*1000).asInt // buf.numChannels/
 	}
 
-	state {
-		var state = Dictionary.new; // add curpos?
-		state.put(\buf, buf);
-		state.put(\st, st);
-		state.put(\end, end);
-		state.put(\vol, vol);
-		state.put(\rate, rate);
-		state.put(\dir, dir);
-		state.put(\panning, pan);
-		^state
+	state {|state|
+		if (state.isNil, {
+			var state = Dictionary.new; // add curpos?
+			state.put(\buf, buf);
+			state.put(\st, st);
+			state.put(\end, end);
+			state.put(\vol, vol);
+			state.put(\rate, rate);
+			state.put(\dir, dir);
+			state.put(\panning, pan);
+			^state
+		}, {
+			this.buf(state[\buf]);
+			this.st(state[\st]);
+			this.end(state[\end]);
+			this.vol(state[\vol]);
+			this.rate(state[\rate]);
+			this.dir(state[\dir]);
+			this.pan(state[\panning]);
+		});
+	}
+
+	copy {|tape|
+		this.state( tape.state() )
 	}
 
 	push { |which|
@@ -106,7 +121,7 @@ Layer{
 	}
 
 	info {
-		("-- Layer"+id+"--").postln;
+		("-- Tape ID"+id+"--").postln;
 		this.file().postln;
 		["curpos", curpos].postln;
 		["volume", vol].postln;
@@ -121,10 +136,6 @@ Layer{
 	post {|action, value|
 		if (verbose.asBoolean, {[id, action, value].postln});
 	}
-
-	/*	actualsynthrate {
-	play.get(\rate, {|val| rate=val})
-	}*/
 
 	go {|pos=0|
 		//if (pos<st, {pos=st}); // limits
@@ -269,11 +280,6 @@ Layer{
 		if (args.size==0, {
 			^[st, end]
 		}, {
-			/*			if (args[1].isNil,
-			{end = args[0] + (end-st)}, // keep the len
-			{end = args[1]}
-			);*/
-
 			end = args[1];
 			st = args[0];
 
@@ -284,6 +290,26 @@ Layer{
 			this.updatelooppoints; //only if w open
 		})
 	}
+
+	/*	loop {|...args|
+	if (args.size==0, {
+	^[st, end]
+	}, {
+	/*			if (args[1].isNil,
+	{end = args[0] + (end-st)}, // keep the len
+	{end = args[1]}
+	);*/
+
+	end = args[1];
+	st = args[0];
+
+	play.set(\start, st);
+	play.set(\end, end);
+	//[st, end].postln;
+	this.post("loop", st.asString+"-"+end.asString);
+	this.updatelooppoints; //only if w open
+	})
+	}*/
 
 	st {|p, random=0|
 		if (p.notNil, {

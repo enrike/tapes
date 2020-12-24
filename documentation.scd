@@ -1,328 +1,342 @@
 /*
-Layers by ixi-audio.net
+Tapes by ixi-audio.net
 license GPL
 
-Layers allows to create and control multiple layers of samplers
+Tapes allows to create and control multiple tapeloop-like sample players
 */
 
 
 
+// "how to use" guide in four lines
+Tapes(this);
+_loadfiles( "~/Mahaigaina/audio/00works/" ); // load all samples from this folder. wait until loaded to continue
+_add(4); // create 4 players. wait until created to continue
+_resume; // get them to play
 
 
-/*
-use @? this collides with 5@6 points. # colllides with #a,b=[1,2]. maybe use regexp in preprocesor?
-
-loop, rloop and bloop decide whether they should be one or two args or 4@4 or some other solution
-
-len / rlen: if len is in msecs rlen should be in millisecs
-
-@r -> rate
-@rr -> rrate
-@br -> @brate
-etc...?
-
-*/
+_verbose(true) // will post extra log information
 
 
-// 1st: set up the system
-Layers(this);
+// MANAGE PLAYERS //
 
-// 2nd: load all samples from this folder
-@loadfiles( "~/Mahaigaina/audio/00works/" );
-//@loadfiles( "~/Mahaigaina/audio/00_mbv/isntanything/" );
-//@loadfiles( "~/Mahaigaina/audio/00songs/" );
-//@loadfiles( "~/Mahaigaina/audio/beat_happening_cuts/");
+// _add to instantiate N tape players each playing one of the loaded files.
+// if more tape players than sound files it wraps
+_add; // adds one new tape player (with rate 0) at current group
+_add(5)// adds 5 new tape players
+_add(3, _0) // adds 3 tape players copying tape players 0's state
+_0.copy(_1) // tape player 0 copies tape player 1's state
 
-// 3rd: instantiate N layers each playing one of the loaded files.
-// if more layers than sound files it wraps
-@do(4);
+_group // all tape player in current group
+_1 // individual tape player _0, _1, _2, _3, etc...
 
-@resume; // everything is ready, go play
+_info // post internal states for all available tape players
+_2.state // returns a dictionary with the state of tape player 2, etc...
 
-@add; // adds one new Layer (with rate 0)
-@add(5)// adds 5 new Layers
+_some // returns a list with randomly chosen tape players
+_some(3) // returns a list with 3 randomly chosen tape players
+_them // last ones choosen by _some
+_one // choose one rand
+_it // last one choosen by _one
 
-@kill(2) // kills layer at pos 2
+// groups
+_currentgroup // active group: default is \a
+_group // posts current group's content
+_groups // all groups' content
+_newgroup(\dirty) // creates a new group
+_usegroup(\dirty) // switch to this roup
+//_useall // use all groups
+_removegroup(\dirty) // removes the group and kills all players in it
+//_movegroup(_1, \dirty) //move _1 from current group to group \a
+//_whichgroup(1001) // by ID
+_mergegroups // merge all players to group \a and usegroup(\a)
+
+_kill(2) // kills tape player at pos 2 in current group. if N is too big it kills the last one
+_kill // kills a random tape player at current group
+_killall // kills everyone at current group
+_killthemall // kills everyone in every group
+
+// experimental
+_plot; // draws the play heads of each tape player the same window
+_plot(4) // optional pass the buffer to draw on the background of the window. useful when all tape players share the same buffer
 
 
-// you could load new files and asign them again after Layers are alive
-@loadfiles("some/another/directory"); // must wait until files are loaded
-@asignbufs // force re-asigns them
-//you could do it manually as well
-@2.buf( @bufs[5] ) // layer 2 gets buffer 5
+//  BUFFERS //
+
+_loadfiles("some/directory"); // BEWARE: loading files takes time
+_normalize // normalise buffers
+_bufs // posts buffers available
+_curbufs // posts which buffers actually being used by which tape players
+_buf(5) // asign buffer 5 to all players in current group
+
+// you could load new files and asign them again after tape players are alive
+_loadfiles("another/directory");
+_asignbufs // force re-asign them
+
 
 
 //////////////////////////////////////////////////////////
-// global controls. control all layers at the same time //
+// global controls. control all tape players at the same time //
 //////////////////////////////////////////////////////////
 
-@bufs // posts buffers available
-@curbufs // posts buffers actually being used by which players
-@all // list containing all players
-@some // returns a list with randomly chosen layers
-@info // post internal states for all available layers
-@2.state // returns a dictionary with the state of layer at position 2
-@verbose(true)
-@buf( @bufs[1] ); // set this buffer to all layers
-@buf(1); // OR do it by index
-@asignbufs // asign the loaded buffers to layers, it happens by default on Layers.new
-@normalize // normalise buffers
-@plot; // draws the play heads of each layer the same window
-@plot(4) // optional pass the buffer to draw on the background of the window. useful when all layers share the same buffer
+_resume // loop play
+_pause
+_shot // single shot play. experimental
+_solo(0) // pause all but 0 player
+_reverse // reverse play direction. +rate to -rate
+_dir(1) // 1 forwards, -1 backwards
+_fwd // turn current rate positive
+_bwd // turn current rate negative
+_volu // UP by 2/100th
+_vold // DOWN by 2/100th
+_vol(0.5)
+_fadein
+_fadeout
+_pan(0) //-1 to 1
+_rate(0.8)
+_wooble(0.07) // rand fluctuation in rate
 
-@resume // loop play
-@pause
-@shot // single shot play
-@solo(0) // pause all but this layer
-@reverse // reverse play direction. +rate to -rate
-@fwd // turn current rate positive
-@bwd // turn current rate negative
-@volu // UP by 2/100th
-@vold // DOWN by 2/100th
-@vol(0.5)
-@fadein
-@fadeout
-@pan(0) //-1 to 1
-@rate
-@wooble(0.07) // rand fluctuation in rate
+_lp(0, 0.01) // st, end. in 0 to 1 range
+_st(0.5) //loop start
+_end(0.55) // loop end
+_dur(0.006) // loop duration in 0-1 range from st
+_len(600) // length, **in milliseconds** useful if they are using different buffers and you want the same loop duration
+_step(0.01) // move st and end by that step from the current st position. maintains the loop duration
+_move(0.5) // move playhead to that position, set st to that position and calculate the new end maintaning the loop duration
+_go(0.5) // send playhead to point in sample (only works if >st and <end)
 
-@lp(0, 0.01) // st, end. in 0 to 1 range
-@st(0.5) //loop start
-@end(0.55) // loop end
-@dur(0.006) // loop duration in 0-1 range from st
-@len(600) // length, **in milliseconds** useful if they are using different buffers and you want the same loop duration
-@step(0.01) // move st and end by that step from the current st position. maintains the loop duration
-@move(0.5) // move playhead to that position, set st to that position and calculate the new end maintaning the loop duration
-@go(0.5) // send playhead to point in sample (only works if >st and <end)
-
-@scratch // experimental. |target=0, tIn=1, tStay=0.5, tOut=1, offset=0| // boomerang like pitch change
+_scratch // experimental. |target=0, tIn=1, tStay=0.5, tOut=1, offset=0| // boomerang like pitch change
 
 // RESET: calling some functions with no args should reset its corresponding state for instance...
-@reset // reset loop to 0-1, play from 0, pitch to 1
-@lp // resets loop to 0-1
-@go // resets pos to 0
-@gost // to to loop start point
-@goend // go to loops end point
-// SAME happens with @pan, @rate, @vol
+_reset // reset loop to 0-1, play from 0, pitch to 1
+_lp // resets loop to 0-1
+_gost // to to loop start point
+_goend // go to loops end poi
+
+_go // resets pos to 0 --> SAME happens with _pan, _rate, _vol. They reset to default value
 
 
 // store and retrieve named states. they dont get deleted from memory until the session ends
-@push(\dut)
-@pop(\dut)
-@save // save current states from memory into a file.
-@save("caos") // optionally provide a name. if no name is provided it uses the timestamp
-@load // open a dialogue to search for a file containg states
+_push(\dut)
+_pop(\dut)
+_save // save current states from memory into a file.
+_save("caos") // optionally provide a name. if no name is provided it uses the timestamp
+_load // open a dialogue to search for a file containg states
 
-@control // opens a window with all layers. you can control de loop selection
-@control( 300, 200 )
+_control // opens a window with all tape players. you can control de loop selection
+_control( 300, 200 )
 
-// search. identify which layers are playing which sound file
-p = @search("Roll") //return a list of layers whose buffer contains this string in the file name. no case sensitive
+// search. identify which tape players are playing which sound file
+p = _search("Roll") //return a list of tape players whose buffer contains this string in the file name. no case sensitive
 p.do({|lay| lay.vol(0.3)}) // do whatever with the search results
 
-//random
-@one // choose and return a random layer
-@some // returns a list with a random number of random players
-@some(3) // returns a list with N random items from all players
-// for instance
-@one.rrate // one gets random rate
-@some.collect(_.rrate) // some of them get random rate
 
-@rbuf // anyone gets a new buffer randomly
-@rpan
-@rrate
-@rdir // + or - rate
-@rvol
-@rloop // 0 to 1
-@rloop([0.2, 0.1]) // set start and LENGTH limits for the random. in this case start will be rrange(0,0.2) and length start+(0.1.rand)
-@rst // start point
-@rend // end point (not length)
-@rlen(0.1) // length. in range 0-1
-@rgo // go to a random point in the sound
-@rand // random file, pan, vol, rate, dir, loop (st, end) and go
+
+// RANDOM //
+
+_rbuf // anyone gets a new buffer randomly
+_rpan
+_rrate
+_rdir // + or - rate
+_rvol
+_rloop // 0 to 1
+_rloop([0.2, 0.1]) // set start and LENGTH limits for the random. in this case start will be rrange(0,0.2) and length start+(0.1.rand)
+_rst // start point
+_rend // end point (not length)
+_rlen(0.1) // length. in range 0-1
+_rgo // go to a random point in the sound
+_rand // random file, pan, vol, rate, dir, loop (st, end) and go
 
 // random walks
-@bloop // small range go. range defaults to 0.01
-@bloop(0.05) // single step small random
-@bvol // small range go. range defaults to 0.01
-@bvol(0.05) // single step small random
-@bpan
-@bgo(0.9)
-@brate
+_bloop // small range go. range defaults to 0.01
+_bloop(0.05) // single step small random
+_bvol // small range go. range defaults to 0.01
+_bvol(0.05) // single step small random
+_bpan
+_bgo(0.9)
+_brate
+
+// apply commands to some players but not to all
+_one.rrate // one gets random rate
+_some.collect(_.rrate) // some of them get random rate
 
 
-
-
-// OFFSET:
-// functions also have offsets so that layers dont run the function at the same time
-@rrate(5, offset:8) // all layers random rate within 8 secs. each one at a different time within the next 8 secs
-@rlen(offset:20) // and so on...
+// OFFSET //
+// functions also have offsets so that tape players dont run the function at the same time
+_rrate(5, offset:8) // all players random rate at a different timing within the next 8 secs
+_rlen(offset:20) // and so on...
 
 
 // TRANSITION TIME:
 // some functions (the ones related to panning, amplitude and pitch) can perform a transition between the current state and the target state in N secs
 // go to a value in N secs
-@rate(0.1, 10)// check this out, the sound is self explanatory :)
-@brate(0.1, 20) // this will start a shift to a random rate ranging -0.1 to 0.1 from the current rate that will take 20s
-@brate(0.1, 20, offset:8) // offset can be use here too
+_rate(0.1, 10)// go to 0.1 rate in 10secs
+_brate(0.1, 20) // this will start a shift to a random rate ranging -0.1 to 0.1 from the current rate that will take 20s
+_brate(0.1, 20, offset:8) // offset can be use here too
 
 //local randoms
-@rate(1, random:0.1); // each of them will apply a small random variation around 1 ranging -0.1 to 0.1
-@end(0.5, random:0.01);
-@dur(0.1, random:0.05)
+_rate(1, random:0.1); // each of them will apply a small random variation around 1 ranging -0.1 to 0.1
+_end(0.5, random:0.01);
+_dur(0.1, random:0.05)
 
 // compressor. yes, there is a built in compressor/expander. inactive by default
-@comp(0.2, 0.6, 0.2) //threshold, slopeBelow, slopeAbove
-@thr(0.2); // threshold
-@slb(0.6); // slope below thr <1 for expansion
-@sla(0.2); //slope above thr <1 for compression >1 for expansion
+_comp(0.2, 0.6, 0.2) //threshold, slopeBelow, slopeAbove
+_thr(0.2); // threshold
+_slb(0.6); // slope below thr <1 for expansion
+_sla(0.2); //slope above thr <1 for compression >1 for expansion
 
 
-// scheduling functions
-@sch(\randpan, {@rpan}, 15); //schedule a function every N secs. args: NAME, FUNCTION, TICK TIME, OFFSET, RANDOM
+// SCEDULE FUNCTIONS //
+
+_sch(\randpan, {_rpan}, 15); //schedule a function every N secs. args: NAME, FUNCTION, TICK TIME, OFFSET, RANDOM, TALK
+_pauseT(\randpan)
+_resumeT(\randpan)
+_stopT(\randpan) // STOPS the task
+_procs // dictionary containing all Tasks alive
+_stopT // kills all tasks
+_noT; // kills all tasks
 
 // random periods
-@sch(\randpan, {@rpan}, 15, offset:5); // ... optional offset delay so that each layer fires at N+(offset.rand)
-@sch(\randpan, {@rpan}, 15, random:2); // rand swing: the next sch will happen after 15 + rrand(-2,+2) secs
-@sch(\wrand, {
+_sch(\randpan, {_rpan}, 15, offset:5); // ... optional offset delay so that each player fires at N+(offset.rand)
+_sch(\randpan, {_rpan}, 15, random:2); // rand swing: the next sch will happen after 15 + rrand(-2,+2) secs
+
+_sch(\wrand, {
 	"two options".postln;
 }, random:[[1,3],[0.9, 0.1]])// run every every 1 sec (90% chances) or 3 secs (10%chances)
 
+_sch(\silent, { // wont print every run
+	_rpan
+}, 15, talk:false);
 
 
-@pauseT(\randpan)
-@resumeT(\randpan)
-@stopT(\randpan) // STOPS the task
-@procs // dictionary containing all Tasks alive
-@stopT // kills all tasks
-@noT; // kills all tasks
 
 // some examples of scheduling tasks
-@sch(\backtoinit, {@reset}, 10) // resets every 10s
-@stopT(\backtoinit)
+_sch(\backtoinit, {_reset}, 10) // resets every 10s
+_stopT(\backtoinit)
 
-@sch(\rev, {@reverse}, 10, offset:5)
-@stopT(\rev)
+_sch(\rev, {_reverse}, 10, offset:5)
+_stopT(\rev)
 
-@sch(\rlen, {@rlen(1, 2)}, 8, 4)
-@stopT(\rlen)
+_sch(\rlen, {_rlen(1, 2)}, 8, 4)
+_stopT(\rlen)
 
-@sch(\brat, {@brate(0.01)}, 10, offset:4)
-@stopT(\brat)
+_sch(\brat, {_brate(0.01)}, 10, offset:4)
+_stopT(\brat)
 
-@sch(\bloop, {@bloop}, 4, offset:3)
-@stopT(\bloop)
+_sch(\bloop, {_bloop}, 4, offset:3)
+_stopT(\bloop)
 
-@sch(\bvol, {@bvol}, 4)
-@stopT(\bvol)
+_sch(\bvol, {_bvol}, 4)
+_stopT(\bvol)
 
-@sch(\bgo, {@bgo(0.01)}, 1, offset:1)
-@stopT(\bgo)
+_sch(\bgo, {_bgo(0.01)}, 1, offset:1)
+_stopT(\bgo)
 
-@sch(\rst, {@rst}, 15, offset:10)
-@stopT(\rst)
+_sch(\rst, {_rst}, 15, offset:10)
+_stopT(\rst)
 
-@sch(\rbufs, {@one.buf(@bufs.choose)}, 15) //a single random player gets a random sound every 15s
-@stopT(\rbufs)
+_sch(\rbufs, {_one.buf(_bufs.choose)}, 15) //a single random player gets a random sound every 15s
+_stopT(\rbufs)
 
-@sch(\inoutrand, { //every 30 sec: 9 sec fade in- after 15 secs - 9 secs fade out
-	@fadein(9);
-	{@fadeout(9)}.defer(15)
+_sch(\inoutrand, { //every 30 sec: 9 sec fade in- after 15 secs - 9 secs fade out
+	_fadein(9);
+	{_fadeout(9)}.defer(15)
 }, 30)
-@stopT(\inoutrand)
+_stopT(\inoutrand)
 
-@sch(\ramps, {// this will move every 10 secs all the pitchs to a random value ranging -4 to +4 from the current value in a 5 sec transition
-	@brate(4, 5, \sin)
+_sch(\ramps, {// this will move every 10 secs all the pitchs to a random value ranging -4 to +4 from the current value in a 5 sec transition
+	_brate(4, 5, \sin)
 }, 10, 3)
-@stopT(\ramps)
+_stopT(\ramps)
 
 
 ( //keeps mirror playing while slowly moving around the same area
-@rdir;
-@sch(\rev, {
-	@bgo(0.01);
-	@reverse
+_rdir;
+_sch(\rev, {
+	_bgo(0.01);
+	_reverse
 }, 1, random:0.2)
 )
 
 ( // moves forwards going
 var st=0, end;
-@sch(\go, {
+_sch(\go, {
 	st = st+(0.001.rand);
-	@loop([st, st+0.001])
+	_loop([st, st+0.001])
 }, 0.8)
 )
 
 (
 var len=10, gap=5, fade=0.5;
-@sch(\rum, {
-	@rbuf;
-	@rdir; @rrate; @rloop;
-	@fadein(fade);
-	{@fadeout(fade)}.defer(len-gap);
+_sch(\rum, {
+	_rbuf;
+	_rdir; _rrate; _rloop;
+	_fadein(fade);
+	{_fadeout(fade)}.defer(len-gap);
 }, len)
 )
 
 (
 var st=0, end=0, speed=0.001, len=0.01, time=3;
-@sch(\go, {
+_sch(\go, {
 	st = st+(speed.rand);
 	if ( (st+len)>1, {st=0});
 	st.postln;
-	@bpan(0.5, time:time);
-	@rdir;
-	@brate(0.0005);
-	@loop([st, st+len])
+	_bpan(0.5, time:time);
+	_rdir;
+	_brate(0.0005);
+	_loop([st, st+len])
 }, time, random:time/3.0)
 )
 
 
 
+
+
 ///////////////////////////////
-// control individual layers //
+// control individual players //
 ///////////////////////////////
 
-// you can also control each layer individually with @0, @1 etc...
+// you can also control each player individually with _0, _1 etc...
 
 // GET
-@0.vol
-@0.info
-@0.file
-@0.buf
-@0.end
-@0.st
-@0.curpos // 0-1 playhead position
-@0.verbose
+_0.vol
+_0.info
+_0.file
+_0.buf
+_0.end
+_0.st
+_0.curpos // 0-1 playhead position
+_0.verbose
 
 // SET
-@0.buf( @bufs[1] )
-@0.vol(1)
-@0.pan(0) // -1 to 1
-@0.rate(1)
-@0.loop([0.1, 0.12]) // st and end. range 0-1
-@0.len(1000) // in millisecs!!!
+_0.buf( _bufs[1] )
+_0.vol(1)
+_0.pan(0) // -1 to 1
+_0.rate(1)
+_0.loop(0.1, 0.12) // st and end. range 0-1
+_0.len(1000) // in millisecs!!!
 // and so on...
 
 // ACTIONS
-@0.resume
-@0.fadein(100)
-@0.fadeout(5)
-@0.pause
-@0.go(0.7)
+_0.resume
+_0.fadein(100)
+_0.fadeout(5)
+_0.pause
+_0.go(0.7)
 // and so on...
 
 // memory
-@0.push
-@0.pop
+_0.push
+_0.pop
 
 // random
-@0.rloop //
-@0.rst
-@0.rend
-@0.rvol
-@0.rpan
-@0.rrate
-@0.rdir
-@0.bloop(0.01) // single step small random
+_0.rloop //
+_0.rst
+_0.rend
+_0.rvol
+_0.rpan
+_0.rrate
+_0.rdir
+_0.bloop(0.01) // single step small random
 // and so on...
 

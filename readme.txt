@@ -1,15 +1,15 @@
-Layers by ixi-audio.net
+Tapes by ixi-audio.net
 
-Supercollider based sample loop system. I use it to control many layers of loops at the same time
+Supercollider based sample loop system. I use it to control many layers of tape-loop-like machines at the same time
 
 check the documentation.scd file for usage example.
 
-to create 4 layers: 
+to create and play 4 tapes: 
 
-Layers(this);
-@loadfiles(/path/to/files)
-@do(4)
-@resume
+Tapes(this);
+_loadfiles(/path/to/sound/files)
+_add(4)
+_resume
 
 
 License : GNU GPL

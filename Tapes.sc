@@ -2,7 +2,7 @@
 */
 
 
-Layers{
+Tapes{
 
 	var server, <path, <bufs, <sfs, <ps, <procs;
 	var plotwin=nil, plotview, drawview, plotwinrefresh;
@@ -10,15 +10,21 @@ Layers{
 	var buses, <compressor;
 	var volume=1;
 	var it, them; // to remember @one and @some
+	var <grouplists, <currentgroup;
 
-	*new {| main=nil, symbol="@" |
-		^super.new.initLayers( main, symbol );
+	*new {| main=nil, symbol="_" |
+		^super.new.initTapes( main, symbol );
 	}
 
-	initLayers {| amain, asym |
-		~layers = this; // keep me in a global
+	initTapes {| amain, asym |
+		~tapes = this; // keep me in a global
 
 		procs = Dictionary.new; // stores all tasks
+
+		currentgroup = \a;
+		grouplists = Dictionary[currentgroup -> List.new];
+
+		views = List.new;
 
 		this.boot;
 
@@ -27,12 +33,12 @@ Layers{
 
 
 	lang {|main, sym|
-		var layervar = "~layers";
-		// this is to be able to use the systems using a symbol (like @) instead of ~layers. and symbol2 (eg @2) instead of ~layers.ps[2]
+		var globalvar = "~tapes";
+		// this is to be able to use the systems using a symbol (like _) instead of ~tapes. and symbol2 (eg _2) instead of ~tapes.grouplists[\current][2]
 		main.preProcessor = { |code|
-			// list with all the commands used by layers
+			// list with all the commands used by Tapes
 			var mets = [
-				"do", "add", "kill", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "all", "one", "it", "some", "them", "info", "verbose", "normalize", "plot", "sch",
+				"add", "kill", "killall", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "one", "it", "some", "them", "info", "verbose", "normalize", "plot", "sch",
 				"scratch", "pause", "solo", "fwd", "bwd", "dir", "reverse", "volu", "vold", "vol", "fadein", "fadeout", "pan", "rate", "wobble", "reset", "resume", "shot", "out",
 				"lp", "loop", "st", "step", "move", "end", "go", "gost", "goend", "dur", "len",
 				"push", "pop", "save", "load", "control", "search",
@@ -40,16 +46,17 @@ Layers{
 				"bloop", "bpan", "brate", "bvol", "bpan", "bgo",
 				"comp", "thr", "slb", "sla",
 				"pauseT", "resumeT", "stopT", "noT", "procs",
-				"slice"
+				"slice",
+				"group", "groups", "mergegroups", "usegroup", "currentgroup", "newgroup", "killgroup", "all"
 			];
 
-			mets.do({|met| // @go --> ~layers.go
-				code = code.replace(sym++met, layervar++"."++met);
+			mets.do({|met| // @go --> ~tapes.go
+				code = code.replace(sym++met, globalvar++"."++met);
 			});
 
 			100.reverseDo({|num| // reverse to avoid errors with index > 1 digit
-				var dest = layervar++".ps["+num.asString+"]";
-				code = code.replace(sym++num.asString, dest); // @2 --> ~layers.ps[2]
+				var dest = globalvar++".grouplists[\\"++currentgroup++"]"++"["++num.asString++"]";
+				code = code.replace(sym++num.asString, dest); // _2 --> ~tapes.grouplists[\whatever][2]
 			});
 
 			code = code.replace("", ""); // THIS MUST BE HERE OTHERWISE THERE IS SOME WEIRD BUG
@@ -106,59 +113,125 @@ Layers{
 	}
 
 	loadfiles {|apath="~/"|
-		path = apath;
-		("path is"+apath).postln;
+		server.waitForBoot({
+			path = apath;
+			("path is"+apath).postln;
 
-		if (PathName.new(apath).isFile, {
-			sfs = List.newUsing( [SoundFile(apath)] );
-		}, {
-			sfs = List.newUsing( SoundFile.collect( apath++"*") ); // if a folder apply wildcards
-		});
+			if (PathName.new(apath).isFile, {
+				sfs = List.newUsing( [SoundFile(apath)] );
+			}, {
+				sfs = List.newUsing( SoundFile.collect( apath++"*") ); // if a folder apply wildcards
+			});
 
-		bufs = Array.new(sfs.size);// all files in the dir
+			if (sfs.size < 1, {
+				"no files found!".postln;
+			}, {
+				bufs = Array.new(sfs.size);// all files in the dir
 
-		// load ALL buffers
-		sfs.size.do({ arg n;
-			var buf = Buffer.read(server, sfs.wrapAt(n).path);
-			bufs = bufs.add( buf )
-		});
 
-		(sfs.size + "buffers available").postln;
-		"... loading sound files ...".postln;
-	}
+				// load ALL buffers
+				sfs.size.do({ arg n;
+					var buf = Buffer.read(server, sfs.wrapAt(n).path,
+						action:{
+							("loaded"+PathName(sfs.wrapAt(n).path).fileName).postln;
+							if (n>=(sfs.size-1), {"DONE LOADING FILES".postln})
+						}
+					);
+					bufs = bufs.add( buf )
+				});
 
-	do {|howmany=4|
-		views = List.new;
-
-		ps.collect(_.free);
-		ps = List.new;
-
-		this.add(howmany);
-
-		/*		howmany.do({arg index;
-		ps = ps.add( Layer.new(index, bufs.wrapAt(index)));
-		});*/
-	}
-
-	add {|howmany=1|
-		("creating players:"+howmany.asString).postln;
-		howmany.do({
-			var index = ps.size;
-			views.add(nil); //prepare
-			ps = ps.add( Layer.new(index, bufs.wrapAt(index)));
+				(sfs.size + "files available").postln;
+				"loading sounds into buffers. wait ...".postln;
+			});
 		})
 	}
 
-	kill {|index|
-		index ?? index = ps.size.rand;
-		ps.removeAt(index).kill;
+	// groups
+	group {
+		^grouplists[currentgroup]
+	}
+	groups {
+		^grouplists
+	}
+	all {
+		^grouplists.values.flat
+	}
+	mergegroups{
+		var players = grouplists.values.flat;
+		grouplists = Dictionary.new.add(\a -> players);
+		currentgroup = \a;
+		this.usegroup(currentgroup)
+	}
+	usegroup {|name|
+		if (grouplists.keys.includes(name), {
+			currentgroup=name;
+		}, {
+			("group"+name+"does NOT exist").postln
+		});
+	}
+	newgroup {|name|
+		grouplists.add(name -> List.new);
+		("created group"+name).postln;
+	}
+	removegroup {|name|
+		this.killall(name);
+		grouplists.removeAt(name);
+		("removed group"+name).postln;
+	}
+	/////////
+
+	/*	do {|howmany=4|
+	views = List.new;
+
+	grouplists[currentgroup].collect(_.free);
+	grouplists[currentgroup] = List.new;
+
+	this.add(howmany)
+	}*/
+
+	add {|howmany=1, copythis|
+		("creating players:"+howmany.asString).postln;
+		howmany.do({
+			var thebuffer, lay;
+			if (bufs.size>0, {
+				thebuffer = bufs.wrapAt( grouplists[currentgroup].size );
+				lay = Tape.new(thebuffer);
+				("at group"+currentgroup+"in position @"++grouplists[currentgroup].size).postln;
+				grouplists[currentgroup].add(lay); // check if = is needed
+				//copythis !? lay.copy(copythis) // state
+				if (copythis.notNil, { lay.copy(copythis) });
+				views.add(0);
+			}, {
+				"error: no buffers available!! run loadfiles()".postln;
+			})
+		})
 	}
 
-	all {^ps}
+	kill {|index, agroup|
+		index ?? index = grouplists[currentgroup].size.rand;
+		agroup !? agroup = currentgroup;
+		grouplists[agroup].removeAt(index).kill;
+		views.pop;
+		("free"+index+"at group"+agroup).postln;
+	}
+
+	killall {|agroup|
+		agroup !? agroup = currentgroup;
+		grouplists[agroup].do{|pla| pla.kill};
+		grouplists[agroup] = List.new;
+		("free group"+agroup).postln;
+
+	}
+
+	killthemall{
+		grouplists.values.flat.collect(_.kill);
+		grouplists = Dictionary.new.add(\a -> List.new);
+		"killall in all groups".postln;
+	}
 
 	search {|st|
 		var positives=[];
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			if (pl.search(st), {
 				positives = positives.add(pl) // append
 			});
@@ -167,15 +240,15 @@ Layers{
 	}
 
 	one {
-		it = ps.choose;
+		it = grouplists[currentgroup].choose; // keep it in a var
 		^it;
 	}
 
-	it {^it;}
+	it {^it} // retrieve it
 
 	some {|howmany=1|
-		howmany ?? howmany = ps.size.rand;
-		them = ps.scramble[0..howmany-1];
+		howmany ?? howmany = grouplists[currentgroup].size.rand;
+		them = grouplists[currentgroup].scramble[0..howmany-1];
 		^them;
 	}
 
@@ -192,32 +265,26 @@ Layers{
 	}
 
 	curbufs {
-		ps.size.do({ |i|
-			(i.asString++":" + ps[i].file).postln
+		grouplists[currentgroup].size.do({ |i|
+			(i.asString++":" + grouplists[currentgroup][i].file).postln
 		})
 	}
 
-	info { ps.collect(_.info) }
+	info { grouplists[currentgroup].collect(_.info) }
 
 	verbose {|flag=true|
 		["verbose:", flag].postln;
-		ps.do({ |p| p.verbose = flag })
+		grouplists[currentgroup].do({ |p| p.verbose = flag })
 	}
 
 	normalize {
 		bufs.collect(_.normalize);
 	}
 
-	/*positions {|positions|
-	positions.size.do({|index|
-	ps[index].pos(positions[index])
-	})
-	}*/
-
 	buf {|buf, offset=0|
 		if (buf.isInteger, {buf = bufs[buf]}); // using the index
 
-		ps.do({ |pl, index|
+		grouplists[currentgroup].do({ |pl, index|
 			{
 				pl.buf(buf);
 				this.newplotdata(buf, views[index]);
@@ -225,16 +292,16 @@ Layers{
 		})
 	}
 
-	asignbufs { // asign buffers sequentially if more layers than buffers then wrap
-		ps.do({ |pl, index|
+	asignbufs { // asign buffers sequentially if more tapes than buffers then wrap
+		grouplists[currentgroup].do({ |pl, index|
 			pl.buf( bufs.wrapAt(index))
 		})
 	}
 
-	newplayer {|asynth| ps.do({ |pl| pl.newplayer(asynth)}) }
+	newplayer {|asynth| grouplists[currentgroup].do({ |pl| pl.newplayer(asynth)}) }
 
 	slice {|sttime, shift, grain, grainshift, offset=0| // SLICER like behaviour
-		ps.do({ |pl, index|
+		grouplists[currentgroup].do({ |pl, index|
 			var mysttime = sttime + (index * (shift/100.0));
 			var myendtime = mysttime + grain + (index * (grainshift/100.0));
 			//	myendtime = myendtime.clip(0,1);
@@ -247,7 +314,7 @@ Layers{
 	}
 
 	step {|gap, offset=0|
-		ps.do({ |pl, index|
+		grouplists[currentgroup].do({ |pl, index|
 			{
 				pl.step(gap, offset);
 				//pl.loop(pl.st + gap);
@@ -259,7 +326,7 @@ Layers{
 	lp {|st, end, offset=0| // SCLANG DOES NOT LIKE THAT WE USE THE NAME "LOOP" FOR OUR METHOD. change
 		if (st.isNil, {st=0; end=1}); // reset
 
-		ps.do({ |pl, index|
+		grouplists[currentgroup].do({ |pl, index|
 			{
 				pl.loop(st, end);
 				this.newselection(st, end, views[index], pl.buf);
@@ -268,7 +335,7 @@ Layers{
 	}
 
 	st {|pos=0, random=0, offset=0|
-		ps.do({ |pl, index|
+		grouplists[currentgroup].do({ |pl, index|
 			{
 				pl.st(pos);
 				//this.newselection(st, end, views[index], pl.buf);
@@ -277,7 +344,7 @@ Layers{
 	}
 
 	end {|pos=1, random=0, offset=0|
-		ps.do({ |pl, index|
+		grouplists[currentgroup].do({ |pl, index|
 			{
 				pl.end(pos);
 				//this.newselection(st, end, views[index], pl.buf);
@@ -286,7 +353,7 @@ Layers{
 	}
 
 	dur {|val, random=0, offset=0|
-		ps.do({ |pl, index|
+		grouplists[currentgroup].do({ |pl, index|
 			{
 				pl.dur(val, random);
 				//this.newselection(st, end, views[index], pl.buf);
@@ -294,46 +361,46 @@ Layers{
 		})
 	}
 
-	len {|ms| ps.do({ |pl| pl.len(ms)}) } // in msecs
+	len {|ms| grouplists[currentgroup].do({ |pl| pl.len(ms)}) } // in msecs
 
 	reset { |offset=0|
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			{ pl.reset }.defer(offset.asFloat.rand)
 		})
 	}
 
-	shot { ps.collect(_.shot) } // single play no loop
+	shot { grouplists[currentgroup].collect(_.shot) } // single play no loop
 
-	resume { ps.collect(_.resume) }
+	resume { grouplists[currentgroup].collect(_.resume) }
 
-	pause { ps.collect(_.pause) }
+	pause { grouplists[currentgroup].collect(_.pause) }
 
 	go {|point=0, offset=0|
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			{ pl.go(point) }.defer(offset.asFloat.rand)
 		})
 	}
 
 	gost {|offset=0|
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			{ pl.gost }.defer(offset.asFloat.rand)
 		})
 	}
 
 	goend {|offset=0|
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			{ pl.goend }.defer(offset.asFloat.rand)
 		})
 	}
 
 	move {|pos, random=0, offset=0|
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			{ pl.move(pos, random) }.defer(offset.asFloat.rand)
 		})
 	}
 
 	solo {|id|
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			if (pl.id!=id, {
 				if (pl.rate!=0, {pl.pause}); // if not already paused, pause.
 			}, {
@@ -342,9 +409,9 @@ Layers{
 		});
 	}
 
-	push {|which| ps.do({ |pl| pl.push(which)}) } // if no which it appends to stack
+	push {|which| grouplists[currentgroup].do({ |pl| pl.push(which)}) } // if no which it appends to stack
 
-	pop {|which| ps.do({ |pl| pl.pop(which)}) } // if no which it pops last one
+	pop {|which| grouplists[currentgroup].do({ |pl| pl.pop(which)}) } // if no which it pops last one
 
 	save { |filename| // save to a file current state dictionary. in the folder where the samples are
 		var data;
@@ -356,8 +423,8 @@ Layers{
 
 		data = Dictionary.new;
 
-		ps.do({ |pl, index|
-			data.put(\layer++index, pl.statesDic)
+		grouplists[currentgroup].do({ |pl, index|
+			data.put(\tape++index, pl.statesDic)
 		});
 
 		// open dialogue if no file path is provided
@@ -369,11 +436,11 @@ Layers{
 		FileDialog({ |path|
 			var data = Object.readArchive(path[0]);
 			if (data.isNil.not, {
-				ps.do({ |pl, index|
-					pl.statesDic = data[\layer++index];
+				grouplists[currentgroup].do({ |pl, index|
+					pl.statesDic = data[\tape++index];
 					if (index==0, {
 						"available states: ".postln;
-						data[\layer++index].keys.do({|key, pos| [pos, key].postln})
+						data[\tape++index].keys.do({|key, pos| [pos, key].postln})
 					});
 				});
 			})
@@ -382,8 +449,8 @@ Layers{
 
 	//random file, pan, vol, rate, loop (st, end), dir and go
 	rand {|time=0, offset=0|
-		ps.do({ |pl|
-			ps.do({ |pl| pl.vol(0)});// mute. necessary?
+		grouplists[currentgroup].do({ |pl|
+			grouplists[currentgroup].do({ |pl| pl.vol(0)});// mute. necessary?
 			this.rbuf(offset);
 			this.rvol(time, offset);
 			this.rpan(time, offset);
@@ -391,31 +458,31 @@ Layers{
 			//this.rdir(time, offset); / not needed
 			this.rloop(offset);
 			this.rgo;// this should be limited to the current loop
-			ps.do({ |pl| pl.vol(pl.vol)}); //restore
+			grouplists[currentgroup].do({ |pl| pl.vol(pl.vol)}); //restore
 		})
 	}
 
 
 	rvol {|time=0, offset=0|
-		ps.do({ |pl|
-			{pl.rvol(1.0/ps.size)}.defer(offset.asFloat.rand)
+		grouplists[currentgroup].do({ |pl|
+			{pl.rvol(1.0/grouplists[currentgroup].size)}.defer(offset.asFloat.rand)
 		})
 	}
 
 	rpan {|time=0, offset=0|
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			{pl.rpan(time)}.defer(offset.asFloat.rand)
 		})
 	}
 
 	rgo {|offset=0|
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			{pl.rgo}.defer(offset.asFloat.rand)
 		})
 	}
 
 	rloop {|offset=0|
-		ps.do({ |pl, index|
+		grouplists[currentgroup].do({ |pl, index|
 			{
 				pl.rloop;
 				this.newselection(pl.st, pl.end, views[index], pl.buf);
@@ -424,80 +491,80 @@ Layers{
 	}
 
 	rst {|range=1, offset=0|
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			{pl.rst(range)}.defer(offset.asFloat.rand)
 		})
 	}
 
 	rend {|range=1, offset=0|
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			{pl.rend(range)}.defer(offset.asFloat.rand)
 		})
 	}
 
 	rlen {|range=0.5, offset=0|
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			{pl.rlen(range)}.defer(offset.asFloat.rand)
 		})
 	}
 
 	rate { |rate=1, time=0, random=0, offset=0|
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			{pl.rate(rate, time)}.defer(offset.asFloat.rand)
 		})
 	}
 
 	wobble {|arate=0, time=0, random=0, offset=0|
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			{pl.wobble(arate, time, random)}.defer(offset.asFloat.rand)
 		})
 	}
 
 	reverse {|time=0, offset=0|
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			{pl.rate(pl.rate.neg, time)}.defer(offset.asFloat.rand)
 		})
 	}
 
 	scratch {|target=0, tIn=1, tStay=0.5, tOut=1, offset=0| // boomerang like pitch change
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			{pl.scratch(target, tIn, tStay, tOut)}.defer(offset.asFloat.rand)
 		})
 	}
 
 	dir {|to=1, time=0, offset=0|
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			{pl.dir(to, time)}.defer(offset.asFloat.rand)
 		})
 
 	}
 
 	fwd {|time=0, offset=0|
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			{pl.fwd(time)}.defer(offset.asFloat.rand)
 		})
 	}
 
 	bwd {|time=0, offset=0|
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			{pl.bwd(time)}.defer(offset.asFloat.rand)
 		})
 	}
 
 	rdir {|curve=\lin, offset=0|
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			{pl.rdir}.defer(offset.asFloat.rand)
 		})
 	}
 
 	rrate {|time=0, offset=0|
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			{pl.rrate(time)}.defer(offset.asFloat.rand)
 		})
 	}
 
 	rbuf {|offset=0|
-		ps.do({ |pl, index|
+		grouplists[currentgroup].do({ |pl, index|
 			{
 				pl.buf(bufs.choose);
 				this.newplotdata(pl.buf, views[index]);
@@ -506,45 +573,45 @@ Layers{
 	}
 
 	//
-	out { |ch=0| ps.collect(_.out(ch)) }
+	out { |ch=0| grouplists[currentgroup].collect(_.out(ch)) }
 	/*	out {|ch=0|
-	ps.do({ |pl|
+	grouplists[currentgroup].do({ |pl|
 	pl.out(ch);
 	})
 	}*/
 
 	vol {|avol=1, time=0, offset=0|
 		volume = avol; // remember for the fadein/out
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			{pl.vol(volume, time)}.defer(offset.asFloat.rand)
 		});
 		["set vol", avol].postln
 	}
 
-	vold { ps.collect(_.vold) }
+	vold { grouplists[currentgroup].collect(_.vold) }
 
-	volu { ps.collect(_.volu) }
+	volu { grouplists[currentgroup].collect(_.volu) }
 
 	fadeout {|time=1, offset=0|
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			{pl.vol(0, time)}.defer(offset.asFloat.rand)
 		})
 	}
 
 	fadein {|time=1, offset=0|
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			{pl.vol(volume, time)}.defer(offset.asFloat.rand) // fade in to volume. not to 1
 		})
 	}
 
 	pan { |pan=0, time=0, offset=0|
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			{pl.pan(pan, time)}.defer(offset.asFloat.rand)
 		})
 	}
 
 	outb {|bus, offset=0|
-		ps.do({ |pl|
+		grouplists[currentgroup].do({ |pl|
 			{pl.outb(bus)}.defer(offset.asFloat.rand)
 		})
 	} // sets synthdef out buf. used for manipulating the signal w effects
@@ -552,7 +619,7 @@ Layers{
 	//
 
 	bloop {|range=0.01, time=0, offset=0|
-		ps.do({|pl, index|
+		grouplists[currentgroup].do({|pl, index|
 			{
 				pl.bloop(range, time);
 				this.newselection(pl.st, pl.end, views[index], pl.buf);
@@ -561,25 +628,25 @@ Layers{
 	}
 
 	bgo {|range=0.01, time=0, offset=0|
-		ps.do({|pl|
+		grouplists[currentgroup].do({|pl|
 			{pl.bgo(range, time)}.defer(offset.asFloat.rand)
 		})
 	}
 
 	bvol {|range=0.01, time=0, offset=0|
-		ps.do({|pl|
+		grouplists[currentgroup].do({|pl|
 			{pl.bvol(range, time)}.defer(offset.asFloat.rand)
 		})
 	}
 
 	bpan {|range=0.1, time=0, offset=0|
-		ps.do({|pl|
+		grouplists[currentgroup].do({|pl|
 			{pl.bpan(range, time)}.defer(offset.asFloat.rand)
 		})
 	}
 
 	brate {|range=0.01, time=0, offset=0|
-		ps.do({|pl|
+		grouplists[currentgroup].do({|pl|
 			{pl.brate(range, time)}.defer(offset.asFloat.rand)
 		})
 	}
@@ -663,7 +730,7 @@ Layers{
 		if (plotwin.isNil, {
 			// to do: bigger size win and view
 			// move playhead as it plays?
-			plotwin = Window("All players", Rect(100, 200, 600, 300));
+			plotwin = Window("All tapes", Rect(100, 200, 600, 300));
 			plotwin.alwaysOnTop=true;
 			//plotwin.setSelectionColor(0, Color.red);
 			plotwin.front;
@@ -688,8 +755,8 @@ Layers{
 
 			drawview = UserView(plotwin, Rect(0, 0, 600, 300))
 			.drawFunc_({ arg view; // AND CAN DRAW AS WELL
-				ps.do({|ps, index|
-					Pen.line( ps.curpos*600 @ 0, ps.curpos*600 @ 300 ); //playhead
+				grouplists[currentgroup].do({|pl, index|
+					Pen.line( pl.curpos*600 @ 0, pl.curpos*600 @ 300 ); //playhead
 				});
 				Pen.stroke;
 			});
@@ -723,12 +790,12 @@ Layers{
 	control {|cwidth, cheight|
 		var gap=0, height=0;
 		if (controlGUI.isNil, {
-			controlGUI = Window("All players", Rect(500, 200, cwidth?500, cheight?700));
+			controlGUI = Window("All tapes", Rect(500, 200, cwidth?500, cheight?700));
 			controlGUI.alwaysOnTop = true;
 			controlGUI.front;
 			controlGUI.onClose = {
 				controlGUI = nil;
-				ps.do({|play| play.view = nil });
+				grouplists[currentgroup].do({|play| play.view = nil });
 				plotwinrefresh.stop;
 			};
 			"OPENING CONTROL GUI".postln;
@@ -739,9 +806,8 @@ Layers{
 
 			// 		"To zoom in/out: Shift + right-click + mouse-up/down".postln;
 			// 		"To scroll: right-click + mouse-left/right".postln;
-			views.do({|view, index|
-				var sf;
-				views[index] = SoundFileView().timeCursorOn_(true)//controlGUI, Rect(0, height*index, controlGUI.bounds.width, height));
+			views.size.do({|index|
+				views[index] = SoundFileView().timeCursorOn_(true)
 				.elasticMode_(true)
 				.timeCursorColor_(Color.red)
 				.drawsWaveForm_(true)
@@ -756,38 +822,24 @@ Layers{
 				.setEditableSelectionStart(0, true)
 				.setEditableSelectionSize(0, true)
 
-				//.readFile(SoundFile(ps[index].buf.path), 0, ps[index].buf.numFrames) // file to display
-				//.readFile(sfs[index], 0, sfs[index].numFrames) // file to display
-				//.setData(sfs[index].data)
-
-				.mouseDownAction_({ |view, x, y, mod, buttonNumber| // update selection loop
-					ps[index].st( x.linlin(0, view.bounds.width, 0,1) ) // what about when zoomed in?
+				.mouseDownAction_({ |thisview, x, y, mod, buttonNumber| // update selection loop
+					grouplists[currentgroup][index].st( x.linlin(0, thisview.bounds.width, 0,1) ) // what about when zoomed in?
 				})
-				.mouseUpAction_({ |view, x, y, mod|
-					ps[index].end( x.linlin(0, view.bounds.width, 0,1) )
+				.mouseUpAction_({ |thisview, x, y, mod|
+					grouplists[currentgroup][index].end( x.linlin(0, thisview.bounds.width, 0,1) )
 				});
-
 				controlGUI.layout.add(views[index]);
 
-				// using sound file openRead instead of loading the data from the buffers
-				/*sf = SoundFile.new;
-				sf.openRead(ps[index].buf.path);
+				grouplists.values.flat[index].view = views[index];// to update loop point when they change
+				grouplists.values.flat[index].updatelooppoints();
 
-				views[index].soundfile = sf;            // set soundfile
-				views[index].read(0, sf.numFrames);     // read in the entire file.
-				views[index].refresh;                  // refresh to display the file.
-				*/
-				ps[index].view = views[index];// to update loop point when they change
-				ps[index].updatelooppoints();
-
-				this.newplotdata(ps[index].buf, views[index]);
+				this.newplotdata(grouplists.values.flat[index].buf, views[index]);
 			});
 
 			plotwinrefresh = Task({
 				inf.do({|index|
 					views.do({|view, index|
-						//[index, ps[index].curpos].postln;
-						view.timeCursorPosition = ps[index].curpos * (ps[index].buf.numFrames);
+						view.timeCursorPosition = grouplists.values.flat[index].curpos * (grouplists.values.flat[index].buf.numFrames);
 						0.1.wait;
 					});
 					//"----".postln;
@@ -801,7 +853,7 @@ Layers{
 		if (controlGUI.notNil, {
 			var sf = SoundFile.new;
 			sf.openRead(buf.path);
-
+			view.postln;
 			view.soundfile = sf;            // set soundfile
 			view.read(0, sf.numFrames);     // read in the entire file.
 			view.refresh;
