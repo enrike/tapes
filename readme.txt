@@ -1,6 +1,6 @@
 Tapes by ixi-audio.net
 
-![alt text](https://github.com/enrike/tapes/blob/master/tape.png?raw=true)
+![tape](tape.png)
 
 Supercollider based sample loop system. I use it to control many layers of tape-loop-like machines at the same time
 
