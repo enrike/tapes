@@ -133,7 +133,7 @@ Tapes{
 				sfs.size.do({ arg n;
 					var buf = Buffer.read(server, sfs.wrapAt(n).path,
 						action:{
-							("loaded"+PathName(sfs.wrapAt(n).path).fileName).postln;
+							("...loaded"+PathName(sfs.wrapAt(n).path).fileName).postln;
 							if (n>=(sfs.size-1), {"DONE LOADING FILES".postln})
 						}
 					);
@@ -230,7 +230,7 @@ Tapes{
 	}
 
 	search {|st|
-		var positives=[];
+		var positives=List.new;
 		grouplists[currentgroup].do({ |pl|
 			if (pl.search(st), {
 				positives = positives.add(pl) // append

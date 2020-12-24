@@ -4,7 +4,7 @@
 Tape{
 
 	var <id, <play, <curpos;
-	var buf, st=0, end=1, vol=1, rate=0, pan=0, bus=0, len=0, dur=0, dir=1; // state variables hidden
+	var buf, st=0, end=1, vol=1, rate=0, pan=0, bus=0, len=0, dur=0, dir=1, wobble=0; // state variables hidden
 	var memrate=1; // to store rate while paused
 	var <>view=nil;
 	var <>statesDic, <>verbose=false, loopOSC, playheadOSC;
@@ -71,6 +71,7 @@ Tape{
 			state.put(\vol, vol);
 			state.put(\rate, rate);
 			state.put(\dir, dir);
+			state.put(\wobble, wobble);
 			state.put(\panning, pan);
 			^state
 		}, {
@@ -79,6 +80,7 @@ Tape{
 			this.end(state[\end]);
 			this.vol(state[\vol]);
 			this.rate(state[\rate]);
+			this.wobble(state[\wobble]);
 			this.dir(state[\dir]);
 			this.pan(state[\panning]);
 		});
@@ -224,6 +226,7 @@ Tape{
 
 	wobble {|arate=0, time=0, random=0|
 		arate = arate + random.asFloat.rand2;
+		wobble = arate;
 		play.set(\wobblelag, time);
 		play.set(\wobble, arate);
 	}
