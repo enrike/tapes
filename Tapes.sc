@@ -680,7 +680,9 @@ Tapes{
 		this.do(name, function, sleep, random, offset, clock, talk)
 	}
 
-	do {|name="", function, sleep=5.0, iter=inf, random=0, offset=0, clock=0, talk=true| // offset is passed to functions so that local events are not at the same time
+
+
+	do {|name="", function, sleep=5.0, defer=0, iter=inf, random=0, offset=0, clock=0, talk=true| // offset is passed to functions so that local events are not at the same time
 		var atask;
 
 		if (name=="", {
@@ -713,7 +715,7 @@ Tapes{
 			this.stopT(name.asSymbol)
 		}, clock);
 
-		atask.start;
+		{atask.start}.defer(defer);
 		procs.add(name.asSymbol -> atask);// to keep track of them
 	}
 	////////////////////////////

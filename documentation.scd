@@ -187,14 +187,20 @@ _sla(0.2); //slope above thr <1 for compression >1 for expansion
 
 // SCEDULE FUNCTIONS //
 
-_do(\randpan, {_rpan}, 15); //schedule a function every N secs. args: NAME, FUNCTION, TICK TIME, ITER, OFFSET, RANDOM, TALK
-_do(\four, {"hi".postln}, 1, 4); // run every sec for 4 times, then die
+_do(\randpan, {_rpan}, 15); //schedule a function every N secs. args: NAME, FUNCTION, SLEEP, DEFER, ITER, OFFSET, RANDOM, TALK
 _pauseT(\randpan)
 _resumeT(\randpan)
 _stopT(\randpan) // STOPS the task
 _procs // dictionary containing all Tasks alive
 _stopT // kills all tasks
 _noT; // kills all tasks
+
+// defer
+_do(\spawn, {_rrate}, 3, 20); //wait 20 secs, then run every 3secs
+_do(\spawn, {_rrate}, 3, defer:20); //wait 20 secs, then run every 3secs
+
+// num of iterations
+_do(\spawn, {_add(1,_0)}, 3, 10, iter:10); //wait 10 secs, then run every 3secs for 10 times and finally die
 
 // random periods
 _do(\randpan, {_rpan}, 15, offset:5); // ... optional offset delay so that each player fires at N+(offset.rand)
@@ -217,26 +223,11 @@ _stopT(\backtoinit)
 _do(\rev, {_reverse}, 10, offset:5)
 _stopT(\rev)
 
-_do(\rlen, {_rlen(1, 2)}, 8, 4)
+_do(\rlen, {_rlen(1, 2)}, 8, random:4)
 _stopT(\rlen)
-
-_do(\brat, {_brate(0.01)}, 10, offset:4)
-_stopT(\brat)
-
-_do(\bloop, {_bloop}, 4, offset:3)
-_stopT(\bloop)
-
-_do(\bvol, {_bvol}, 4)
-_stopT(\bvol)
 
 _do(\bgo, {_bgo(0.01)}, 1, offset:1)
 _stopT(\bgo)
-
-_do(\rst, {_rst}, 15, offset:10)
-_stopT(\rst)
-
-_do(\rbufs, {_one.buf(_bufs.choose)}, 15) //a single random player gets a random sound every 15s
-_stopT(\rbufs)
 
 _do(\inoutrand, { //every 30 sec: 9 sec fade in- after 15 secs - 9 secs fade out
 	_fadein(9);
@@ -244,9 +235,9 @@ _do(\inoutrand, { //every 30 sec: 9 sec fade in- after 15 secs - 9 secs fade out
 }, 30)
 _stopT(\inoutrand)
 
-_do(\ramps, {// this will move every 10 secs all the pitchs to a random value ranging -4 to +4 from the current value in a 5 sec transition
+_do(\ramps, {// this will move every 10 secs all the pitchs to a random value ranging -3 to +3 from the current value in a 5 sec transition
 	_brate(4, 5, \sin)
-}, 10, 3)
+}, 10, random:3)
 _stopT(\ramps)
 
 
@@ -258,11 +249,11 @@ _do(\rev, {
 }, 1, random:0.2)
 )
 
-( // moves forwards going
+( // moves forwards
 var st=0, end;
 _do(\go, {
 	st = st+(0.001.rand);
-	_loop([st, st+0.001])
+	_loop(st, st+0.001)
 }, 0.8)
 )
 
