@@ -38,8 +38,10 @@ Tapes{
 		main.preProcessor = { |code|
 			// list with all the commands used by Tapes
 			var mets = [
-				"add", "kill", "killall", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "one", "it", "some", "them", "info", "verbose", "normalize", "plot", "sch",
-				"scratch", "pause", "solo", "fwd", "bwd", "dir", "reverse", "volu", "vold", "vol", "fadein", "fadeout", "pan", "rate", "wobble", "reset", "resume", "shot", "out",
+				"add", "kill", "killall", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "one", "it", "some",
+				"them", "info", "verbose", "normalize", "plot", "sch", "do",
+				"scratch", "pause", "solo", "fwd", "bwd", "dir", "reverse", "volu", "vold", "vol", "fadein", "fadeout",
+				"pan", "rate", "wobble", "reset", "resume", "shot", "out", "stop", "play",
 				"lp", "loop", "st", "step", "move", "end", "go", "gost", "goend", "dur", "len",
 				"push", "pop", "save", "load", "control", "search",
 				"rbuf", "rrate", "rpan", "rloop", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rand",
@@ -141,7 +143,8 @@ Tapes{
 				});
 
 				(sfs.size + "files available").postln;
-				"loading sounds into buffers. wait ...".postln;
+				"loading sounds into buffers".postln;
+				"please wait ...".postln;
 			});
 		})
 	}
@@ -374,6 +377,10 @@ Tapes{
 	resume { grouplists[currentgroup].collect(_.resume) }
 
 	pause { grouplists[currentgroup].collect(_.pause) }
+
+	play { grouplists[currentgroup].collect(_.play) }
+
+	stop { grouplists[currentgroup].collect(_.stop) }
 
 	go {|point=0, offset=0|
 		grouplists[currentgroup].do({ |pl|
@@ -639,7 +646,7 @@ Tapes{
 		})
 	}
 
-	bpan {|range=0.1, time=0, offset=0|
+	bpan {|range=0.01, time=0, offset=0|
 		grouplists[currentgroup].do({|pl|
 			{pl.bpan(range, time)}.defer(offset.asFloat.rand)
 		})
@@ -669,7 +676,11 @@ Tapes{
 	resumeT {|name| procs[name.asSymbol].resume}
 	pauseT {|name| procs[name.asSymbol].pause}
 
-	sch {|name="", function, sleep=5.0, random=0, offset=0, clock=0, talk=true| // offset is passed to functions so that local events are not at the same time
+	sch {|name="", function, sleep=5.0, random=0, offset=0, clock=0, talk=true| // offset is passed to functions so that
+		this.do(name, function, sleep, random, offset, clock, talk)
+	}
+
+	do {|name="", function, sleep=5.0, random=0, offset=0, clock=0, talk=true| // offset is passed to functions so that local events are not at the same time
 		var atask;
 
 		if (name=="", {
@@ -706,9 +717,7 @@ Tapes{
 		atask.start;
 		procs.add(name.asSymbol -> atask);// to keep track of them
 	}
-
 	////////////////////////////
-
 
 
 	// compressor/expander ///

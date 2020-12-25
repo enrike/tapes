@@ -3,7 +3,7 @@
 
 Tape{
 
-	var <id, <play, <curpos;
+	var <id, <player, <curpos;
 	var buf, st=0, end=1, vol=1, rate=0, pan=0, bus=0, len=0, dur=0, dir=1, wobble=0; // state variables hidden
 	var memrate=1; // to store rate while paused
 	var <>view=nil;
@@ -19,9 +19,9 @@ Tape{
 
 		id = UniqueID.next;
 
-		play.free;
+		player.free;
 
-		play = Synth.tail(Server.default, \rPlayer, [\buffer, buf ? buf.bufnum, \rate, rate, \index, id, \out, abus]);
+		player = Synth.tail(Server.default, \rPlayer, [\buffer, buf ? buf.bufnum, \rate, rate, \index, id, \out, abus]);
 
 		loopOSC.free;
 		loopOSC = OSCdef(\loop++id, {|msg, time, addr, recvPort|
@@ -39,7 +39,7 @@ Tape{
 	}
 
 	kill {
-		play.free;
+		player.free;
 		loopOSC.free;
 		playheadOSC.free;
 		statesDic=nil;
@@ -64,13 +64,14 @@ Tape{
 
 	state {|state|
 		if (state.isNil, {
-			var state = Dictionary.new; // add curpos?
+			var state = Dictionary.new;
 			state.put(\buf, buf);
 			state.put(\st, st);
 			state.put(\end, end);
 			state.put(\vol, vol);
 			state.put(\rate, rate);
 			state.put(\dir, dir);
+			state.put(\pos, curpos);
 			state.put(\wobble, wobble);
 			state.put(\panning, pan);
 			^state
@@ -79,6 +80,7 @@ Tape{
 			this.st(state[\st]);
 			this.end(state[\end]);
 			this.vol(state[\vol]);
+			this.go(state[\pos]);
 			this.rate(state[\rate]);
 			this.wobble(state[\wobble]);
 			this.dir(state[\dir]);
@@ -97,16 +99,8 @@ Tape{
 	}
 
 	pop {|which|
-		var state;
 		statesDic.postln;
-		state = statesDic[which];
-
-		this.buf( state[\buf] );
-		this.loop( state[\st], state[\end] );
-		this.vol( state[\vol] );
-		this.rate( state[\rate] );
-		this.dir( state[\dir] );
-		this.pan( state[pan] );
+		this.state( statesDic[which] );
 		this.post("poping state", which);
 		if(verbose.asBoolean, {["poping state", which].postln});
 	}
@@ -142,9 +136,9 @@ Tape{
 	go {|pos=0|
 		//if (pos<st, {pos=st}); // limits
 		//if (pos>end, {pos=end});
-		play.set(\reset, pos);
-		play.set(\trig, 0);
-		{ play.set(\trig, 1) }.defer(0.04);
+		player.set(\reset, pos);
+		player.set(\trig, 0);
+		{ player.set(\trig, 1) }.defer(0.04);
 	}
 
 	gost {this.go(st)}
@@ -169,7 +163,7 @@ Tape{
 	outb {|abus=nil|
 		if (abus.notNil, {
 			bus = abus;
-			play.set(\out, bus)
+			player.set(\out, bus)
 		}, {
 			^bus
 		})
@@ -178,8 +172,8 @@ Tape{
 	pan {|apan=nil, time=0|
 		if (apan.notNil, {
 			pan = apan;
-			play.set(\panlag, time);
-			play.set(\pan, apan);
+			player.set(\panlag, time);
+			player.set(\pan, apan);
 			this.post("pan", pan);
 		}, {
 			^pan
@@ -187,7 +181,7 @@ Tape{
 	}
 
 	out {|ch=0|
-		play.set(\out, ch);
+		player.set(\out, ch);
 	}
 
 	vol {|avol=nil, time=0, random=0|
@@ -197,10 +191,10 @@ Tape{
 
 			vol = avol.clip(0,1); //limits
 
-			play.set(\amplag, time);
-			play.set(\amp, avol);
+			player.set(\amplag, time);
+			player.set(\amp, avol);
 
-			{play.set(\ampgate, 1)}.defer(0.05);
+			{player.set(\ampgate, 1)}.defer(0.05);
 
 			this.post("volume", (vol.asString + time.asString  + random.asString) );
 		}, {
@@ -227,21 +221,21 @@ Tape{
 	wobble {|arate=0, time=0, random=0|
 		arate = arate + random.asFloat.rand2;
 		wobble = arate;
-		play.set(\wobblelag, time);
-		play.set(\wobble, arate);
+		player.set(\wobblelag, time);
+		player.set(\wobble, arate);
 	}
 
 	dir {|adir=1, time=0|
 		dir = adir;
-		play.set(\dir, adir)
+		player.set(\dir, adir)
 	}
 
 	rate {|arate=nil, time=0, random=0|
 		if (arate.notNil, {
 			arate = arate + random.asFloat.rand2;
 			//if (rate != 0, { // only update if playing
-			play.set(\ratelag, time);
-			play.set(\rate, arate);
+			player.set(\ratelag, time);
+			player.set(\rate, arate);
 			//});
 			memrate = rate;
 			rate = arate;
@@ -286,38 +280,18 @@ Tape{
 			end = args[1];
 			st = args[0];
 
-			play.set(\start, st);
-			play.set(\end, end);
+			player.set(\start, st);
+			player.set(\end, end);
 			//[st, end].postln;
 			this.post("loop", st.asString+"-"+end.asString);
 			this.updatelooppoints; //only if w open
 		})
 	}
 
-	/*	loop {|...args|
-	if (args.size==0, {
-	^[st, end]
-	}, {
-	/*			if (args[1].isNil,
-	{end = args[0] + (end-st)}, // keep the len
-	{end = args[1]}
-	);*/
-
-	end = args[1];
-	st = args[0];
-
-	play.set(\start, st);
-	play.set(\end, end);
-	//[st, end].postln;
-	this.post("loop", st.asString+"-"+end.asString);
-	this.updatelooppoints; //only if w open
-	})
-	}*/
-
 	st {|p, random=0|
 		if (p.notNil, {
 			st = p + random.asFloat.rand2;
-			play.set(\start, st);
+			player.set(\start, st);
 			this.updatelooppoints; //only if w open
 		}, {
 			^st
@@ -327,7 +301,7 @@ Tape{
 	end {|p, random=0|
 		if (p.notNil, {
 			end = p + random.asFloat.rand2;
-			play.set(\end, end);
+			player.set(\end, end);
 			this.updatelooppoints; //only if w open
 		}, {
 			^end
@@ -337,7 +311,7 @@ Tape{
 	dur {|adur, random=0|
 		if (adur.notNil, {
 			end = st + adur + random.asFloat.rand2;
-			play.set(\end, end);
+			player.set(\end, end);
 			this.post("end", end);
 			this.updatelooppoints; //only if w open
 		}, {
@@ -363,6 +337,15 @@ Tape{
 		this.rate(memrate); // retrieve stored value
 	}
 
+	stop {
+		memrate = rate; // store
+		this.rate(0)
+	}
+
+	play {
+		this.rate(memrate); // retrieve stored value
+	}
+
 	shot { // this should play the sound only once but using all the properties. maybe use another synthdef to do it.
 		//if (rate!=0, { this.pause });
 		Synth(\ShotPlayer, [\buffer, buf, \start, st, \end, end, \amp, vol, \rate, memrate,
@@ -374,7 +357,7 @@ Tape{
 			//if (buf.isInteger, {buf = bufs[buf]}); // using the index
 
 			buf = abuf;
-			play.set(\buffer, buf.bufnum);
+			player.set(\buffer, buf.bufnum);
 			this.post("buffer", this.file());
 			this.updatelooppoints; //only if w open
 		}, {
@@ -392,7 +375,7 @@ Tape{
 
 	/*rbuf {
 	buf = buffers.choose;
-	play.set(\buffer, buf.bufnum)
+	player.set(\buffer, buf.bufnum)
 	}*/
 
 	rgo {|range=1|
@@ -415,21 +398,21 @@ Tape{
 	rst {|range=1.0|
 		//st = range.asFloat.rand;
 		this.st(range.asFloat.rand);
-		//play.set(\start, st);
+		//player.set(\start, st);
 		//this.updatelooppoints; //only if w open
 	}
 
 	rend {|range=1.0|
 		this.end(range.asFloat.rand)
 		//end = range.asFloat.rand; // total rand
-		//play.set(\end, end);
+		//player.set(\end, end);
 		//this.updatelooppoints; //only if w open
 	}
 
 	rlen {|range=0.5|
 		this.end(st + range.asFloat.rand)
 		//end = st + range.asFloat.rand; // rand from st point
-		//play.set(\end, end);
+		//player.set(\end, end);
 		//this.updatelooppoints; //only if w open
 	}
 
