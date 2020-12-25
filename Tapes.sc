@@ -676,28 +676,25 @@ Tapes{
 	resumeT {|name| procs[name.asSymbol].resume}
 	pauseT {|name| procs[name.asSymbol].pause}
 
-	sch {|name="", function, sleep=5.0, random=0, offset=0, clock=0, talk=true| // offset is passed to functions so that
+	sch {|name="", function, sleep=5.0, random=0, offset=0, clock=nil, talk=true| // offset is passed to functions so that
 		this.do(name, function, sleep, random, offset, clock, talk)
 	}
 
-	do {|name="", function, sleep=5.0, random=0, offset=0, clock=0, talk=true| // offset is passed to functions so that local events are not at the same time
+	do {|name="", function, sleep=5.0, iter=inf, random=0, offset=0, clock=0, talk=true| // offset is passed to functions so that local events are not at the same time
 		var atask;
 
 		if (name=="", {
 			"TASKS MUST HAVE A NAME. Making up one".postln;
 			name = ("T"++Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second).asSymbol;
+			name.postln;
 		});
 
-		if (procs[name.asSymbol].notNil, { this.stopT(name.asSymbol) }); // kill if already there before rebirth
+		if (procs[name.asSymbol].notNil, { this.stopT(name.asSymbol) }); // kill before rebirth if already there
 
-		if (clock==0, {
-			clock = TempoClock
-		},{
-			clock = SystemClock
-		});
+		clock ?? clock = TempoClock; // default
 
 		atask = Task({
-			inf.do({|index|
+			iter.do({|index|
 				var time = ""+Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second;
 				//if ( ((name != "") && (procstalk == true), {("-- now:"+name++time).postln});
 				if ( ((name != "") && (talk == true)), {("-- now:"+name++time).postln});
@@ -708,11 +705,13 @@ Tapes{
 
 				if (sleep <= 0, {sleep = 0.01}); // force lower limit to task tick resolution
 
-				function.value(offset:offset); //CHECK: somehow the offsets gets added after the provided args
+				function.value(offset:offset);
 
 				sleep.wait
-			}, clock);
-		});
+			});
+			("-- done with"+name).postln;
+			this.stopT(name.asSymbol)
+		}, clock);
 
 		atask.start;
 		procs.add(name.asSymbol -> atask);// to keep track of them

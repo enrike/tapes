@@ -11,7 +11,7 @@ Tapes allows to create and control multiple tapeloop-like sample players
 Tapes(this);
 _loadfiles( "~/Mahaigaina/audio/00works/" ); // load all samples from this folder. wait until loaded to continue
 _add(4); // create 4 players. wait until created to continue
-_resume; // get them to play
+_play;
 
 
 _verbose(true) // will post extra log information
@@ -78,8 +78,8 @@ _asignbufs // force re-asign them
 // global controls. control all tape players at the same time //
 //////////////////////////////////////////////////////////
 
-_resume // loop play
-_pause
+_play // loop play
+_stop
 _shot // single shot play. experimental
 _solo(0) // pause all but 0 player
 _reverse // reverse play direction. +rate to -rate
@@ -187,7 +187,8 @@ _sla(0.2); //slope above thr <1 for compression >1 for expansion
 
 // SCEDULE FUNCTIONS //
 
-_sch(\randpan, {_rpan}, 15); //schedule a function every N secs. args: NAME, FUNCTION, TICK TIME, OFFSET, RANDOM, TALK
+_do(\randpan, {_rpan}, 15); //schedule a function every N secs. args: NAME, FUNCTION, TICK TIME, ITER, OFFSET, RANDOM, TALK
+_do(\four, {"hi".postln}, 1, 4); // run every sec for 4 times, then die
 _pauseT(\randpan)
 _resumeT(\randpan)
 _stopT(\randpan) // STOPS the task
@@ -196,54 +197,54 @@ _stopT // kills all tasks
 _noT; // kills all tasks
 
 // random periods
-_sch(\randpan, {_rpan}, 15, offset:5); // ... optional offset delay so that each player fires at N+(offset.rand)
-_sch(\randpan, {_rpan}, 15, random:2); // rand swing: the next sch will happen after 15 + rrand(-2,+2) secs
+_do(\randpan, {_rpan}, 15, offset:5); // ... optional offset delay so that each player fires at N+(offset.rand)
+_do(\randpan, {_rpan}, 15, random:2); // rand swing: the next sch will happen after 15 + rrand(-2,+2) secs
 
-_sch(\wrand, {
+_do(\wrand, {
 	"two options".postln;
 }, random:[[1,3],[0.9, 0.1]])// run every every 1 sec (90% chances) or 3 secs (10%chances)
 
-_sch(\silent, { // wont print every run
+_do(\silent, { // wont print every run
 	_rpan
 }, 15, talk:false);
 
 
 
 // some examples of scheduling tasks
-_sch(\backtoinit, {_reset}, 10) // resets every 10s
+_do(\backtoinit, {_reset}, 10) // resets every 10s
 _stopT(\backtoinit)
 
-_sch(\rev, {_reverse}, 10, offset:5)
+_do(\rev, {_reverse}, 10, offset:5)
 _stopT(\rev)
 
-_sch(\rlen, {_rlen(1, 2)}, 8, 4)
+_do(\rlen, {_rlen(1, 2)}, 8, 4)
 _stopT(\rlen)
 
-_sch(\brat, {_brate(0.01)}, 10, offset:4)
+_do(\brat, {_brate(0.01)}, 10, offset:4)
 _stopT(\brat)
 
-_sch(\bloop, {_bloop}, 4, offset:3)
+_do(\bloop, {_bloop}, 4, offset:3)
 _stopT(\bloop)
 
-_sch(\bvol, {_bvol}, 4)
+_do(\bvol, {_bvol}, 4)
 _stopT(\bvol)
 
-_sch(\bgo, {_bgo(0.01)}, 1, offset:1)
+_do(\bgo, {_bgo(0.01)}, 1, offset:1)
 _stopT(\bgo)
 
-_sch(\rst, {_rst}, 15, offset:10)
+_do(\rst, {_rst}, 15, offset:10)
 _stopT(\rst)
 
-_sch(\rbufs, {_one.buf(_bufs.choose)}, 15) //a single random player gets a random sound every 15s
+_do(\rbufs, {_one.buf(_bufs.choose)}, 15) //a single random player gets a random sound every 15s
 _stopT(\rbufs)
 
-_sch(\inoutrand, { //every 30 sec: 9 sec fade in- after 15 secs - 9 secs fade out
+_do(\inoutrand, { //every 30 sec: 9 sec fade in- after 15 secs - 9 secs fade out
 	_fadein(9);
 	{_fadeout(9)}.defer(15)
 }, 30)
 _stopT(\inoutrand)
 
-_sch(\ramps, {// this will move every 10 secs all the pitchs to a random value ranging -4 to +4 from the current value in a 5 sec transition
+_do(\ramps, {// this will move every 10 secs all the pitchs to a random value ranging -4 to +4 from the current value in a 5 sec transition
 	_brate(4, 5, \sin)
 }, 10, 3)
 _stopT(\ramps)
@@ -251,7 +252,7 @@ _stopT(\ramps)
 
 ( //keeps mirror playing while slowly moving around the same area
 _rdir;
-_sch(\rev, {
+_do(\rev, {
 	_bgo(0.01);
 	_reverse
 }, 1, random:0.2)
@@ -259,7 +260,7 @@ _sch(\rev, {
 
 ( // moves forwards going
 var st=0, end;
-_sch(\go, {
+_do(\go, {
 	st = st+(0.001.rand);
 	_loop([st, st+0.001])
 }, 0.8)
@@ -267,7 +268,7 @@ _sch(\go, {
 
 (
 var len=10, gap=5, fade=0.5;
-_sch(\rum, {
+_do(\rum, {
 	_rbuf;
 	_rdir; _rrate; _rloop;
 	_fadein(fade);
@@ -277,7 +278,7 @@ _sch(\rum, {
 
 (
 var st=0, end=0, speed=0.001, len=0.01, time=3;
-_sch(\go, {
+_do(\go, {
 	st = st+(speed.rand);
 	if ( (st+len)>1, {st=0});
 	st.postln;
@@ -318,10 +319,10 @@ _0.len(1000) // in millisecs!!!
 // and so on...
 
 // ACTIONS
-_0.resume
+_0.play
 _0.fadein(100)
 _0.fadeout(5)
-_0.pause
+_0.stop
 _0.go(0.7)
 // and so on...
 
