@@ -4,7 +4,7 @@
 
 Tapes{
 
-	var server, <path, <bufs, <sfs, <ps, <procs;
+	var server, <path, <bufs, <sfs, <ps, procs;
 	var plotwin=nil, plotview, drawview, plotwinrefresh;
 	var controlGUI, views;
 	var buses, <compressor;
@@ -39,7 +39,7 @@ Tapes{
 			// list with all the commands used by Tapes
 			var mets = [
 				"add", "kill", "killall", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "one", "it", "some",
-				"them", "info", "verbose", "normalize", "plot", "sch", "do",
+				"them", "info", "verbose", "normalize", "plot",
 				"scratch", "pause", "solo", "fwd", "bwd", "dir", "reverse", "volu", "vold", "vol", "fadein", "fadeout",
 				"pan", "rate", "wobble", "reset", "resume", "shot", "out", "stop", "play",
 				"lp", "loop", "st", "step", "move", "end", "go", "gost", "goend", "dur", "len",
@@ -47,7 +47,7 @@ Tapes{
 				"rbuf", "rrate", "rpan", "rloop", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rand",
 				"bloop", "bpan", "brate", "bvol", "bpan", "bgo",
 				"comp", "thr", "slb", "sla",
-				"pauseT", "resumeT", "stopT", "noT", "procs",
+				"do", "undo",
 				"slice",
 				"group", "groups", "mergegroups", "usegroup", "currentgroup", "newgroup", "killgroup", "all"
 			];
@@ -182,15 +182,6 @@ Tapes{
 		("removed group"+name).postln;
 	}
 	/////////
-
-	/*	do {|howmany=4|
-	views = List.new;
-
-	grouplists[currentgroup].collect(_.free);
-	grouplists[currentgroup] = List.new;
-
-	this.add(howmany)
-	}*/
 
 	add {|howmany=1, copythis|
 		("creating players:"+howmany.asString).postln;
@@ -659,30 +650,19 @@ Tapes{
 	}
 
 	/////// task's stuff ////
-	noT {|name|
+	undo {|name|
 		if (name.isNil, {
+			"-- kill all procs".postln;
 			procs.collect(_.stop);
 			procs = Dictionary.new;
 		},{
-			this.stopT(name)
+			("-- procs: killing"+name).postln;
+			procs[name.asSymbol].stop;
+			procs.removeAt(name.asSymbol);
 		})
 	}
 
-	stopT {|name|
-		("-- procs: killing"+name).postln;
-		procs[name.asSymbol].stop;
-		procs.removeAt(name.asSymbol);
-	}
-	resumeT {|name| procs[name.asSymbol].resume}
-	pauseT {|name| procs[name.asSymbol].pause}
-
-	sch {|name="", function, sleep=5.0, random=0, offset=0, clock=nil, talk=true| // offset is passed to functions so that
-		this.do(name, function, sleep, random, offset, clock, talk)
-	}
-
-
-
-	do {|name="", function, sleep=5.0, defer=0, iter=inf, random=0, offset=0, clock=0, talk=true| // offset is passed to functions so that local events are not at the same time
+	do {|name="", function, sleep=5.0, defer=0, iter=inf, when=true, then=1, random=0, offset=0, clock=0, talk=true| // offset is passed to functions so that local events are not at the same time
 		var atask;
 
 		if (name=="", {
@@ -696,26 +676,31 @@ Tapes{
 		clock ?? clock = TempoClock; // default
 
 		atask = Task({
-			iter.do({|index|
-				var time = ""+Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second;
-				//if ( ((name != "") && (procstalk == true), {("-- now:"+name++time).postln});
-				if ( ((name != "") && (talk == true)), {("-- now:"+name++time).postln});
-				if ((random.isArray),
-					{sleep = random[0].wchoose(random[1])} ,
-					{sleep = sleep + (random.rand2)}
-				);// +/- rand gets added to sleep
+			block {|break|
+				iter.do {|index|
+					var time = ""+Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second;
 
-				if (sleep <= 0, {sleep = 0.01}); // force lower limit to task tick resolution
+					if (talk == true, {("-- now:"+name++time).postln});
 
-				function.value(offset:offset);
+					if (when.value, {
+						function.value(offset:offset);
+						if (then==0, {break.value(999)})
+					});
 
-				sleep.wait
-			});
+					if ((random.isArray),
+						{sleep = random[0].wchoose(random[1])} ,
+						{sleep = sleep + (random.rand2)}
+					);// +/- rand gets added to sleep
+					if (sleep <= 0, {sleep = 0.01}); // force lower limit to task tick resolution
+					sleep.wait
+				};
+			};
 			("-- done with"+name).postln;
 			this.stopT(name.asSymbol)
 		}, clock);
 
-		{atask.start}.defer(defer);
+		{ atask.start }.defer(defer);
+
 		procs.add(name.asSymbol -> atask);// to keep track of them
 	}
 	////////////////////////////

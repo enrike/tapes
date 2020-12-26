@@ -185,15 +185,11 @@ _slb(0.6); // slope below thr <1 for expansion
 _sla(0.2); //slope above thr <1 for compression >1 for expansion
 
 
-// SCEDULE FUNCTIONS //
-
-_do(\randpan, {_rpan}, 15); //schedule a function every N secs. args: NAME, FUNCTION, SLEEP, DEFER, ITER, OFFSET, RANDOM, TALK
-_pauseT(\randpan)
-_resumeT(\randpan)
-_stopT(\randpan) // STOPS the task
-_procs // dictionary containing all Tasks alive
-_stopT // kills all tasks
-_noT; // kills all tasks
+// SCHEDULE FUNCTIONS //
+// args: NAME, FUNCTION, SLEEP, DEFER, ITER, WHEN, OFFSET, RANDOM, TALK
+_do(\randpan, {_rpan}, 15); //schedule a function every N secs.
+_undo(\randpan) // stops this one
+_undo // stops all
 
 // defer
 _do(\spawn, {_rrate}, 3, 20); //wait 20 secs, then run every 3secs
@@ -210,9 +206,15 @@ _do(\wrand, {
 	"two options".postln;
 }, random:[[1,3],[0.9, 0.1]])// run every every 1 sec (90% chances) or 3 secs (10%chances)
 
-_do(\silent, { // wont print every run
+// conditions
+z=0
+_do(\check, {"run".postln}, 3, when:{z>0}) // will start running once condition is true
+_do(\check, {"run".postln}, 3, when:{z>0}, then:0) // only runs once, then dies
+
+// postln or not
+_do(\silent, { // wont print every run. useful with quick and repetitive tasks
 	_rpan
-}, 15, talk:false);
+}, 0.5, talk:false);
 
 
 
