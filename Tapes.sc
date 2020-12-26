@@ -662,7 +662,7 @@ Tapes{
 		})
 	}
 
-	do {|name="", function, sleep=5.0, defer=0, iter=inf, when=true, then=1, random=0, offset=0, clock=0, talk=true| // offset is passed to functions so that local events are not at the same time
+	do {|name="", function, sleep=5.0, defer=0, iter=inf, when=true, then=1, random=0, offset=0, clock=0, verbose=true| // offset is passed to functions so that local events are not at the same time
 		var atask;
 
 		if (name=="", {
@@ -671,7 +671,7 @@ Tapes{
 			name.postln;
 		});
 
-		if (procs[name.asSymbol].notNil, { this.stopT(name.asSymbol) }); // kill before rebirth if already there
+		if (procs[name.asSymbol].notNil, { this.undo(name.asSymbol) }); // kill before rebirth if already there
 
 		clock ?? clock = TempoClock; // default
 
@@ -680,7 +680,7 @@ Tapes{
 				iter.do {|index|
 					var time = ""+Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second;
 
-					if (talk == true, {("-- now:"+name++time).postln});
+					if (verbose==true, {("-- now:"+name++time).postln});
 
 					if (when.value, {
 						function.value(offset:offset);
@@ -696,7 +696,7 @@ Tapes{
 				};
 			};
 			("-- done with"+name).postln;
-			this.stopT(name.asSymbol)
+			this.undo(name.asSymbol)
 		}, clock);
 
 		{ atask.start }.defer(defer);

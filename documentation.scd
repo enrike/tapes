@@ -186,19 +186,18 @@ _sla(0.2); //slope above thr <1 for compression >1 for expansion
 
 
 // SCHEDULE FUNCTIONS //
-// args: NAME, FUNCTION, SLEEP, DEFER, ITER, WHEN, OFFSET, RANDOM, TALK
+// _do args: NAME, FUNCTION, SLEEP, DEFER, ITER, WHEN, OFFSET, RANDOM, TALK
 _do(\randpan, {_rpan}, 15); //schedule a function every N secs.
 _undo(\randpan) // stops this one
 _undo // stops all
 
 // defer
-_do(\spawn, {_rrate}, 3, 20); //wait 20 secs, then run every 3secs
 _do(\spawn, {_rrate}, 3, defer:20); //wait 20 secs, then run every 3secs
 
 // num of iterations
-_do(\spawn, {_add(1,_0)}, 3, 10, iter:10); //wait 10 secs, then run every 3secs for 10 times and finally die
+_do(\spawn, {_add(1,_0)}, 3, iter:10); //run every 3secs for 10 times then die
 
-// random periods
+// offset and random: introducing swing
 _do(\randpan, {_rpan}, 15, offset:5); // ... optional offset delay so that each player fires at N+(offset.rand)
 _do(\randpan, {_rpan}, 15, random:2); // rand swing: the next sch will happen after 15 + rrand(-2,+2) secs
 
@@ -207,14 +206,13 @@ _do(\wrand, {
 }, random:[[1,3],[0.9, 0.1]])// run every every 1 sec (90% chances) or 3 secs (10%chances)
 
 // conditions
-z=0
-_do(\check, {"run".postln}, 3, when:{z>0}) // will start running once condition is true
-_do(\check, {"run".postln}, 3, when:{z>0}, then:0) // only runs once, then dies
+_do(\check, {"run".postln}, 3, when:{z>0}) // will start running once z>1
+_do(\check, {"run".postln}, 3, when:{z>0}, then:0) // will only run once, then die
 
 // postln or not
 _do(\silent, { // wont print every run. useful with quick and repetitive tasks
 	_rpan
-}, 0.5, talk:false);
+}, 0.5, verbose:false);
 
 
 
