@@ -24,10 +24,13 @@ _verbose(true) // will post extra log information
 _add; // adds one new tape player (with rate 0) at current group
 _add(5)// adds 5 new tape players
 _add(3, _0) // adds 3 tape players copying tape players 0's state
-_0.copy(_1) // tape player 0 copies tape player 1's state
+_add(1, 1008) // you can also pass the player's id
+_0.copy(_1) // tape player 0 copies tape player 1's state (here you cannot pass the id)
 
 _group // all tape player in current group
 _1 // individual tape player _0, _1, _2, _3, etc...
+_id(1008) // returns the tape with that ID
+_where(1008)// returns the position of tape with that id in current group 0,1,2...
 
 _info // post internal states for all available tape players
 _2.state // returns a dictionary with the state of tape player 2, etc...
@@ -94,6 +97,7 @@ _fadeout
 _pan(0) //-1 to 1
 _rate(0.8)
 _wooble(0.07) // rand fluctuation in rate
+_brown(0.5) // brownian fluctuation in rate
 
 _lp(0, 0.01) // st, end. in 0 to 1 range
 _st(0.5) //loop start
@@ -203,7 +207,7 @@ _do(\randpan, {_rpan}, 15, random:2); // rand swing: the next sch will happen af
 
 _do(\wrand, {
 	"two options".postln;
-}, random:[[1,3],[0.9, 0.1]])// run every every 1 sec (90% chances) or 3 secs (10%chances)
+}, random:[[1,3],[0.9, 0.1]])// run every every 1 sec (90% chances) or 3 secs (10% chances)
 
 // conditions
 _do(\check, {"run".postln}, 3, when:{z>0}) // will start running once z>1
@@ -218,27 +222,19 @@ _do(\silent, { // wont print every run. useful with quick and repetitive tasks
 
 // some examples of scheduling tasks
 _do(\backtoinit, {_reset}, 10) // resets every 10s
-_stopT(\backtoinit)
-
 _do(\rev, {_reverse}, 10, offset:5)
-_stopT(\rev)
-
 _do(\rlen, {_rlen(1, 2)}, 8, random:4)
-_stopT(\rlen)
-
 _do(\bgo, {_bgo(0.01)}, 1, offset:1)
-_stopT(\bgo)
 
 _do(\inoutrand, { //every 30 sec: 9 sec fade in- after 15 secs - 9 secs fade out
 	_fadein(9);
 	{_fadeout(9)}.defer(15)
 }, 30)
-_stopT(\inoutrand)
+_undo(\inoutrand)
 
 _do(\ramps, {// this will move every 10 secs all the pitchs to a random value ranging -3 to +3 from the current value in a 5 sec transition
 	_brate(4, 5, \sin)
 }, 10, random:3)
-_stopT(\ramps)
 
 
 ( //keeps mirror playing while slowly moving around the same area

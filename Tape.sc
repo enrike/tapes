@@ -134,9 +134,7 @@ Tape{
 	}
 
 	go {|pos=0|
-		//if (pos<st, {pos=st}); // limits
-		//if (pos>end, {pos=end});
-		player.set(\reset, pos);
+		player.set(\reset, pos.clip(0,1));
 		player.set(\trig, 0);
 		{ player.set(\trig, 1) }.defer(0.04);
 	}
@@ -145,7 +143,7 @@ Tape{
 
 	goend {this.go(end)}
 
-	move {|pos=0, random=0|
+	move {|pos=0, random=0| // moves the loop to another position maintaing the duration
 		pos = pos + random.asFloat.rand2;
 		this.loop(pos, pos+(end-st)); //keep len
 		//this.go(pos);
@@ -223,6 +221,11 @@ Tape{
 		wobble = arate;
 		player.set(\wobblelag, time);
 		player.set(\wobble, arate);
+	}
+
+	brown {|level=0, time=0, random=0|
+		player.set(\brownlag, time);
+		player.set(\brown, level.max(0));
 	}
 
 	dir {|adir=1, time=0|

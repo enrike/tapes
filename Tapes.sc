@@ -36,14 +36,14 @@ Tapes{
 		var globalvar = "~tapes";
 		// this is to be able to use the systems using a symbol (like _) instead of ~tapes. and symbol2 (eg _2) instead of ~tapes.grouplists[\current][2]
 		main.preProcessor = { |code|
-			// list with all the commands used by Tapes
+			// list with all the commands defined by Tapes
 			var mets = [
-				"add", "kill", "killall", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "one", "it", "some",
-				"them", "info", "verbose", "normalize", "plot",
+				"add", "kill", "killall", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "normalize",
+				"one", "it", "some", "them", "info", "verbose", "plot", "control",
 				"scratch", "pause", "solo", "fwd", "bwd", "dir", "reverse", "volu", "vold", "vol", "fadein", "fadeout",
-				"pan", "rate", "wobble", "reset", "resume", "shot", "out", "stop", "play",
+				"pan", "rate", "wobble", "brown", "reset", "resume", "shot", "out", "stop", "play",
 				"lp", "loop", "st", "step", "move", "end", "go", "gost", "goend", "dur", "len",
-				"push", "pop", "save", "load", "control", "search",
+				"push", "pop", "save", "load", "search", "id", "where",
 				"rbuf", "rrate", "rpan", "rloop", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rand",
 				"bloop", "bpan", "brate", "bvol", "bpan", "bgo",
 				"comp", "thr", "slb", "sla",
@@ -71,11 +71,13 @@ Tapes{
 		server = Server.default;
 		server.waitForBoot({
 
-			SynthDef( \rPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, dir=1, index=0, trig=0, reset=0, loop=1, wobble=0, amplag=0, ratelag=0, panlag=0, wobblelag=0;
+			SynthDef( \rPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, dir=1, index=0, trig=0, reset=0, loop=1, wobble=0, amplag=0, ratelag=0, panlag=0, wobblelag=0, brown=0,brownlag=0;
 
 				var left, right, phasor, dur;
 
-				rate = (rate.lag(ratelag) + wobble.lag(wobblelag).rand2) * dir;
+				rate = (rate.lag(ratelag) + wobble.lag(wobblelag).rand2);
+				rate = rate * dir;
+				rate = rate + BrownNoise.ar(brown.lag(brownlag));
 				amp = amp.lag(amplag);
 				pan = pan.lag(panlag);
 
@@ -181,6 +183,17 @@ Tapes{
 		grouplists.removeAt(name);
 		("removed group"+name).postln;
 	}
+	id {|id| // return the tape whose ID==id
+		^this.all.select { |item| item.id==id }[0];
+	}
+	where {|id| // return position in group by id
+		var p;
+		//if (tapeorid.isNumber.not, { tapeorid = tapeorid.id }); // this looks a bit weird
+		grouplists[currentgroup].size.do{|i|
+			if (grouplists[currentgroup][i].id==id, {p=i})
+		}
+		^p
+	}
 	/////////
 
 	add {|howmany=1, copythis|
@@ -192,8 +205,12 @@ Tapes{
 				lay = Tape.new(thebuffer);
 				("at group"+currentgroup+"in position @"++grouplists[currentgroup].size).postln;
 				grouplists[currentgroup].add(lay); // check if = is needed
-				//copythis !? lay.copy(copythis) // state
+
+				if (copythis.isNumber, { // by id
+					copythis = this.id(copythis)
+				});
 				if (copythis.notNil, { lay.copy(copythis) });
+
 				views.add(0);
 			}, {
 				"error: no buffers available!! run loadfiles()".postln;
@@ -276,6 +293,7 @@ Tapes{
 	}
 
 	buf {|buf, offset=0|
+		if (buf.isNil, {buf=bufs.choose}); // random
 		if (buf.isInteger, {buf = bufs[buf]}); // using the index
 
 		grouplists[currentgroup].do({ |pl, index|
@@ -365,15 +383,12 @@ Tapes{
 
 	shot { grouplists[currentgroup].collect(_.shot) } // single play no loop
 
-	resume { grouplists[currentgroup].collect(_.resume) }
-
-	pause { grouplists[currentgroup].collect(_.pause) }
-
 	play { grouplists[currentgroup].collect(_.play) }
 
 	stop { grouplists[currentgroup].collect(_.stop) }
 
 	go {|point=0, offset=0|
+		//point ?? point = 1.0.rand;
 		grouplists[currentgroup].do({ |pl|
 			{ pl.go(point) }.defer(offset.asFloat.rand)
 		})
@@ -512,12 +527,17 @@ Tapes{
 		})
 	}
 
-	wobble {|arate=0, time=0, random=0, offset=0|
+	wobble {|rate=0, time=0, random=0, offset=0|
 		grouplists[currentgroup].do({ |pl|
-			{pl.wobble(arate, time, random)}.defer(offset.asFloat.rand)
+			{pl.wobble(rate, time, random)}.defer(offset.asFloat.rand)
 		})
 	}
 
+	brown {|level=0, time=0, random=0, offset=0|
+		grouplists[currentgroup].do({ |pl|
+			{pl.brown(level, time, random)}.defer(offset.asFloat.rand)
+		})
+	}
 	reverse {|time=0, offset=0|
 		grouplists[currentgroup].do({ |pl|
 			{pl.rate(pl.rate.neg, time)}.defer(offset.asFloat.rand)
@@ -662,7 +682,7 @@ Tapes{
 		})
 	}
 
-	do {|name="", function, sleep=5.0, defer=0, iter=inf, when=true, then=1, random=0, offset=0, clock=0, verbose=true| // offset is passed to functions so that local events are not at the same time
+	do {|name="", function, sleep=5.0, defer=0, iter=inf, when=true, then=1, random=0, offset=0, clock=0, verbose=true|
 		var atask;
 
 		if (name=="", {
@@ -680,19 +700,18 @@ Tapes{
 				iter.do {|index|
 					var time = ""+Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second;
 
-					if (verbose==true, {("-- now:"+name++time).postln});
+					if (verbose, {("-- now:"+name++time).postln});
 
 					if (when.value, {
 						function.value(offset:offset);
-						if (then==0, {break.value(999)})
+						if (then==0, {break.value(999)}) // done
 					});
 
 					if ((random.isArray),
 						{sleep = random[0].wchoose(random[1])} ,
 						{sleep = sleep + (random.rand2)}
-					);// +/- rand gets added to sleep
-					if (sleep <= 0, {sleep = 0.01}); // force lower limit to task tick resolution
-					sleep.wait
+					);// rand gets added to sleep
+					sleep.max(0.005).wait
 				};
 			};
 			("-- done with"+name).postln;
