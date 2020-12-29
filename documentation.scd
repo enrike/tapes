@@ -68,7 +68,8 @@ _plot(4) // optional pass the buffer to draw on the background of the window. us
 _loadfiles("some/directory"); // BEWARE: loading files takes time
 _normalize // normalise buffers
 _bufs // posts buffers available
-_curbufs // posts which buffers actually being used by which tape players
+_curbufs // posts which buffers actually being used by which tape players (_0, filename)
+_bufinfo // posts index and name of laoded buffers
 _buf(5) // asign buffer 5 to all players in current group
 
 // you could load new files and asign them again after tape players are alive
@@ -96,8 +97,9 @@ _fadein
 _fadeout
 _pan(0) //-1 to 1
 _rate(0.8)
-_wooble(0.07) // rand fluctuation in rate
+_wobble(0.07) // rand fluctuation in rate
 _brown(0.5) // brownian fluctuation in rate
+_vibrato(rate:3, depth:0.04, ratev:0.01, depthv:0.02)
 
 _lp(0, 0.01) // st, end. in 0 to 1 range
 _st(0.5) //loop start
@@ -174,8 +176,8 @@ _rlen(offset:20) // and so on...
 // some functions (the ones related to panning, amplitude and pitch) can perform a transition between the current state and the target state in N secs
 // go to a value in N secs
 _rate(0.1, 10)// go to 0.1 rate in 10secs
-_brate(0.1, 20) // this will start a shift to a random rate ranging -0.1 to 0.1 from the current rate that will take 20s
-_brate(0.1, 20, offset:8) // offset can be use here too
+_brate(0.1, time:20) // this will start a shift to a random rate ranging -0.1 to 0.1 from the current rate that will take 20s
+_brate(0.1, time:20, offset:8) // offset can be use here too
 
 //local randoms
 _rate(1, random:0.1); // each of them will apply a small random variation around 1 ranging -0.1 to 0.1
