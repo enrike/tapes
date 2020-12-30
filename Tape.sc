@@ -159,11 +159,6 @@ Tape{
 		this.loop(st+delta, st+delta+(end-st)); //keep len
 	}
 
-	step {|gap=0, random=0|
-		var pos = st + gap + random.asFloat.rand2;
-		this.loop(pos, pos+(end-st))
-	}
-
 	file {
 		^PathName(buf.path).fileName
 	}
@@ -411,7 +406,7 @@ Tape{
 	}
 
 	rmove {|range=1|
-		pos = range.rand;
+		var pos = range.rand;
 		this.loop(pos, pos+(end-st)); //keep len
 	}
 

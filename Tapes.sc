@@ -42,7 +42,7 @@ Tapes{
 				"one", "it", "some", "them", "info", "verbose", "plot", "control", "hm",
 				"scratch", "pause", "solo", "fwd", "bwd", "dir", "reverse", "volu", "vold", "vol", "fadein", "fadeout",
 				"pan", "rate", "wobble", "brown", "vibrato", "reset", "resume", "shot", "out", "stop", "play",
-				"lp", "loop", "st", "step", "move", "moveby", "end", "go", "gost", "goend", "dur", "len",
+				"lp", "loop", "st", "move", "moveby", "end", "go", "gost", "goend", "dur", "len",
 				"push", "pop", "save", "load", "search", "id", "where",
 				"rbuf", "rrate", "rpan", "rloop", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rmove", "rand",
 				"bloop", "bpan", "brate", "bvol", "bpan", "bgo",
@@ -292,7 +292,10 @@ Tapes{
 		})
 	}
 
-	info { grouplists[currentgroup].collect(_.info) }
+	info {
+		if (this.hw==0, {"no players!".postln});
+		grouplists[currentgroup].collect(_.info)
+	}
 
 	verbose {|flag=true|
 		["verbose:", flag].postln;
@@ -343,16 +346,6 @@ Tapes{
 			{
 				pl.loop(mysttime, myendtime);
 				this.newselection(mysttime, myendtime, views[index], pl.buf);
-			}.defer(offset.asFloat.rand)
-		})
-	}
-
-	step {|gap, offset=0|
-		grouplists[currentgroup].do({ |pl, index|
-			{
-				pl.step(gap, offset);
-				//pl.loop(pl.st + gap);
-				//this.newselection(st, end, views[index], pl.buf);
 			}.defer(offset.asFloat.rand)
 		})
 	}
@@ -522,7 +515,7 @@ Tapes{
 		})
 	}
 
-	rmove {
+	rmove {|offset=0|
 		grouplists[currentgroup].do({ |pl|
 			{pl.rmove}.defer(offset.asFloat.rand)
 		})
