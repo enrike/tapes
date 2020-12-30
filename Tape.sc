@@ -24,10 +24,10 @@ Tape{
 		player.free;
 		player = Synth.tail(Server.default, \rPlayer, [\buffer, buf ? buf.bufnum, \rate, rate, \index, id, \out, abus]);
 
-		loopOSC.free;
+/*		loopOSC.free;
 		loopOSC = OSCdef(\loop++id, {|msg, time, addr, recvPort|
 			if (id==msg[2], { this.done });
-		}, '/loop');
+		}, '/loop');*/
 
 		playheadOSC.free;
 		playheadOSC = OSCdef(\playhead++id, {|msg, time, addr, recvPort|

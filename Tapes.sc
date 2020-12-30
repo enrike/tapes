@@ -74,17 +74,18 @@ Tapes{
 			SynthDef( \rPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, dir=1, index=0, trig=0, reset=0, loop=1, wobble=0, amplag=0, ratelag=0, panlag=0, wobblelag=0, brown=0,brownlag=0,
 				vib = #[1,1,0,0,0,0,0], viblag=0;
 
-				var left, right, phasor, dur;
+				var left, right, phasor, dur = BufFrames.kr(buffer);
 
 				rate = (rate.lag(ratelag) + wobble.lag(wobblelag).rand2);
 				rate = rate * dir;
 				rate = rate + BrownNoise.ar(brown.lag(brownlag));
 				rate = rate * Vibrato.ar(*vib.lag(viblag));
-				//Vibrato.ar(freq: 440.0, rate: 6, depth: 0.02, delay: 0.0, onset: 0.0, rateVariation: 0.04, depthVariation: 0.1, iphase: 0.0, trig: 0.0)
+
 				amp = amp.lag(amplag);
 				pan = pan.lag(panlag);
 
-				dur = BufFrames.kr(buffer);
+				//Select.kr(aKrSignal > anotherKrSignal, [false_signal, true_signal]).poll;
+
 				phasor = Phasor.ar( trig, rate * BufRateScale.kr(buffer), start*dur, end*dur, resetPos: reset*dur);
 
 				SendReply.ar( HPZ1.ar(HPZ1.ar(phasor).sign), '/loop', 1, index); //loop point
