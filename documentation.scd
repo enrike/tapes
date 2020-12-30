@@ -113,6 +113,9 @@ _step(0.01) // move st and end by that step from the current st position. mainta
 _move(0.5) // move playhead to that position, set st to that position and calculate the new end maintaning the loop duration
 _go(0.5) // send playhead to point in sample (only works if >st and <end)
 
+// slicer-like behaviour (github.com/enrike/slicer)
+_slice(sttime:0.5, shift:2, grain:0.001, grainshift:1)
+
 _scratch // experimental. |target=0, tIn=1, tStay=0.5, tOut=1, offset=0| // boomerang like pitch change
 
 // RESET: calling some functions with no args should reset its corresponding state for instance...
