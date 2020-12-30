@@ -38,13 +38,13 @@ Tapes{
 		main.preProcessor = { |code|
 			// list with all the commands defined by Tapes
 			var mets = [
-				"add", "kill", "killall", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "normalize",
-				"one", "it", "some", "them", "info", "verbose", "plot", "control",
+				"add", "kill", "killall", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "bufinfo", "normalize",
+				"one", "it", "some", "them", "info", "verbose", "plot", "control", "hm",
 				"scratch", "pause", "solo", "fwd", "bwd", "dir", "reverse", "volu", "vold", "vol", "fadein", "fadeout",
-				"pan", "rate", "wobble", "brown", "reset", "resume", "shot", "out", "stop", "play",
-				"lp", "loop", "st", "step", "move", "end", "go", "gost", "goend", "dur", "len",
+				"pan", "rate", "wobble", "brown", "vibrato", "reset", "resume", "shot", "out", "stop", "play",
+				"lp", "loop", "st", "step", "move", "moveby", "end", "go", "gost", "goend", "dur", "len",
 				"push", "pop", "save", "load", "search", "id", "where",
-				"rbuf", "rrate", "rpan", "rloop", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rand",
+				"rbuf", "rrate", "rpan", "rloop", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rmove", "rand",
 				"bloop", "bpan", "brate", "bvol", "bpan", "bgo",
 				"comp", "thr", "slb", "sla",
 				"do", "undo",
@@ -71,13 +71,16 @@ Tapes{
 		server = Server.default;
 		server.waitForBoot({
 
-			SynthDef( \rPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, dir=1, index=0, trig=0, reset=0, loop=1, wobble=0, amplag=0, ratelag=0, panlag=0, wobblelag=0, brown=0,brownlag=0;
+			SynthDef( \rPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, dir=1, index=0, trig=0, reset=0, loop=1, wobble=0, amplag=0, ratelag=0, panlag=0, wobblelag=0, brown=0,brownlag=0,
+				vib = #[1,1,0,0,0,0,0], viblag=0;
 
 				var left, right, phasor, dur;
 
 				rate = (rate.lag(ratelag) + wobble.lag(wobblelag).rand2);
 				rate = rate * dir;
 				rate = rate + BrownNoise.ar(brown.lag(brownlag));
+				rate = rate * Vibrato.ar(*vib.lag(viblag));
+				//Vibrato.ar(freq: 440.0, rate: 6, depth: 0.02, delay: 0.0, onset: 0.0, rateVariation: 0.04, depthVariation: 0.1, iphase: 0.0, trig: 0.0)
 				amp = amp.lag(amplag);
 				pan = pan.lag(panlag);
 
@@ -138,7 +141,7 @@ Tapes{
 					var buf = Buffer.read(server, sfs.wrapAt(n).path,
 						action:{
 							("...loaded"+PathName(sfs.wrapAt(n).path).fileName).postln;
-							if (n>=(sfs.size-1), {"DONE LOADING FILES".postln})
+							if (n>=(sfs.size-1), {"...DONE LOADING FILES!".postln})
 						}
 					);
 					bufs = bufs.add( buf )
@@ -160,6 +163,9 @@ Tapes{
 	}
 	all {
 		^grouplists.values.flat
+	}
+	hm {
+		^grouplists.values.flat.size
 	}
 	mergegroups{
 		var players = grouplists.values.flat;
@@ -204,6 +210,7 @@ Tapes{
 				thebuffer = bufs.wrapAt( grouplists[currentgroup].size );
 				lay = Tape.new(thebuffer);
 				("at group"+currentgroup+"in position @"++grouplists[currentgroup].size).postln;
+				("-----------").postln;
 				grouplists[currentgroup].add(lay); // check if = is needed
 
 				if (copythis.isNumber, { // by id
@@ -228,7 +235,10 @@ Tapes{
 
 	killall {|agroup|
 		agroup !? agroup = currentgroup;
-		grouplists[agroup].do{|pla| pla.kill};
+		grouplists[agroup].do{|pla|
+			pla.kill;
+			views.pop
+		};
 		grouplists[agroup] = List.new;
 		("free group"+agroup).postln;
 
@@ -276,8 +286,9 @@ Tapes{
 	}
 
 	curbufs {
+		"-- index of player, filename --".postln;
 		grouplists[currentgroup].size.do({ |i|
-			(i.asString++":" + grouplists[currentgroup][i].file).postln
+			("_"++i++":" + grouplists[currentgroup][i].file).postln
 		})
 	}
 
@@ -293,7 +304,11 @@ Tapes{
 	}
 
 	buf {|buf, offset=0|
-		if (buf.isNil, {buf=bufs.choose}); // random
+		if (buf.isNil, {
+			buf=bufs.choose;
+			("choosing a random buffer:"+PathName(buf.path).fileName).postln
+		});
+
 		if (buf.isInteger, {buf = bufs[buf]}); // using the index
 
 		grouplists[currentgroup].do({ |pl, index|
@@ -308,6 +323,13 @@ Tapes{
 		grouplists[currentgroup].do({ |pl, index|
 			pl.buf( bufs.wrapAt(index))
 		})
+	}
+
+	bufinfo {
+		"-- buffer index, filename --".postln;
+		bufs.do{|b, i|
+			(i + PathName(b.path).fileName).postln;
+		}
 	}
 
 	newplayer {|asynth| grouplists[currentgroup].do({ |pl| pl.newplayer(asynth)}) }
@@ -388,7 +410,6 @@ Tapes{
 	stop { grouplists[currentgroup].collect(_.stop) }
 
 	go {|point=0, offset=0|
-		//point ?? point = 1.0.rand;
 		grouplists[currentgroup].do({ |pl|
 			{ pl.go(point) }.defer(offset.asFloat.rand)
 		})
@@ -409,6 +430,12 @@ Tapes{
 	move {|pos, random=0, offset=0|
 		grouplists[currentgroup].do({ |pl|
 			{ pl.move(pos, random) }.defer(offset.asFloat.rand)
+		})
+	}
+
+	moveby {|delta, random=0, offset=0|
+		grouplists[currentgroup].do({ |pl|
+			{ pl.moveby(delta, random) }.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -462,23 +489,15 @@ Tapes{
 
 	//random file, pan, vol, rate, loop (st, end), dir and go
 	rand {|time=0, offset=0|
+		{this.rbuf}.defer(offset.asFloat.rand);
 		grouplists[currentgroup].do({ |pl|
-			grouplists[currentgroup].do({ |pl| pl.vol(0)});// mute. necessary?
-			this.rbuf(offset);
-			this.rvol(time, offset);
-			this.rpan(time, offset);
-			this.rrate(time, offset);//??
-			//this.rdir(time, offset); / not needed
-			this.rloop(offset);
-			this.rgo;// this should be limited to the current loop
-			grouplists[currentgroup].do({ |pl| pl.vol(pl.vol)}); //restore
+			{pl.rand(time)}.defer(offset.asFloat.rand)
 		})
 	}
 
-
 	rvol {|time=0, offset=0|
 		grouplists[currentgroup].do({ |pl|
-			{pl.rvol(1.0/grouplists[currentgroup].size)}.defer(offset.asFloat.rand)
+			{pl.rvol(1.0/grouplists[currentgroup].size, time)}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -500,6 +519,12 @@ Tapes{
 				pl.rloop;
 				this.newselection(pl.st, pl.end, views[index], pl.buf);
 			}.defer(offset.asFloat.rand)
+		})
+	}
+
+	rmove {
+		grouplists[currentgroup].do({ |pl|
+			{pl.rmove}.defer(offset.asFloat.rand)
 		})
 	}
 
@@ -536,6 +561,12 @@ Tapes{
 	brown {|level=0, time=0, random=0, offset=0|
 		grouplists[currentgroup].do({ |pl|
 			{pl.brown(level, time, random)}.defer(offset.asFloat.rand)
+		})
+	}
+	//(freq: 440.0, rate: 6, depth: 0.02, delay: 0.0, onset: 0.0, rateVariation: 0.04, depthVariation: 0.1, iphase: 0.0, trig: 0.0)
+	vibrato {|rate=1, depth=0, ratev=0, depthv=0, time=0, offset=0|
+		grouplists[currentgroup].do({ |pl|
+			{pl.vibrato(rate,depth,ratev,depthv, time)}.defer(offset.asFloat.rand)
 		})
 	}
 	reverse {|time=0, offset=0|
@@ -590,13 +621,7 @@ Tapes{
 		})
 	}
 
-	//
 	out { |ch=0| grouplists[currentgroup].collect(_.out(ch)) }
-	/*	out {|ch=0|
-	grouplists[currentgroup].do({ |pl|
-	pl.out(ch);
-	})
-	}*/
 
 	vol {|avol=1, time=0, offset=0|
 		volume = avol; // remember for the fadein/out
@@ -632,9 +657,7 @@ Tapes{
 		grouplists[currentgroup].do({ |pl|
 			{pl.outb(bus)}.defer(offset.asFloat.rand)
 		})
-	} // sets synthdef out buf. used for manipulating the signal w effects
-
-	//
+	}
 
 	bloop {|range=0.01, time=0, offset=0|
 		grouplists[currentgroup].do({|pl, index|
@@ -724,7 +747,6 @@ Tapes{
 	}
 	////////////////////////////
 
-
 	// compressor/expander ///
 	comp{|thr=0.5, sla=1, slb=1| // threshold, slopeBelow, slopeAbove
 		compressor.set(\thr, thr);
@@ -736,59 +758,6 @@ Tapes{
 	slb{|val=1| compressor.set(\slb, val)}
 	nocomp{this.comp(0.5,1,1)} // reset
 	/////////////////
-
-
-	plot {|abuf|
-		plotwin.postln;
-		//if (plotwin.isNil.not, {plotwin.close});
-		if (plotwin.isNil, {
-			// to do: bigger size win and view
-			// move playhead as it plays?
-			plotwin = Window("All tapes", Rect(100, 200, 600, 300));
-			plotwin.alwaysOnTop=true;
-			//plotwin.setSelectionColor(0, Color.red);
-			plotwin.front;
-			plotwin.onClose = {
-				"control window closed".postln;
-				plotwinrefresh.stop;
-				plotwin = nil;
-			}; // needed?
-
-			plotview = SoundFileView(plotwin, Rect(0, 0, 600, 300))
-			.elasticMode_(true)
-			.timeCursorOn_(true)
-			.timeCursorColor_(Color.red)
-			.drawsWaveForm_(true)
-			.gridOn_(true)
-			.gridResolution_(10)
-			.gridColor_(Color.white)
-			.waveColors_([ Color.new255(103, 148, 103), Color.new255(103, 148, 103) ])
-			.background_(Color.new255(155, 205, 155))
-			.canFocus_(false)
-			.setSelectionColor(0, Color.grey);
-
-			drawview = UserView(plotwin, Rect(0, 0, 600, 300))
-			.drawFunc_({ arg view; // AND CAN DRAW AS WELL
-				grouplists[currentgroup].do({|pl, index|
-					Pen.line( pl.curpos*600 @ 0, pl.curpos*600 @ 300 ); //playhead
-				});
-				Pen.stroke;
-			});
-
-			plotwinrefresh = Task({
-				inf.do({|index|
-					//plotwin.refresh;
-					drawview.refresh;
-					0.1.wait;
-				})
-			}, AppClock);
-			plotwinrefresh.start;
-
-			"To zoom in/out: Shift + right-click + mouse-up/down".postln;
-			"To scroll: right-click + mouse-left/right".postln;
-		});
-		this.updateplot( bufs[abuf] ); // draw the data and refresh
-	}
 
 	updateplot {|buf| // draw the choosen buffer
 		if (plotwin.notNil, {
@@ -867,7 +836,6 @@ Tapes{
 		if (controlGUI.notNil, {
 			var sf = SoundFile.new;
 			sf.openRead(buf.path);
-			view.postln;
 			view.soundfile = sf;            // set soundfile
 			view.read(0, sf.numFrames);     // read in the entire file.
 			view.refresh;

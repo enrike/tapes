@@ -411,8 +411,8 @@ Tape{
 	}
 
 	rmove {|range=1|
-		// go to random point update the loop points but maintan the length
-		//this.loop()
+		pos = range.rand;
+		this.loop(pos, pos+(end-st)); //keep len
 	}
 
 	rst {|range=1.0|

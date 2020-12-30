@@ -35,6 +35,9 @@ _where(1008)// returns the position of tape with that id in current group 0,1,2.
 _info // post internal states for all available tape players
 _2.state // returns a dictionary with the state of tape player 2, etc...
 
+_all // array with all players
+_hm // how many players exist
+
 _some // returns a list with randomly chosen tape players
 _some(3) // returns a list with 3 randomly chosen tape players
 _them // last ones choosen by _some
@@ -146,6 +149,7 @@ _rdir // + or - rate
 _rvol
 _rloop // 0 to 1
 _rloop([0.2, 0.1]) // set start and LENGTH limits for the random. in this case start will be rrange(0,0.2) and length start+(0.1.rand)
+_rmove; // move current st-end to a random position
 _rst // start point
 _rend // end point (not length)
 _rlen(0.1) // length. in range 0-1
