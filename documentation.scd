@@ -110,7 +110,8 @@ _end(0.55) // loop end
 _dur(0.006) // loop duration in 0-1 range from st
 _len(600) // length, **in milliseconds** useful if they are using different buffers and you want the same loop duration
 _step(0.01) // move st and end by that step from the current st position. maintains the loop duration
-_move(0.5) // move playhead to that position, set st to that position and calculate the new end maintaning the loop duration
+_move(0.5) // move loop start point to that position and try to maintain the loop duration
+_moveby(-0.01) // move loop start and end point by that
 _go(0.5) // send playhead to point in sample (only works if >st and <end)
 
 // slicer-like behaviour (github.com/enrike/slicer)
