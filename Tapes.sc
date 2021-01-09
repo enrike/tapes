@@ -12,12 +12,13 @@ Tapes{
 	var it, them; // to remember @one and @some
 	var <grouplists, <currentgroup;
 
-	*new {| main=nil, symbol="_" |
-		^super.new.initTapes( main, symbol );
+	*new {| main=nil, dir, symbol="_" | // systemdir
+		^super.new.initTapes( main, dir, symbol );
 	}
 
-	initTapes {| amain, asym |
+	initTapes {| amain, adir, asym |
 		~tapes = this; // keep me in a global
+		//this.path;
 
 		procs = Dictionary.new; // stores all tasks
 
@@ -26,7 +27,7 @@ Tapes{
 
 		views = List.new;
 
-		this.boot;
+		this.boot(adir);
 
 		amain !? this.lang(amain, asym)
 	}
@@ -48,35 +49,35 @@ Tapes{
 				"bloop", "bpan", "brate", "bvol", "bpan", "bgo",
 				"comp", "thr", "slb", "sla",
 				"do", "undo",
-				"slice",
+				"slice", "slicegui",
 				"group", "groups", "mergegroups", "usegroup", "currentgroup", "newgroup", "killgroup", "all"
 			];
 
-			mets.do({|met| // @go --> ~tapes.go
+			mets.do({|met| // _go --> ~tapes.go
 				code = code.replace(sym++met, globalvar++"."++met);
-			});
 
-			100.reverseDo({|num| // reverse to avoid errors with index > 1 digit
-				var dest = globalvar++".grouplists[\\"++currentgroup++"]"++"["++num.asString++"]";
-				code = code.replace(sym++num.asString, dest); // _2 --> ~tapes.grouplists[\whatever][2]
+				100.reverseDo({|num| // reverse to avoid errors with index > 1 digit
+					var dest = globalvar++".grouplists[\\"++currentgroup++"]"++"["++num.asString++"]";
+					code = code.replace(sym++num.asString, dest); // _2 --> ~tapes.grouplists[\whatever][2]
+				});
 			});
 
 			code = code.replace("", ""); // THIS MUST BE HERE OTHERWISE THERE IS SOME WEIRD BUG
 		};
 	}
 
-	boot {
+	boot {|dir|
 		OSCdef.freeAll;
 
 		server = Server.default;
 		server.waitForBoot({
 
-			SynthDef( \rPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, dir=1, index=0, trig=0, reset=0, loop=1, wobble=0, amplag=0, ratelag=0, panlag=0, wobblelag=0, brown=0,brownlag=0,
+			SynthDef( \rPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, dir=1, index=0, trig=0, reset=0, loop=1, wobble=0, amplag=0, ratelag=0, panlag=0, wobblelag=0, brown=0, brownlag=0,
 				vib = #[1,1,0,0,0,0,0], viblag=0;
 
 				var left, right, phasor, dur = BufFrames.kr(buffer);
 
-				rate = (rate.lag(ratelag) + wobble.lag(wobblelag).rand2);
+				rate = rate.lag(ratelag) + wobble.lag(wobblelag).rand2;
 				rate = rate * dir;
 				rate = rate + BrownNoise.ar(brown.lag(brownlag));
 				rate = rate * Vibrato.ar(*vib.lag(viblag));
@@ -84,11 +85,9 @@ Tapes{
 				amp = amp.lag(amplag);
 				pan = pan.lag(panlag);
 
-				//Select.kr(aKrSignal > anotherKrSignal, [false_signal, true_signal]).poll;
-
 				phasor = Phasor.ar( trig, rate * BufRateScale.kr(buffer), start*dur, end*dur, resetPos: reset*dur);
 
-				SendReply.ar( HPZ1.ar(HPZ1.ar(phasor).sign), '/loop', 1, index); //loop point
+				//SendReply.ar( HPZ1.ar(HPZ1.ar(phasor).sign), '/loop', 1, index); //loop point
 				SendReply.kr( LFPulse.kr(12, 0), '/pos', phasor/dur, index); //fps 12
 
 				#left, right = BufRd.ar( 2, buffer, phasor, loop:loop ) * amp;
@@ -107,20 +106,22 @@ Tapes{
 				Out.ar(out, Balance2.ar(left, right, pan) * amp);
 			}).load;
 
-
+			/*
 			SynthDef(\rev, {|inbus=0, out=0, mix= 0.33, room= 0.5, damp= 0.5|
-				// FreeVerb2.ar(in, in2, mix: 0.33, room: 0.5, damp: 0.5, mul: 1.0, add: 0.0)
-				var signal = In.ar(inbus, 2);
-				signal = FreeVerb2.ar(signal[0], signal[1], mix, room, damp);
-				Out.ar(out, signal);
-			}).load;
+			// FreeVerb2.ar(in, in2, mix: 0.33, room: 0.5, damp: 0.5, mul: 1.0, add: 0.0)
+			var signal = In.ar(inbus, 2);
+			signal = FreeVerb2.ar(signal[0], signal[1], mix, room, damp);
+			Out.ar(out, signal);
+			}).load;*/
 
 			buses = Bus.audio(server, 2);
 			compressor = Synth(\comp, [\inbus, buses]);
+
+			if (dir.isNil.not, {this.loadfiles(dir)})
 		})
 	}
 
-	loadfiles {|apath="~/"|
+	loadfiles {|apath|
 		server.waitForBoot({
 			path = apath;
 			("path is"+apath).postln;
@@ -136,9 +137,7 @@ Tapes{
 			}, {
 				bufs = Array.new(sfs.size);// all files in the dir
 
-
-				// load ALL buffers
-				sfs.size.do({ arg n;
+				sfs.size.do({ arg n; // load ALL buffers
 					var buf = Buffer.read(server, sfs.wrapAt(n).path,
 						action:{
 							("...loaded"+PathName(sfs.wrapAt(n).path).fileName).postln;
@@ -195,7 +194,6 @@ Tapes{
 	}
 	where {|id| // return position in group by id
 		var p;
-		//if (tapeorid.isNumber.not, { tapeorid = tapeorid.id }); // this looks a bit weird
 		grouplists[currentgroup].size.do{|i|
 			if (grouplists[currentgroup][i].id==id, {p=i})
 		}
@@ -221,7 +219,7 @@ Tapes{
 
 				views.add(0);
 			}, {
-				"error: no buffers available!! run loadfiles()".postln;
+				"error: no buffers available!! run _loadfiles".postln;
 			})
 		})
 	}
@@ -294,7 +292,7 @@ Tapes{
 	}
 
 	info {
-		if (this.hw==0, {"no players!".postln});
+		if (this.hm==0, {"no players!".postln});
 		grouplists[currentgroup].collect(_.info)
 	}
 
@@ -341,14 +339,145 @@ Tapes{
 	slice {|sttime, shift, grain, grainshift, offset=0| // SLICER like behaviour
 		grouplists[currentgroup].do({ |pl, index|
 			var mysttime = sttime + (index * (shift/100.0));
-			var myendtime = mysttime + grain + (index * (grainshift/100.0));
-			//	myendtime = myendtime.clip(0,1);
-			//	mysttime = mysttime.clip(0,1);
+			var myendtime;// = mysttime + grain + (index * (grainshift/100.0));
+
+			if ( (mysttime<0) || (mysttime>1), { //st left, right
+				mysttime = mysttime % 1;
+
+			});
+
+			myendtime = mysttime + grain + (index * (grainshift/100.0));
+
+			if ( (myendtime<0) || (myendtime>1), { //end left, right
+				mysttime = mysttime % 1;
+				myendtime = mysttime + grain + (index * (grainshift/100.0));
+			});
+
+			if (myendtime<mysttime, { // reverse
+				var temp1=mysttime;
+				var temp2=myendtime;
+				mysttime = temp2;
+				myendtime = temp1;
+			});
+
 			{
 				pl.loop(mysttime, myendtime);
 				this.newselection(mysttime, myendtime, views[index], pl.buf);
 			}.defer(offset.asFloat.rand)
 		})
+	}
+
+	slicegui2d {|w=250,h=500|
+		var label, slval=[0.0,0.0,0.0,0.0];
+		var doslice = this;
+		var delta = 15;
+		var slicerw = Window("Slicer 2D", w@h).alwaysOnTop_(1);
+		slicerw.layout = VLayout();
+
+		Slider2D(slicerw, (w-10)@(h-10))
+		.x_(0) // initial location of x
+		.y_(0.5)   // initial location of y
+		.action_({|sl|
+			slval[0] = sl.x.asFloat;
+			slval[1] = sl.y.linlin(0,1, delta.neg, delta).asFloat;
+			doslice.slice(*slval);
+			label.string = format("% % % %", slval[0].asStringPrec(2), slval[1].asStringPrec(2),
+				slval[2].asStringPrec(2), slval[3].asStringPrec(2))
+		});
+		Slider2D(slicerw, (w-10)@(h-10))
+		.x_(0) // initial location of x
+		.y_(0.5)   // initial location of y
+		.action_({|sl|
+			slval[2] = sl.x.asFloat;
+			slval[3] = sl.y.linlin(0,1,  delta.neg, delta).asFloat;
+			doslice.slice(*slval);
+			label.string = format("% % % %", slval[0].asStringPrec(2), slval[1].asStringPrec(2),
+				slval[2].asStringPrec(2), slval[3].asStringPrec(2))
+		});
+		label = StaticText(slicerw, 140@20);
+		slicerw.front;
+	}
+
+	// add a reset button? use autogui?
+	slicegui {|w=250|
+		var label, slval=[0.0,0.0,0.0,0.0];
+		var doslice = this;
+		var delta = 15;
+		var slicerw = Window("Slicer 4x", w@175).alwaysOnTop_(true);
+		var cols = [Color.grey,Color.white, Color.grey(0.7),Color.grey,Color.white, Color.yellow,nil,nil, Color.grey(0.7)];
+		var controls = [];
+		slicerw.view.decorator = FlowLayout(slicerw.view.bounds);
+		slicerw.view.decorator.gap=2@2;
+		/*
+		Button(slicerw, 50@20) // OPEN
+		.states_([["open", Color.black, Color.red]])
+		.action_({ |butt|
+		FileDialog({ |apath|
+		var	data = Object.readArchive(apath);
+		("reading preset"+apath).postln;
+
+		[\bounds, data[\bounds]].postln; //make sure it first deals with ON
+		{ w.bounds = data[\bounds] }.defer; // wait for QT
+		data.removeAt(\bounds); // we are done with this
+
+		data.keysValuesDo{ |key, value|
+		[key, value].postln; // we must first run ON button to trigger the synth. then do the rest.
+		/*					try {
+		{controls[key].valueAction = value}.defer // wait for QT
+		}{|er| er.postln; "XXXXX".postln}*/
+		};
+		},
+		fileMode: 0,
+		stripResult: true,
+		path: Platform.userHomeDir); // not defined!
+		});
+		//////////////////////////////
+		Button(slicerw, 50@20) // SAVE
+		.states_([["save", Color.black, Color.red]])
+		.action_({ |butt|
+		var data = Dictionary.new, name="slicer", filename;
+		filename = name++"_"++Date.getDate.stamp++".preset";
+
+		data.put(\bounds, slicerw.bounds);
+
+		controls.do { |widget|
+		data.put(widget.label, widget.value)
+		};
+
+		("saving preset into" + Platform.userHomeDir ++ Platform.pathSeparator ++ "presets" ++ Platform.pathSeparator ++ filename).postln;
+
+		data.writeArchive(Platform.userHomeDir ++ Platform.pathSeparator ++ "presets" ++ Platform.pathSeparator ++ filename);
+		});
+		*/
+		controls.add( EZSlider(slicerw, (w-10)@40, "start",
+			ControlSpec(0, 1, \lin, 0.01, 0),
+			{|sl|
+				slval[0] = sl.value.asFloat;
+				doslice.slice(*slval);
+		},layout:\line2, labelHeight:15).setColors(*cols));
+
+		controls.add( EZSlider(slicerw, (w-10)@40, "shift",
+			ControlSpec(delta.neg, delta, \lin, 0.01, 0),
+			{|sl|
+				slval[1] = sl.value.asFloat;
+				doslice.slice(*slval);
+		},layout:\line2, labelHeight:15).setColors(*cols));
+
+		controls.add( EZSlider(slicerw, (w-10)@40, "grain",
+			ControlSpec(0,1, \lin, 0.01, 0),
+			{|sl|
+				slval[2] = sl.value.asFloat;
+				doslice.slice(*slval);
+		},layout:\line2, labelHeight:15).setColors(*cols));
+
+		controls.add( EZSlider(slicerw, (w-10)@40, "grain shift",
+			ControlSpec(delta.neg, delta, \lin, 0.01, 0),
+			{|sl|
+				slval[3] = sl.value.asFloat;
+				doslice.slice(*slval);
+		},layout:\line2, labelHeight:15).setColors(*cols));
+
+		slicerw.front;//!!!!!
 	}
 
 	lp {|st, end, offset=0| // SCLANG DOES NOT LIKE THAT WE USE THE NAME "LOOP" FOR OUR METHOD. change
@@ -462,23 +591,34 @@ Tapes{
 		});
 
 		// open dialogue if no file path is provided
-		("saving" + path ++ filename).postln;
-		data.writeArchive(path ++ filename);
+		("saving" + Platform.userHomeDir ++ Platform.pathSeparator ++ filename).postln;
+		data.writeArchive(Platform.userHomeDir ++ Platform.pathSeparator ++ filename);
 	}
 
-	load { // opn dialogue to load file with state dictionary
-		FileDialog({ |path|
-			var data = Object.readArchive(path[0]);
-			if (data.isNil.not, {
-				grouplists[currentgroup].do({ |pl, index|
-					pl.statesDic = data[\tape++index];
-					if (index==0, {
-						"available states: ".postln;
-						data[\tape++index].keys.do({|key, pos| [pos, key].postln})
-					});
+	load {|filepath|
+		if (filepath.isNil, {// opn dialogue to load file with state dictionary
+			FileDialog({ |path|
+				this.readstates(path[0])
+			}, fileMode:1,
+			path: Platform.userHomeDir
+			)
+		},{
+			this.readstates(filepath)
+		})
+
+	}
+
+	readstates {|path|
+		var data = Object.readArchive(path);
+		if (data.isNil.not, {
+			grouplists[currentgroup].do({ |pl, index|
+				pl.statesDic = data[\tape++index];
+				if (index==0, {
+					"available states: ".postln;
+					data[\tape++index].keys.do({|key, pos| [pos, key].postln})
 				});
-			})
-		}, fileMode:1)
+			});
+		})
 	}
 
 	//random file, pan, vol, rate, loop (st, end), dir and go

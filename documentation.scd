@@ -7,9 +7,8 @@ Tapes allows to create and control multiple tapeloop-like sample players
 
 
 
-// "how to use" guide in four lines
-Tapes(this);
-_loadfiles( "~/Mahaigaina/audio/00works/" ); // load all samples from this folder. wait until loaded to continue
+// "how to use" guide in there lines
+Tapes(this, "~/Mahaigaina/audio/00works/"); // prepare the system and load all samples from this folder. must wait until loaded to continue
 _add(4); // create 4 players. wait until created to continue
 _play;
 
@@ -68,7 +67,7 @@ _plot(4) // optional pass the buffer to draw on the background of the window. us
 
 //  BUFFERS //
 
-_loadfiles("some/directory"); // BEWARE: loading files takes time
+_loadfiles("some/directory"); // load all files from this directory. BEWARE: loading files takes time
 _normalize // normalise buffers
 _bufs // posts buffers available
 _curbufs // posts which buffers actually being used by which tape players (_0, filename)
@@ -109,13 +108,13 @@ _st(0.5) //loop start
 _end(0.55) // loop end
 _dur(0.006) // loop duration in 0-1 range from st
 _len(600) // length, **in milliseconds** useful if they are using different buffers and you want the same loop duration
-_step(0.01) // move st and end by that step from the current st position. maintains the loop duration
 _move(0.5) // move loop start point to that position and try to maintain the loop duration
 _moveby(-0.01) // move loop start and end point by that
 _go(0.5) // send playhead to point in sample (only works if >st and <end)
 
-// slicer-like behaviour (github.com/enrike/slicer)
+// slicer-like behaviour (http://github.com/enrike/slicer)
 _slice(sttime:0.5, shift:2, grain:0.001, grainshift:1)
+_slicegui(300,600); // 2x 2D sliders to control _slice parameters
 
 _scratch // experimental. |target=0, tIn=1, tStay=0.5, tOut=1, offset=0| // boomerang like pitch change
 
@@ -129,11 +128,12 @@ _go // resets pos to 0 --> SAME happens with _pan, _rate, _vol. They reset to de
 
 
 // store and retrieve named states. they dont get deleted from memory until the session ends
-_push(\dut)
-_pop(\dut)
-_save // save current states from memory into a file.
+_push(\dut) // store current state as \dut in memory
+_save // save current states from memory into a file in home directory ( Platform.userHomeDir ). it posts the path
 _save("caos") // optionally provide a name. if no name is provided it uses the timestamp
 _load // open a dialogue to search for a file containg states
+_load("/home/xxx/caos.states") // tries to load states from the file
+_pop(\dut) // load \dut from current states
 
 _control // opens a window with all tape players. you can control de loop selection
 _control( 300, 200 )
@@ -171,8 +171,10 @@ _brate
 
 // apply commands to some players but not to all
 _one.rrate // one gets random rate
+_some // returns a random list of N players
+_some(3) // 3 random players
 _some.collect(_.rrate) // some of them get random rate
-
+_some(3).collect(_.rrate) // 3 get random rate
 
 // OFFSET //
 // functions also have offsets so that tape players dont run the function at the same time
@@ -220,6 +222,7 @@ _do(\wrand, {
 }, random:[[1,3],[0.9, 0.1]])// run every every 1 sec (90% chances) or 3 secs (10% chances)
 
 // conditions
+z = 0;
 _do(\check, {"run".postln}, 3, when:{z>0}) // will start running once z>1
 _do(\check, {"run".postln}, 3, when:{z>0}, then:0) // will only run once, then die
 
@@ -247,7 +250,7 @@ _do(\ramps, {// this will move every 10 secs all the pitchs to a random value ra
 }, 10, random:3)
 
 
-( //keeps mirror playing while slowly moving around the same area
+( // keeps mirror playing while slowly moving around the same area
 _rdir;
 _do(\rev, {
 	_bgo(0.01);
