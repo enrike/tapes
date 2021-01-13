@@ -213,9 +213,8 @@ _do(\spawn, {_rrate}, 3, defer:20); //wait 20 secs, then run every 3secs
 // num of iterations
 _do(\spawn, {_add(1,_0)}, 3, iter:10); //run every 3secs for 10 times then die
 
-// offset and random: introducing swing
-_do(\randpan, {_rpan}, 15, offset:5); // ... optional offset delay so that each player fires at N+(offset.rand)
-_do(\randpan, {_rpan}, 15, random:2); // rand swing: the next sch will happen after 15 + rrand(-2,+2) secs
+// random: introducing swing
+_do(\randpan, {_rrate}, 15, random:2); // rand swing: the next sch will happen after 15 + rrand(-2,+2) secs
 
 _do(\wrand, {
 	"two options".postln;

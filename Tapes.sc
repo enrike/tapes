@@ -38,7 +38,7 @@ Tapes{
 		// this is to be able to use the systems using a symbol (like _) instead of ~tapes. and symbol2 (eg _2) instead of ~tapes.grouplists[\current][2]
 		main.preProcessor = { |code|
 			// list with all the commands defined by Tapes
-			var mets = [
+			var keywords = [
 				"add", "kill", "killall", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "bufinfo", "normalize",
 				"one", "it", "some", "them", "info", "verbose", "plot", "control", "hm",
 				"scratch", "pause", "solo", "fwd", "bwd", "dir", "reverse", "volu", "vold", "vol", "fadein", "fadeout",
@@ -53,13 +53,12 @@ Tapes{
 				"group", "groups", "mergegroups", "usegroup", "currentgroup", "newgroup", "killgroup", "all"
 			];
 
-			mets.do({|met| // _go --> ~tapes.go
+			keywords.do({|met| // _go --> ~tapes.go
 				code = code.replace(sym++met, globalvar++"."++met);
-
-				100.reverseDo({|num| // reverse to avoid errors with index > 1 digit
-					var dest = globalvar++".grouplists[\\"++currentgroup++"]"++"["++num.asString++"]";
-					code = code.replace(sym++num.asString, dest); // _2 --> ~tapes.grouplists[\whatever][2]
-				});
+			});
+			100.reverseDo({|num| // reverse to avoid errors with index > 1 digit
+				var dest = globalvar++".grouplists[\\"++currentgroup++"]"++"["++num.asString++"]";
+				code = code.replace(sym++num.asString, dest); // _2 --> ~tapes.grouplists[\whatever][2]
 			});
 
 			code = code.replace("", ""); // THIS MUST BE HERE OTHERWISE THERE IS SOME WEIRD BUG
@@ -839,7 +838,7 @@ Tapes{
 		})
 	}
 
-	do {|name="", function, sleep=5.0, defer=0, iter=inf, when=true, then=1, random=0, offset=0, clock=0, verbose=true|
+	do {|name="", function, sleep=5.0, defer=0, iter=inf, when=true, then=1, random=0, clock=0, verbose=true|
 		var atask;
 
 		if (name=="", {
@@ -860,7 +859,7 @@ Tapes{
 					if (verbose, {("-- now:"+name++time).postln});
 
 					if (when.value, {
-						function.value(offset:offset);
+						function.value;
 						if (then==0, {break.value(999)}) // done
 					});
 
