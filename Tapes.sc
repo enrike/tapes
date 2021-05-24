@@ -860,7 +860,7 @@ Tapes{
 
 					if (when.value, {
 						function.value;
-						if (then==0, {break.value(999)}) // done
+						if (then==0, {break.value(999)}) // task dies
 					});
 
 					if ((random.isArray),

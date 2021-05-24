@@ -60,7 +60,7 @@ _kill // kills a random tape player at current group
 _killall // kills everyone at current group
 _killthemall // kills everyone in every group
 
-// experimental
+// experimental.
 _plot; // draws the play heads of each tape player the same window
 _plot(4) // optional pass the buffer to draw on the background of the window. useful when all tape players share the same buffer
 
@@ -98,6 +98,7 @@ _vol(0.5)
 _fadein
 _fadeout
 _pan(0) //-1 to 1
+_out(0) // tapes send output to channel 0,1
 _rate(0.8)
 _wobble(0.07) // rand fluctuation in rate
 _brown(0.5) // brownian fluctuation in rate
@@ -113,6 +114,7 @@ _moveby(-0.01) // move loop start and end point by that
 _go(0.5) // send playhead to point in sample (only works if >st and <end)
 
 // slicer-like behaviour (http://github.com/enrike/slicer)
+//  good idea to use together with _control
 _slice(sttime:0.5, shift:2, grain:0.001, grainshift:1)
 _slicegui(300,600); // 2x 2D sliders to control _slice parameters
 
