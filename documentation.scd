@@ -65,7 +65,7 @@ _plot; // draws the play heads of each tape player the same window
 _plot(4) // optional pass the buffer to draw on the background of the window. useful when all tape players share the same buffer
 
 
-//  BUFFERS //
+//  BUFFERS // assumes stereo samples
 
 _loadfiles("some/directory"); // load all files from this directory. BEWARE: loading files takes time
 _normalize // normalise buffers
@@ -80,18 +80,18 @@ _asignbufs // force re-asign them
 
 
 
-//////////////////////////////////////////////////////////
-// global controls. control all tape players at the same time //
-//////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////
+// global controls. control ALL tape players *in current group* at the same time //
+///////////////////////////////////////////////////////////////////////////////////
 
 _play // loop play
 _stop
 _shot // single shot play. experimental
 _solo(0) // pause all but 0 player
 _reverse // reverse play direction. +rate to -rate
-_dir(1) // 1 forwards, -1 backwards
-_fwd // turn current rate positive
-_bwd // turn current rate negative
+_dir(1) // 1 forwards, -1 backwards. same as _rate(1) or rate(-1)
+_fwd // turn current rate positive. same as _rate(1)
+_bwd // turn current rate negative. same as _rate(-1)
 _volu // UP by 2/100th
 _vold // DOWN by 2/100th
 _vol(0.5)
@@ -104,29 +104,29 @@ _wobble(0.07) // rand fluctuation in rate
 _brown(0.5) // brownian fluctuation in rate
 _vibrato(rate:3, depth:0.04, ratev:0.01, depthv:0.02)
 
-_lp(0, 0.01) // st, end. in 0 to 1 range
-_st(0.5) //loop start
+_lp(0, 0.01) // set loop start and end. in 0 to 1 range
+_st(0.5) // loop start
 _end(0.55) // loop end
 _dur(0.006) // loop duration in 0-1 range from st
-_len(600) // length, **in milliseconds** useful if they are using different buffers and you want the same loop duration
+_len(600) // loop length **in milliseconds** useful if they are using different buffers and you want the same loop duration
 _move(0.5) // move loop start point to that position and try to maintain the loop duration
-_moveby(-0.01) // move loop start and end point by that
+_moveby(-0.01) // move loop start and end point by that amount
 _go(0.5) // send playhead to point in sample (only works if >st and <end)
 
 // slicer-like behaviour (http://github.com/enrike/slicer)
 //  good idea to use together with _control
 _slice(sttime:0.5, shift:2, grain:0.001, grainshift:1)
-_slicegui(300,600); // 2x 2D sliders to control _slice parameters
+_slicegui(300,600); // 2x 2D GUI with sliders to control _slice parameters
 
 _scratch // experimental. |target=0, tIn=1, tStay=0.5, tOut=1, offset=0| // boomerang like pitch change
 
-// RESET: calling some functions with no args should reset its corresponding state for instance...
+// RESET
 _reset // reset loop to 0-1, play from 0, pitch to 1
 _lp // resets loop to 0-1
 _gost // to to loop start point
-_goend // go to loops end poi
+_goend // go to loops end point
 
-_go // resets pos to 0 --> SAME happens with _pan, _rate, _vol. They reset to default value
+_go // resets pos to 0 --> *SAME* happens with _pan, _rate, _vol. They reset to default value
 
 
 // store and retrieve named states. they dont get deleted from memory until the session ends
@@ -137,24 +137,24 @@ _load // open a dialogue to search for a file containg states
 _load("/home/xxx/caos.states") // tries to load states from the file
 _pop(\dut) // load \dut from current states
 
-_control // opens a window with all tape players. you can control de loop selection
-_control( 300, 200 )
+_control // opens a GUI window with displays of all tape players waveform. you can click+drag to control de loop selection as well
+_control( 300, 200 ) // open with this size
 
 // search. identify which tape players are playing which sound file
-p = _search("Roll") //return a list of tape players whose buffer contains this string in the file name. no case sensitive
+p = _search("Roll") //returns a list of tape players whose buffer contains this string in the file name. no case sensitive
 p.do({|lay| lay.vol(0.3)}) // do whatever with the search results
 
 
 
 // RANDOM //
 
-_rbuf // anyone gets a new buffer randomly
+_rbuf // each one gets a different buffer randomly
 _rpan
 _rrate
 _rdir // + or - rate
 _rvol
 _rloop // 0 to 1
-_rloop([0.2, 0.1]) // set start and LENGTH limits for the random. in this case start will be rrange(0,0.2) and length start+(0.1.rand)
+_rloop([0.2, 0.1]) // set start and *LENGTH* limits for the random. in this case start will be rrange(0,0.2) and length start+(0.1.rand)
 _rmove; // move current st-end to a random position
 _rst // start point
 _rend // end point (not length)
@@ -170,17 +170,19 @@ _bvol(0.05) // single step small random
 _bpan
 _bgo(0.9)
 _brate
+// etc...
 
-// apply commands to some players but not to all
+// rand select some players to apply commands to only those but not to all
 _one.rrate // one gets random rate
 _some // returns a random list of N players
 _some(3) // 3 random players
 _some.collect(_.rrate) // some of them get random rate
 _some(3).collect(_.rrate) // 3 get random rate
 
+
 // OFFSET //
 // functions also have offsets so that tape players dont run the function at the same time
-_rrate(5, offset:8) // all players random rate at a different timing within the next 8 secs
+_rrate(offset:8) // all players get random rate at a different times within the next 8 secs
 _rlen(offset:20) // and so on...
 
 
@@ -192,22 +194,23 @@ _brate(0.1, time:20) // this will start a shift to a random rate ranging -0.1 to
 _brate(0.1, time:20, offset:8) // offset can be use here too
 
 //local randoms
-_rate(1, random:0.1); // each of them will apply a small random variation around 1 ranging -0.1 to 0.1
+_rate(1, random:0.1); // each of them will get a random rate ranging -0.1 to 0.1 around 1
 _end(0.5, random:0.01);
-_dur(0.1, random:0.05)
+_dur(0.1, random:0.05);
+//etc...
 
-// compressor. yes, there is a built in compressor/expander. inactive by default
+/*// compressor. yes, there is a built in compressor/expander. inactive by default
 _comp(0.2, 0.6, 0.2) //threshold, slopeBelow, slopeAbove
 _thr(0.2); // threshold
 _slb(0.6); // slope below thr <1 for expansion
-_sla(0.2); //slope above thr <1 for compression >1 for expansion
+_sla(0.2); //slope above thr <1 for compression >1 for expansion*/
 
 
-// SCHEDULE FUNCTIONS //
-// _do args: NAME, FUNCTION, SLEEP, DEFER, ITER, WHEN, OFFSET, RANDOM, TALK
-_do(\randpan, {_rpan}, 15); //schedule a function every N secs.
+// SCHEDULING FUNCTIONS: _do //
+// _do args are: name, function, sleep, defer, iter, when, then, random, verbose
+_do(\randpan, {_rpan}, 15); //loop run a function named \randpan every 15 secs sleep.
 _undo(\randpan) // stops this one
-_undo // stops all
+_undo // stops all scheduled functions
 
 // defer
 _do(\spawn, {_rrate}, 3, defer:20); //wait 20 secs, then run every 3secs
@@ -215,19 +218,19 @@ _do(\spawn, {_rrate}, 3, defer:20); //wait 20 secs, then run every 3secs
 // num of iterations
 _do(\spawn, {_add(1,_0)}, 3, iter:10); //run every 3secs for 10 times then die
 
-// random: introducing swing
+// conditions: when, then
+z = 1;
+_do(\check, {"run!!!".postln}, 3, when:{z>0}) // will start running once z>1
+_do(\check, {"run!!!".postln}, 3, when:{z>0}, then:0) // will only run once, then die
+
+// random: introducing swing. irregular sleeps
 _do(\randpan, {_rrate}, 15, random:2); // rand swing: the next sch will happen after 15 + rrand(-2,+2) secs
 
 _do(\wrand, {
 	"two options".postln;
 }, random:[[1,3],[0.9, 0.1]])// run every every 1 sec (90% chances) or 3 secs (10% chances)
 
-// conditions
-z = 0;
-_do(\check, {"run".postln}, 3, when:{z>0}) // will start running once z>1
-_do(\check, {"run".postln}, 3, when:{z>0}, then:0) // will only run once, then die
-
-// postln or not
+// postln or not every run
 _do(\silent, { // wont print every run. useful with quick and repetitive tasks
 	_rpan
 }, 0.5, verbose:false);
@@ -294,11 +297,14 @@ _do(\go, {
 
 
 
-///////////////////////////////
+////////////////////////////////
 // control individual players //
-///////////////////////////////
+////////////////////////////////
 
 // you can also control each player individually with _0, _1 etc...
+// I hardly use this so documentation might not be totally up to date
+// some functions might work slightly different from the global ones for technical reasons
+// if in doubt check the source code at Tape.sc
 
 // GET
 _0.vol
@@ -311,7 +317,7 @@ _0.curpos // 0-1 playhead position
 _0.verbose
 
 // SET
-_0.buf( _bufs[1] )
+_0.buf( _bufs[1] ) // must pass the buffer like this in this case
 _0.vol(1)
 _0.pan(0) // -1 to 1
 _0.rate(1)
