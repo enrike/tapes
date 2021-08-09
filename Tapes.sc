@@ -7,10 +7,11 @@ Tapes{
 	var server, <path, <bufs, <sfs, <ps, procs;
 	var plotwin=nil, plotview, drawview, plotwinrefresh;
 	var controlGUI, views;
-	var buses, <compressor;
+	//var buses, <compressor;
 	var volume=1;
 	var it, them; // to remember @one and @some
 	var <grouplists, <currentgroup;
+	var slicestate;
 
 	*new {| main=nil, dir, symbol="_" | // systemdir
 		^super.new.initTapes( main, dir, symbol );
@@ -46,8 +47,8 @@ Tapes{
 				"lp", "loop", "st", "move", "moveby", "end", "go", "gost", "goend", "dur", "len",
 				"push", "pop", "save", "load", "search", "id", "where",
 				"rbuf", "rrate", "rpan", "rloop", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rmove", "rand",
-				"bloop", "bpan", "brate", "bvol", "bpan", "bgo",
-				"comp", "thr", "slb", "sla",
+				"bloop", "bpan", "brate", "bvol", "bpan", "bgo", "spread",
+				//"comp", "thr", "slb", "sla",
 				"do", "undo",
 				"slice", "slicegui",
 				"group", "groups", "mergegroups", "usegroup", "currentgroup", "newgroup", "killgroup", "all"
@@ -113,8 +114,8 @@ Tapes{
 			Out.ar(out, signal);
 			}).load;*/
 
-			buses = Bus.audio(server, 2);
-			compressor = Synth(\comp, [\inbus, buses]);
+		//	buses = Bus.audio(server, 2);
+			//compressor = Synth(\comp, [\inbus, buses]);
 
 			if (dir.isNil.not, {this.loadfiles(dir)})
 		})
@@ -362,7 +363,9 @@ Tapes{
 			{
 				pl.loop(mysttime, myendtime);
 				this.newselection(mysttime, myendtime, views[index], pl.buf);
-			}.defer(offset.asFloat.rand)
+			}.defer(offset.asFloat.rand);
+
+			slicestate = [sttime, shift, grain, grainshift];
 		})
 	}
 
@@ -449,32 +452,32 @@ Tapes{
 		});
 		*/
 		controls.add( EZSlider(slicerw, (w-10)@40, "start",
-			ControlSpec(0, 1, \lin, 0.01, 0),
+			ControlSpec(0, 1, \lin, 0.001, 0),
 			{|sl|
 				slval[0] = sl.value.asFloat;
 				doslice.slice(*slval);
-		},layout:\line2, labelHeight:15).setColors(*cols));
+		}, slicestate[0], layout:\line2, labelHeight:15).setColors(*cols).numberView.maxDecimals = 3 ;);
 
 		controls.add( EZSlider(slicerw, (w-10)@40, "shift",
-			ControlSpec(delta.neg, delta, \lin, 0.01, 0),
+			ControlSpec(delta.neg, delta, \lin, 0.001, 0),
 			{|sl|
 				slval[1] = sl.value.asFloat;
 				doslice.slice(*slval);
-		},layout:\line2, labelHeight:15).setColors(*cols));
+		}, slicestate[1], layout:\line2, labelHeight:15).setColors(*cols).numberView.maxDecimals = 3 ;);
 
 		controls.add( EZSlider(slicerw, (w-10)@40, "grain",
-			ControlSpec(0,1, \lin, 0.01, 0),
+			ControlSpec(0,1, \lin, 0.001, 0),
 			{|sl|
 				slval[2] = sl.value.asFloat;
 				doslice.slice(*slval);
-		},layout:\line2, labelHeight:15).setColors(*cols));
+		}, slicestate[2],layout:\line2, labelHeight:15).setColors(*cols).numberView.maxDecimals = 3 ;);
 
 		controls.add( EZSlider(slicerw, (w-10)@40, "grain shift",
-			ControlSpec(delta.neg, delta, \lin, 0.01, 0),
+			ControlSpec(delta.neg, delta, \lin, 0.001, 0),
 			{|sl|
 				slval[3] = sl.value.asFloat;
 				doslice.slice(*slval);
-		},layout:\line2, labelHeight:15).setColors(*cols));
+		}, slicestate[3],layout:\line2, labelHeight:15).setColors(*cols).numberView.maxDecimals = 3 ;);
 
 		slicerw.front;//!!!!!
 	}
@@ -756,6 +759,12 @@ Tapes{
 
 	out { |ch=0| grouplists[currentgroup].collect(_.out(ch)) }
 
+	spread { // each tape takes one out chanel
+		grouplists.values.flat.do{|tap, n|
+			tap.out(n)
+		}
+	}
+
 	vol {|avol=1, time=0, offset=0|
 		volume = avol; // remember for the fadein/out
 		grouplists[currentgroup].do({ |pl|
@@ -856,7 +865,7 @@ Tapes{
 				iter.do {|index|
 					var time = ""+Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second;
 
-					if (verbose, {("-- now:"+name++time).postln});
+					if (verbose, {("-- now:"+name++time+(index.asInteger+1)++":"++iter).postln});
 
 					if (when.value, {
 						function.value;
@@ -880,7 +889,7 @@ Tapes{
 	}
 	////////////////////////////
 
-	// compressor/expander ///
+/*	// compressor/expander ///
 	comp{|thr=0.5, sla=1, slb=1| // threshold, slopeBelow, slopeAbove
 		compressor.set(\thr, thr);
 		compressor.set(\sla, sla);
@@ -891,6 +900,7 @@ Tapes{
 	slb{|val=1| compressor.set(\slb, val)}
 	nocomp{this.comp(0.5,1,1)} // reset
 	/////////////////
+	*/
 
 	updateplot {|buf| // draw the choosen buffer
 		if (plotwin.notNil, {
