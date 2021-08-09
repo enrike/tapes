@@ -11,7 +11,7 @@ Tapes{
 	var volume=1;
 	var it, them; // to remember @one and @some
 	var <grouplists, <currentgroup;
-	var slicestate;
+	var <slicestate=#[ 0.624, 7.156, 0.05, 0.0 ];
 
 	*new {| main=nil, dir, symbol="_" | // systemdir
 		^super.new.initTapes( main, dir, symbol );
@@ -337,6 +337,8 @@ Tapes{
 	newplayer {|asynth| grouplists[currentgroup].do({ |pl| pl.newplayer(asynth)}) }
 
 	slice {|sttime, shift, grain, grainshift, offset=0| // SLICER like behaviour
+		slicestate = [sttime, shift, grain, grainshift];
+
 		grouplists[currentgroup].do({ |pl, index|
 			var mysttime = sttime + (index * (shift/100.0));
 			var myendtime;// = mysttime + grain + (index * (grainshift/100.0));
@@ -364,13 +366,11 @@ Tapes{
 				pl.loop(mysttime, myendtime);
 				this.newselection(mysttime, myendtime, views[index], pl.buf);
 			}.defer(offset.asFloat.rand);
-
-			slicestate = [sttime, shift, grain, grainshift];
 		})
 	}
 
 	slicegui2d {|w=250,h=500|
-		var label, slval=[0.0,0.0,0.0,0.0];
+		var label;
 		var doslice = this;
 		var delta = 15;
 		var slicerw = Window("Slicer 2D", w@h).alwaysOnTop_(1);
@@ -380,21 +380,21 @@ Tapes{
 		.x_(0) // initial location of x
 		.y_(0.5)   // initial location of y
 		.action_({|sl|
-			slval[0] = sl.x.asFloat;
-			slval[1] = sl.y.linlin(0,1, delta.neg, delta).asFloat;
-			doslice.slice(*slval);
-			label.string = format("% % % %", slval[0].asStringPrec(2), slval[1].asStringPrec(2),
-				slval[2].asStringPrec(2), slval[3].asStringPrec(2))
+			slicestate[0] = sl.x.asFloat;
+			slicestate[1] = sl.y.linlin(0,1, delta.neg, delta).asFloat;
+			doslice.slice(*slicestate);
+			label.string = format("% % % %", slicestate[0].asStringPrec(2), slicestate[1].asStringPrec(2),
+				slicestate[2].asStringPrec(2), slicestate[3].asStringPrec(2))
 		});
 		Slider2D(slicerw, (w-10)@(h-10))
 		.x_(0) // initial location of x
 		.y_(0.5)   // initial location of y
 		.action_({|sl|
-			slval[2] = sl.x.asFloat;
-			slval[3] = sl.y.linlin(0,1,  delta.neg, delta).asFloat;
-			doslice.slice(*slval);
-			label.string = format("% % % %", slval[0].asStringPrec(2), slval[1].asStringPrec(2),
-				slval[2].asStringPrec(2), slval[3].asStringPrec(2))
+			slicestate[2] = sl.x.asFloat;
+			slicestate[3] = sl.y.linlin(0,1,  delta.neg, delta).asFloat;
+			doslice.slice(*slicestate);
+			label.string = format("% % % %", slicestate[0].asStringPrec(2), slicestate[1].asStringPrec(2),
+				slicestate[2].asStringPrec(2), slicestate[3].asStringPrec(2))
 		});
 		label = StaticText(slicerw, 140@20);
 		slicerw.front;
@@ -402,7 +402,7 @@ Tapes{
 
 	// add a reset button? use autogui?
 	slicegui {|w=250|
-		var label, slval=[0.0,0.0,0.0,0.0];
+		var label;
 		var doslice = this;
 		var delta = 15;
 		var slicerw = Window("Slicer 4x", w@175).alwaysOnTop_(true);
@@ -454,30 +454,30 @@ Tapes{
 		controls.add( EZSlider(slicerw, (w-10)@40, "start",
 			ControlSpec(0, 1, \lin, 0.001, 0),
 			{|sl|
-				slval[0] = sl.value.asFloat;
-				doslice.slice(*slval);
+				slicestate[0] = sl.value.asFloat;
+				doslice.slice(*slicestate);
 		}, slicestate[0], layout:\line2, labelHeight:15).setColors(*cols).numberView.maxDecimals = 3 ;);
 
 		controls.add( EZSlider(slicerw, (w-10)@40, "shift",
 			ControlSpec(delta.neg, delta, \lin, 0.001, 0),
 			{|sl|
-				slval[1] = sl.value.asFloat;
-				doslice.slice(*slval);
+				slicestate[1] = sl.value.asFloat;
+				doslice.slice(*slicestate);
 		}, slicestate[1], layout:\line2, labelHeight:15).setColors(*cols).numberView.maxDecimals = 3 ;);
 
 		controls.add( EZSlider(slicerw, (w-10)@40, "grain",
 			ControlSpec(0,1, \lin, 0.001, 0),
 			{|sl|
-				slval[2] = sl.value.asFloat;
-				doslice.slice(*slval);
-		}, slicestate[2],layout:\line2, labelHeight:15).setColors(*cols).numberView.maxDecimals = 3 ;);
+				slicestate[2] = sl.value.asFloat;
+				doslice.slice(*slicestate);
+		}, slicestate[2], layout:\line2, labelHeight:15).setColors(*cols).numberView.maxDecimals = 3 ;);
 
 		controls.add( EZSlider(slicerw, (w-10)@40, "grain shift",
 			ControlSpec(delta.neg, delta, \lin, 0.001, 0),
 			{|sl|
-				slval[3] = sl.value.asFloat;
-				doslice.slice(*slval);
-		}, slicestate[3],layout:\line2, labelHeight:15).setColors(*cols).numberView.maxDecimals = 3 ;);
+				slicestate[3] = sl.value.asFloat;
+				doslice.slice(*slicestate);
+		}, slicestate[3], layout:\line2, labelHeight:15).setColors(*cols).numberView.maxDecimals = 3 ;);
 
 		slicerw.front;//!!!!!
 	}
