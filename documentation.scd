@@ -7,7 +7,7 @@ Tapes allows to create and control multiple tapeloop-like sample players
 
 
 
-// "how to use" guide in there lines
+// quick "how to use" guide
 Tapes(this, "~/Mahaigaina/audio/00works/"); // prepare the system and load all samples from this folder. must wait until loaded to continue
 _add(4); // create 4 players. wait until created to continue
 _play;
@@ -26,7 +26,7 @@ _add(3, _0) // adds 3 tape players copying tape players 0's state
 _add(1, 1008) // you can also pass the player's id
 _0.copy(_1) // tape player 0 copies tape player 1's state (here you cannot pass the id)
 
-_group // all tape player in current group
+_group // all tape players in current group
 _1 // individual tape player _0, _1, _2, _3, etc...
 _id(1008) // returns the tape with that ID
 _where(1008)// returns the position of tape with that id in current group 0,1,2...
@@ -51,7 +51,7 @@ _newgroup(\dirty) // creates a new group
 _usegroup(\dirty) // switch to this roup
 //_useall // use all groups
 _removegroup(\dirty) // removes the group and kills all players in it
-//_movegroup(_1, \dirty) //move _1 from current group to group \a
+//_togroup(_1, \dirty) //move _1 from current group to group \a
 //_whichgroup(1001) // by ID
 _mergegroups // merge all players to group \a and usegroup(\a)
 
@@ -239,9 +239,14 @@ _do(\silent, { // wont print every run. useful with quick and repetitive tasks
 
 // some examples of scheduling tasks
 _do(\backtoinit, {_reset}, 10) // resets every 10s
-_do(\rev, {_reverse}, 10, offset:5)
+_do(\rev, {_reverse(offset:5)}, 10)
 _do(\rlen, {_rlen(1, 2)}, 8, random:4)
-_do(\bgo, {_bgo(0.01)}, 1, offset:1)
+_do(\bgo, {_bgo(0.01, offset:1)}, 1)
+
+// recursive _do: every 60s trigger 20 times _rdir very quickly
+_do(\sch, {
+	_do(\rd, {_rdir}, 0.2, iter:20)
+}, 60);
 
 _do(\inoutrand, { //every 30 sec: 9 sec fade in- after 15 secs - 9 secs fade out
 	_fadein(9);
