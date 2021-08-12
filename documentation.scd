@@ -79,7 +79,6 @@ _loadfiles("another/directory");
 _asignbufs // force re-asign them
 
 
-
 ///////////////////////////////////////////////////////////////////////////////////
 // global controls. control ALL tape players *in current group* at the same time //
 ///////////////////////////////////////////////////////////////////////////////////
@@ -102,7 +101,7 @@ _out(0) // tapes send output to channel 0,1
 _rate(0.8)
 _wobble(0.07) // rand fluctuation in rate
 _brown(0.5) // brownian fluctuation in rate
-_vibrato(rate:3, depth:0.04, ratev:0.01, depthv:0.02)
+_vibrato(value:3, depth:0.04, ratev:0.01, depthv:0.02)
 
 _lp(0, 0.01) // set loop start and end. in 0 to 1 range
 _st(0.5) // loop start
@@ -180,10 +179,15 @@ _some.collect(_.rrate) // some of them get random rate
 _some(3).collect(_.rrate) // 3 get random rate
 
 
+// DEFER
+// functions can be deferred
+_rate(defer:4) // same as {_rate}.defer(4)
+_rate(d:4) // shortcut
+
 // OFFSET //
 // functions also have offsets so that tape players dont run the function at the same time
 _rrate(offset:8) // all players get random rate at a different times within the next 8 secs
-_rlen(offset:20) // and so on...
+_rate(o:4) // shortcut
 
 
 // TRANSITION TIME:
@@ -191,12 +195,14 @@ _rlen(offset:20) // and so on...
 // go to a value in N secs
 _rate(0.1, 10)// go to 0.1 rate in 10secs
 _brate(0.1, time:20) // this will start a shift to a random rate ranging -0.1 to 0.1 from the current rate that will take 20s
+_rate(t:4) // shortcut
 _brate(0.1, time:20, offset:8) // offset can be use here too
 
 //local randoms
 _rate(1, random:0.1); // each of them will get a random rate ranging -0.1 to 0.1 around 1
 _end(0.5, random:0.01);
 _dur(0.1, random:0.05);
+_rate(r:4) // shortcut
 //etc...
 
 /*// compressor. yes, there is a built in compressor/expander. inactive by default
@@ -352,4 +358,3 @@ _0.rrate
 _0.rdir
 _0.bloop(0.01) // single step small random
 // and so on...
-

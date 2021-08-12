@@ -187,7 +187,7 @@ Tape{
 		player.set(\out, ch);
 	}
 
-	vol {|avol=nil, time=0, random=0|
+	vol {|avol=nil, random=0, time=0|
 		if (avol.notNil, {
 			avol = avol + random.asFloat.rand2;
 
@@ -220,14 +220,14 @@ Tape{
 		this.vol(vol, time)
 	}
 
-	wobble {|arate=0, time=0, random=0|
+	wobble {|arate=0, random=0, time=0|
 		arate = arate + random.asFloat.rand2;
 		wobble = arate;
 		player.set(\wobblelag, time);
 		player.set(\wobble, arate);
 	}
 
-	brown {|level=0, time=0, random=0|
+	brown {|level=0, random=0, time=0|
 		level = level + random.asFloat.rand2;
 		brown = level;
 		player.set(\brownlag, time);
@@ -245,7 +245,7 @@ Tape{
 		player.set(\dir, adir)
 	}
 
-	rate {|arate=nil, time=0, random=0|
+	rate {|arate=nil, random=0, time=0|
 		if (arate.notNil, {
 			arate = arate + random.asFloat.rand2;
 			//if (rate != 0, { // only update if playing
@@ -267,8 +267,8 @@ Tape{
 	// mirror? boomerang??
 	scratch {|target=0, tIn=1, tStay=0.5, tOut=1| // boomerang like pitch change
 		var restore = rate;//
-		this.rate(target, tIn);
-		{this.rate(restore, tOut)}.defer(tIn+tStay);
+		this.rate(target, time:tIn);
+		{this.rate(restore, time:tOut)}.defer(tIn+tStay);
 	}
 
 	mir { |time=0| // mirror
@@ -381,11 +381,11 @@ Tape{
 	}
 
 	rvol {|limit=1.0, time=0 |
-		this.vol( limit.rand, time );
+		this.vol( limit.rand, time:time );
 	}
 
 	rpan {|time=0| // -1 to 1
-		this.pan( 1.asFloat.rand2, time )
+		this.pan( 1.asFloat.rand2, time:time )
 	}
 
 	/*rbuf {
@@ -393,7 +393,7 @@ Tape{
 	player.set(\buffer, buf.bufnum)
 	}*/
 
-	rgo {|range=1|
+	rgo {
 		var target = rrand(st.asFloat, end.asFloat);
 		this.go(target)
 	}
@@ -432,17 +432,17 @@ Tape{
 	}
 
 	rdir {|time=0|
-		this.dir([1,-1].choose, time)
+		this.dir([1,-1].choose, time:time)
 	}
 
 	rrate {|time=0|
-		this.rate(1.0.rand2, time)
+		this.rate(1.0.rand2, time:time)
 	}
 
 	rand {|time=0|
-		this.rpan(time);
-		this.rrate(time);//??
-		this.rdir(time);
+		this.rpan(time:time);
+		this.rrate(time:time);//??
+		this.rdir(time:time);
 		this.rloop;
 		this.rgo;// this should be limited to the current loop
 		this.rvol(time:time); // why?
@@ -458,14 +458,14 @@ Tape{
 	bgo {|range=0.01| this.go( curpos+(range.rand2)) }// single step brown variation
 
 	bvol {|range=0.05, time=0|
-		this.vol( vol+(range.asFloat.rand2), time)
+		this.vol( vol+(range.asFloat.rand2), time:time)
 	}// single step brown variation
 
 	bpan {|range=0.1, time=0|
-		this.pan( pan+(range.asFloat.rand2), time)
+		this.pan( pan+(range.asFloat.rand2), time:time)
 	}
 
 	brate {|range=0.05, time=0|
-		this.rate( rate+(range.rand2), time )
+		this.rate( rate+(range.rand2), time:time )
 	}// single step brown variation
 }

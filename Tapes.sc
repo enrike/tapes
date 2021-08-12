@@ -114,7 +114,7 @@ Tapes{
 			Out.ar(out, signal);
 			}).load;*/
 
-		//	buses = Bus.audio(server, 2);
+			//	buses = Bus.audio(server, 2);
 			//compressor = Synth(\comp, [\inbus, buses]);
 
 			if (dir.isNil.not, {this.loadfiles(dir)})
@@ -305,7 +305,8 @@ Tapes{
 		bufs.collect(_.normalize);
 	}
 
-	buf {|buf, offset=0|
+	buf {|buf, offset=0, defer=0, o=nil, d=nil|
+		#offset, defer = [o?offset, d?defer];
 		if (buf.isNil, {
 			buf=bufs.choose;
 			("choosing a random buffer:"+PathName(buf.path).fileName).postln
@@ -313,12 +314,13 @@ Tapes{
 
 		if (buf.isInteger, {buf = bufs[buf]}); // using the index
 
+		{
 		grouplists[currentgroup].do({ |pl, index|
 			{
 				pl.buf(buf);
 				this.newplotdata(buf, views[index]);
 			}.defer(offset.asFloat.rand)
-		})
+		})}.defer(defer)
 	}
 
 	asignbufs { // asign buffers sequentially if more tapes than buffers then wrap
@@ -482,89 +484,69 @@ Tapes{
 		slicerw.front;//!!!!!
 	}
 
-	lp {|st, end, offset=0| // SCLANG DOES NOT LIKE THAT WE USE THE NAME "LOOP" FOR OUR METHOD. change
+	// SCLANG DOES NOT LIKE THAT WE USE THE NAME "LOOP" FOR OUR METHOD. change
+	lp {|st, end, offset=0, defer=0, o=nil, d=nil|
 		if (st.isNil, {st=0; end=1}); // reset
-
-		grouplists[currentgroup].do({ |pl, index|
+		#offset, defer = [o?offset, d?defer];
+		{grouplists[currentgroup].do({ |pl, index|
 			{
 				pl.loop(st, end);
 				this.newselection(st, end, views[index], pl.buf);
 			}.defer(offset.asFloat.rand)
-		})
+		})}.defer(defer)
 	}
 
-	st {|pos=0, random=0, offset=0|
-		grouplists[currentgroup].do({ |pl, index|
-			{
-				pl.st(pos);
-				//this.newselection(st, end, views[index], pl.buf);
-			}.defer(offset.asFloat.rand)
-		})
+	st {|value, random=0, offset=0, defer=0, r=nil, o=nil, d=nil|
+		this.action(\st, value, random, 0, offset, defer, r, nil, o, d);
 	}
 
-	end {|pos=1, random=0, offset=0|
-		grouplists[currentgroup].do({ |pl, index|
-			{
-				pl.end(pos);
-				//this.newselection(st, end, views[index], pl.buf);
-			}.defer(offset.asFloat.rand)
-		})
+	end {|value, random=0, offset=0, defer=0, r=nil, o=nil, d=nil|
+		this.action(\end, value, random, 0, offset, defer, r, nil, o, d);
 	}
 
-	dur {|val, random=0, offset=0|
-		grouplists[currentgroup].do({ |pl, index|
-			{
-				pl.dur(val, random);
-				//this.newselection(st, end, views[index], pl.buf);
-			}.defer(offset.asFloat.rand)
-		})
+	dur {|value, random=0, offset=0, defer=0, r=nil, o=nil, d=nil|
+		this.action(\dur, value, random, 0, offset, defer, r, nil, o, d);
 	}
 
 	len {|ms| grouplists[currentgroup].do({ |pl| pl.len(ms)}) } // in msecs
 
-	reset { |offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{ pl.reset }.defer(offset.asFloat.rand)
-		})
+	reset { |offset=0, defer=0, o=nil, d=nil|
+		this.action(\reset, 0, 0, 0, offset, defer, nil, nil, o, d);
 	}
 
-	shot { grouplists[currentgroup].collect(_.shot) } // single play no loop
-
-	play { grouplists[currentgroup].collect(_.play) }
-
-	stop { grouplists[currentgroup].collect(_.stop) }
-
-	go {|point=0, offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{ pl.go(point) }.defer(offset.asFloat.rand)
-		})
+	shot { |offset=0, defer=0, o=nil, d=nil|
+		this.action(\shot, 0, 0, 0, offset, defer, nil, nil, o, d);
 	}
 
-	gost {|offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{ pl.gost }.defer(offset.asFloat.rand)
-		})
+	play { |offset=0, defer=0, o=nil, d=nil|
+		this.action(\play, 0, 0, 0, offset, defer, nil, nil, o, d);
 	}
 
-	goend {|offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{ pl.goend }.defer(offset.asFloat.rand)
-		})
+	stop { |offset=0, defer=0, o=nil, d=nil|
+		this.action(\stop, 0, 0, 0, offset, defer, nil, nil, o, d);
 	}
 
-	move {|pos, random=0, offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{ pl.move(pos, random) }.defer(offset.asFloat.rand)
-		})
+	go {|value=1, offset=0, defer=0, o=nil, d=nil|
+		this.action(\go, value, 0, 0, offset, defer, nil, nil, o, d);
 	}
 
-	moveby {|delta, random=0, offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{ pl.moveby(delta, random) }.defer(offset.asFloat.rand)
-		})
+	gost {|offset=0, defer=0, o=nil, d=nil|
+		this.action(\gost, 0, 0, offset, defer, nil, nil, o, d);
 	}
 
-	solo {|id|
+	goend {|offset=0, defer=0, o=nil, d=nil|
+		this.action(\goend, 0, 0, offset, defer, nil, nil, o, d);
+	}
+
+	move {|value, random=0, offset=0, defer=0, r=nil, o=nil, d=nil|
+		this.action(\move, value, random, 0, offset, defer, r, nil, o, d);
+	}
+
+	moveby {|value, random=0, offset=0, defer=0, r=nil, o=nil, d=nil|
+		this.action(\moveby, value, random, 0, offset, defer, r, nil, o, d);
+	}
+
+	solo {|id| // add offset and defer?
 		grouplists[currentgroup].do({ |pl|
 			if (pl.id!=id, {
 				if (pl.rate!=0, {pl.pause}); // if not already paused, pause.
@@ -631,130 +613,116 @@ Tapes{
 		})
 	}
 
-	rvol {|time=0, offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{pl.rvol(1.0/grouplists[currentgroup].size, time)}.defer(offset.asFloat.rand)
-		})
+	rvol {|time=0, offset=0, defer=0, t=nil, o=nil, d=nil|
+		this.action(\rvol, 1.0/grouplists[currentgroup].size, 0, time, offset, defer, nil, t, o, d);
 	}
 
-	rpan {|time=0, offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{pl.rpan(time)}.defer(offset.asFloat.rand)
-		})
+	rpan {|time=0, offset=0, defer=0, t=nil, o=nil, d=nil|
+		this.action(\rpan, 0, 0, time, offset, defer, nil, t, o, d);
 	}
 
-	rgo {|offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{pl.rgo}.defer(offset.asFloat.rand)
-		})
+	rgo {|range=0, offset=0, defer=0, o=nil, d=nil|
+		this.action(\rgo, 0, 0, 0, offset, defer, nil, nil, o, d);
 	}
 
-	rloop {|offset=0|
-		grouplists[currentgroup].do({ |pl, index|
+	rloop {|offset=0, defer=0, o=nil, d=nil|
+		#offset, defer = [o?offset, d?defer];
+		{grouplists[currentgroup].do({ |pl, index|
 			{
 				pl.rloop;
 				this.newselection(pl.st, pl.end, views[index], pl.buf);
 			}.defer(offset.asFloat.rand)
-		})
+		})}.defer(defer)
 	}
 
-	rmove {|offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{pl.rmove}.defer(offset.asFloat.rand)
-		})
+	rmove {|offset=0, defer=0, o=nil, d=nil|
+		this.action(\rmove, 0, 0, 0, offset, defer, nil, nil, o, d);
 	}
 
-	rst {|range=1, offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{pl.rst(range)}.defer(offset.asFloat.rand)
-		})
+	rst {|range=1, offset=0, defer=0, o=nil, d=nil|
+		this.action(\rst, range, 0, 0, offset, defer, nil, nil, o, d);
 	}
 
-	rend {|range=1, offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{pl.rend(range)}.defer(offset.asFloat.rand)
-		})
+	rend {|range=1, offset=0, defer=0, o=nil, d=nil|
+		this.action(\rend, range, 0, 0, offset, defer, nil, nil, o, d);
 	}
 
-	rlen {|range=0.5, offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{pl.rlen(range)}.defer(offset.asFloat.rand)
-		})
+	rlen {|range=1, offset=0, defer=0, o=nil, d=nil|
+		this.action(\rlen, range, 0, 0, offset, defer, nil, nil, o, d);
 	}
 
-	rate { |rate=1, time=0, random=0, offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{pl.rate(rate, time)}.defer(offset.asFloat.rand)
-		})
+	action { |act=nil, value=1, random=0, time=0, offset=0, defer=0, r=nil, t=nil, o=nil, d=nil|
+		#random, time, offset, defer = [r?random, t?time, o?offset, d?defer];
+		//[act, time, random, offset, defer].postln};
+		{
+			grouplists[currentgroup].do({ |pl|
+				{pl.performList(act, [value, random, time])}.defer(offset.asFloat.rand)
+
+			})
+		}.defer(defer)
 	}
 
-	wobble {|rate=0, time=0, random=0, offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{pl.wobble(rate, time, random)}.defer(offset.asFloat.rand)
-		})
+	rate { |value=1, random=0, time=0, offset=0, defer=0, r=nil, t=nil, o=nil, d=nil|
+		this.action(\rate, value, random, time, offset, defer, r, t, o, d);
 	}
 
-	brown {|level=0, time=0, random=0, offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{pl.brown(level, time, random)}.defer(offset.asFloat.rand)
-		})
+	wobble {|value=0, random=0, time=0, offset=0, defer=0, r=nil, t=nil, o=nil, d=nil|
+		this.action(\wobble, value, random, time, offset, defer, r, t, o, d);
+	}
+
+	brown {|value=0, random=0, time=0, offset=0, defer=0, r=nil, t=nil, o=nil, d=nil|
+		this.action(\brown, value, random, time, offset, defer, r, t, o, d);
 	}
 	//(freq: 440.0, rate: 6, depth: 0.02, delay: 0.0, onset: 0.0, rateVariation: 0.04, depthVariation: 0.1, iphase: 0.0, trig: 0.0)
-	vibrato {|rate=1, depth=0, ratev=0, depthv=0, time=0, offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{pl.vibrato(rate,depth,ratev,depthv, time)}.defer(offset.asFloat.rand)
-		})
-	}
-	reverse {|time=0, offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{pl.rate(pl.rate.neg, time)}.defer(offset.asFloat.rand)
-		})
+	vibrato {|value=1, depth=0, ratev=0, depthv=0, time=0, offset=0, defer=0, t=nil, o=nil, d=nil|
+		#time, offset, defer = [t?time, o?offset, d?defer];
+		{grouplists[currentgroup].do({ |pl|
+			{pl.vibrato(value,depth,ratev,depthv, time)}.defer(offset.asFloat.rand)
+		})}.defer(defer)
 	}
 
-	scratch {|target=0, tIn=1, tStay=0.5, tOut=1, offset=0| // boomerang like pitch change
-		grouplists[currentgroup].do({ |pl|
+	reverse {|time=0, offset=0, defer=0, t=nil, o=nil, d=nil|
+		#time, offset, defer = [t?time, o?offset, d?defer];
+		{grouplists[currentgroup].do({ |pl|
+			{pl.rate(pl.rate.neg, time:time)}.defer(offset.asFloat.rand)
+		})}.defer(defer)
+	}
+
+	scratch {|target=0, tIn=1, tStay=0.5, tOut=1, offset=0, defer=0, o=nil, d=nil| // boomerang like pitch change
+		#offset, defer = [o?offset, d?defer];
+		{ grouplists[currentgroup].do({ |pl|
 			{pl.scratch(target, tIn, tStay, tOut)}.defer(offset.asFloat.rand)
-		})
+		})}.defer(defer)
 	}
 
-	dir {|to=1, time=0, offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{pl.dir(to, time)}.defer(offset.asFloat.rand)
-		})
-
+	dir {|value=1, time=0, offset=0, defer=0, t=nil, o=nil, d=nil|
+		this.action(\dir, value, 0, time, offset, defer, nil, t, o, d);
 	}
 
-	fwd {|time=0, offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{pl.fwd(time)}.defer(offset.asFloat.rand)
-		})
+	fwd {|time=0, offset=0, defer=0, t=nil, o=nil, d=nil|
+		this.action(\fwd, 0, 0, time, offset, defer, nil, t, o, d);
 	}
 
-	bwd {|time=0, offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{pl.bwd(time)}.defer(offset.asFloat.rand)
-		})
+	bwd {|time=0, offset=0, defer=0, t=nil, o=nil, d=nil|
+		this.action(\bwd, 0, 0, time, offset, defer, nil, t, o, d);
 	}
 
-	rdir {|curve=\lin, offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{pl.rdir}.defer(offset.asFloat.rand)
-		})
+	rdir {|offset=0, defer=0, o=0, d=0|
+		this.action(\rdir, 0, 0, 0, offset, defer, nil, nil, o, d);
 	}
 
-	rrate {|time=0, offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{pl.rrate(time)}.defer(offset.asFloat.rand)
-		})
+	rrate {|time=0, offset=0, defer=0, t=nil, o=nil, d=nil|
+		this.action(\rrate, 0, 0, time, offset, defer, nil, t, o, d);
 	}
 
-	rbuf {|offset=0|
-		grouplists[currentgroup].do({ |pl, index|
+	rbuf {|offset=0, defer=0, o=0, d=0|
+		#offset, defer = [o?offset, d?defer];
+		{grouplists[currentgroup].do({ |pl, index|
 			{
 				pl.buf(bufs.choose);
 				this.newplotdata(pl.buf, views[index]);
 			}.defer(offset.asFloat.rand)
-		})
+		})}.defer(defer)
 	}
 
 	out { |ch=0| grouplists[currentgroup].collect(_.out(ch)) }
@@ -765,73 +733,57 @@ Tapes{
 		}
 	}
 
-	vol {|avol=1, time=0, offset=0|
-		volume = avol; // remember for the fadein/out
-		grouplists[currentgroup].do({ |pl|
-			{pl.vol(volume, time)}.defer(offset.asFloat.rand)
-		});
-		["set vol", avol].postln
+	vol {|value=0, random=0, time=0, offset=0, defer=0, r=nil, t=nil, o=nil, d=nil|
+		volume = value; // remember for the fadein/out
+		this.action(\vol, value, random, time, offset, defer, r, t, o, d);
 	}
 
 	vold { grouplists[currentgroup].collect(_.vold) }
 
 	volu { grouplists[currentgroup].collect(_.volu) }
 
-	fadeout {|time=1, offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{pl.vol(0, time)}.defer(offset.asFloat.rand)
-		})
+	fadeout {|time=1, offset=0, defer=0, t=nil, o=nil, d=nil|
+		this.action(\vol, 0, 0, time, offset, defer, nil, t, o, d);
 	}
 
-	fadein {|time=1, offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{pl.vol(volume, time)}.defer(offset.asFloat.rand) // fade in to volume. not to 1
-		})
+	fadein {|time=1, offset=0, defer=0, t=nil, o=nil, d=nil|
+		this.action(\vol, volume, 0, time, offset, defer, nil, t, o, d); // volume is a var that stores the prev volume value
 	}
 
-	pan { |pan=0, time=0, offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{pl.pan(pan, time)}.defer(offset.asFloat.rand)
-		})
+	pan { |value=0, random=0, time=0, offset=0, defer=0, r=nil, t=nil, o=nil, d=nil|
+		this.action(\pan, value, random, time, offset, defer, r, t, o, d);
 	}
 
-	outb {|bus, offset=0|
-		grouplists[currentgroup].do({ |pl|
-			{pl.outb(bus)}.defer(offset.asFloat.rand)
-		})
+	outb {|value, offset=0, defer=0, o=0, d=0|
+		this.action(\bgo, value, 0, 0, offset, defer, nil, nil, o, d);
 	}
 
-	bloop {|range=0.01, time=0, offset=0|
-		grouplists[currentgroup].do({|pl, index|
-			{
-				pl.bloop(range, time);
-				this.newselection(pl.st, pl.end, views[index], pl.buf);
-			}.defer(offset.asFloat.rand)
-		})
+	bloop {|range=0.01, offset=0, defer=0, o=0, d=0|
+		#offset, defer = [o?offset, d?defer];
+		{
+			grouplists[currentgroup].do({|pl, index|
+				{
+					pl.bloop(range);
+					this.newselection(pl.st, pl.end, views[index], pl.buf);
+				}.defer(offset.asFloat.rand)
+			})
+		}.defer(defer)
 	}
 
-	bgo {|range=0.01, time=0, offset=0|
-		grouplists[currentgroup].do({|pl|
-			{pl.bgo(range, time)}.defer(offset.asFloat.rand)
-		})
+	bgo {|range=0.01, time=0, offset=0, defer=0, t=nil, o=nil, d=nil|
+		this.action(\bgo, range, 0, time, offset, defer, nil, t, o, d);
 	}
 
-	bvol {|range=0.01, time=0, offset=0|
-		grouplists[currentgroup].do({|pl|
-			{pl.bvol(range, time)}.defer(offset.asFloat.rand)
-		})
+	bvol {|range=0.01, time=0, offset=0, defer=0, t=nil, o=nil, d=nil|
+		this.action(\bvol, range, 0, time, offset, defer, nil, t, o, d);
 	}
 
-	bpan {|range=0.01, time=0, offset=0|
-		grouplists[currentgroup].do({|pl|
-			{pl.bpan(range, time)}.defer(offset.asFloat.rand)
-		})
+	bpan {|range=0.01, time=0, offset=0, defer=0, t=nil, o=nil, d=nil|
+		this.action(\bpan, range, 0, time, offset, defer, nil, t, o, d);
 	}
 
-	brate {|range=0.01, time=0, offset=0|
-		grouplists[currentgroup].do({|pl|
-			{pl.brate(range, time)}.defer(offset.asFloat.rand)
-		})
+	brate {|range=0.01, time=0, offset=0, defer=0, t=nil, o=nil, d=nil|
+		this.action(\brate, range, 0, time, offset, defer, nil, t, o, d);
 	}
 
 	/////// task's stuff ////
@@ -847,8 +799,11 @@ Tapes{
 		})
 	}
 
-	do {|name="", function, sleep=5.0, defer=0, iter=inf, when=true, then=1, random=0, clock=0, verbose=true|
+	do {|name="", function, sleep=5.0, defer=0, iter=inf, when=true, then=1, random=0, clock=0, verbose=true,
+		s, d, i, w, t, r, c, v|
 		var atask;
+		sleep = s?sleep; defer=d?defer; iter=i?iter; when=w?when; then=t?then;
+		random=r?random; clock=c?clock; verbose=v?verbose;
 
 		if (name=="", {
 			"TASKS MUST HAVE A NAME. Making up one".postln;
@@ -889,11 +844,11 @@ Tapes{
 	}
 	////////////////////////////
 
-/*	// compressor/expander ///
+	/*	// compressor/expander ///
 	comp{|thr=0.5, sla=1, slb=1| // threshold, slopeBelow, slopeAbove
-		compressor.set(\thr, thr);
-		compressor.set(\sla, sla);
-		compressor.set(\slb, slb)
+	compressor.set(\thr, thr);
+	compressor.set(\sla, sla);
+	compressor.set(\slb, slb)
 	}
 	thr{|val=0.5| compressor.set(\thr, val)}
 	sla{|val=1| compressor.set(\sla, val)}
