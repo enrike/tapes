@@ -1,4 +1,4 @@
-Tapes by ixi-audio.net
+Tapes by www.ixi-audio.net
 
 [tape](https://github.com/enrike/tapes/blob/master/tape.png?raw=true)
 
@@ -6,15 +6,15 @@ Supercollider based sample loop system. I use it to control many layers of tape-
 
 check the documentation.scd file for usage example.
 
-to create and play 4 tapes:
+for instance, to create and play 4 tapes:
 
 Tapes(this)
 
-_loadfiles(/path/to/sound/files)
+_loadfiles(/path/to/sound/files/)
 
 _add(4)
 
-_resume
+_play
 
 
 License : GNU GPL

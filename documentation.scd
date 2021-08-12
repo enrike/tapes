@@ -193,9 +193,8 @@ _rate(o:4) // shortcut
 // TRANSITION TIME:
 // some functions (the ones related to panning, amplitude and pitch) can perform a transition between the current state and the target state in N secs
 // go to a value in N secs
-_rate(0.1, 10)// go to 0.1 rate in 10secs
-_brate(0.1, time:20) // this will start a shift to a random rate ranging -0.1 to 0.1 from the current rate that will take 20s
-_rate(t:4) // shortcut
+_rate(0.1, time:10)// go to 0.1 rate in 10secs
+_rate(1, t:4) // shortcut
 _brate(0.1, time:20, offset:8) // offset can be use here too
 
 //local randoms
@@ -240,6 +239,9 @@ _do(\wrand, {
 _do(\silent, { // wont print every run. useful with quick and repetitive tasks
 	_rpan
 }, 0.5, verbose:false);
+
+// shorcuts work here too. beware that in this context t means THEN and not time
+_do(\test, {_rvol}, s:3, d:1, i:2, w:{z>1}, t:0, r:3, v:true)
 
 
 
