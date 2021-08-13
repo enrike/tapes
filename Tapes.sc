@@ -49,7 +49,7 @@ Tapes{
 				"rbuf", "rrate", "rpan", "rloop", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rmove", "rand",
 				"bloop", "bpan", "brate", "bvol", "bpan", "bgo", "spread",
 				//"comp", "thr", "slb", "sla",
-				"do", "undo",
+				"do", "undo", "xloop",
 				"slice", "slicegui",
 				"group", "groups", "mergegroups", "usegroup", "currentgroup", "newgroup", "killgroup", "all"
 			];
@@ -87,7 +87,7 @@ Tapes{
 
 				phasor = Phasor.ar( trig, rate * BufRateScale.kr(buffer), start*dur, end*dur, resetPos: reset*dur);
 
-				//SendReply.ar( HPZ1.ar(HPZ1.ar(phasor).sign), '/loop', 1, index); //loop point
+				SendReply.ar( HPZ1.ar(HPZ1.ar(phasor).sign), '/xloop', 1, index); //loop point
 				SendReply.kr( LFPulse.kr(12, 0), '/pos', phasor/dur, index); //fps 12
 
 				#left, right = BufRd.ar( 2, buffer, phasor, loop:loop ) * amp;
@@ -315,11 +315,11 @@ Tapes{
 		if (buf.isInteger, {buf = bufs[buf]}); // using the index
 
 		{
-		grouplists[currentgroup].do({ |pl, index|
-			{
-				pl.buf(buf);
-				this.newplotdata(buf, views[index]);
-			}.defer(offset.asFloat.rand)
+			grouplists[currentgroup].do({ |pl, index|
+				{
+					pl.buf(buf);
+					this.newplotdata(buf, views[index]);
+				}.defer(offset.asFloat.rand)
 		})}.defer(defer)
 	}
 
@@ -338,37 +338,39 @@ Tapes{
 
 	newplayer {|asynth| grouplists[currentgroup].do({ |pl| pl.newplayer(asynth)}) }
 
-	slice {|sttime, shift, grain, grainshift, offset=0| // SLICER like behaviour
-		slicestate = [sttime, shift, grain, grainshift];
+	slice {|sttime, shift, grain, grainshift, offset=0, defer=0, o=nil, d=nil| // SLICER like behaviour
+		{
+			offset=o?offset;defer?d?defer;
+			slicestate = [sttime, shift, grain, grainshift];
 
-		grouplists[currentgroup].do({ |pl, index|
-			var mysttime = sttime + (index * (shift/100.0));
-			var myendtime;// = mysttime + grain + (index * (grainshift/100.0));
+			grouplists[currentgroup].do({ |pl, index|
+				var mysttime = sttime + (index * (shift/100.0));
+				var myendtime;// = mysttime + grain + (index * (grainshift/100.0));
 
-			if ( (mysttime<0) || (mysttime>1), { //st left, right
-				mysttime = mysttime % 1;
+				if ( (mysttime<0) || (mysttime>1), { //st left, right
+					mysttime = mysttime % 1;
+				});
 
-			});
-
-			myendtime = mysttime + grain + (index * (grainshift/100.0));
-
-			if ( (myendtime<0) || (myendtime>1), { //end left, right
-				mysttime = mysttime % 1;
 				myendtime = mysttime + grain + (index * (grainshift/100.0));
-			});
 
-			if (myendtime<mysttime, { // reverse
-				var temp1=mysttime;
-				var temp2=myendtime;
-				mysttime = temp2;
-				myendtime = temp1;
-			});
+				if ( (myendtime<0) || (myendtime>1), { //end left, right
+					mysttime = mysttime % 1;
+					myendtime = mysttime + grain + (index * (grainshift/100.0));
+				});
 
-			{
-				pl.loop(mysttime, myendtime);
-				this.newselection(mysttime, myendtime, views[index], pl.buf);
-			}.defer(offset.asFloat.rand);
-		})
+				if (myendtime<mysttime, { // reverse
+					var temp1=mysttime;
+					var temp2=myendtime;
+					mysttime = temp2;
+					myendtime = temp1;
+				});
+
+				{
+					pl.loop(mysttime, myendtime);
+					this.newselection(mysttime, myendtime, views[index], pl.buf);
+				}.defer(offset.asFloat.rand);
+			})
+		}.defer(defer)
 	}
 
 	slicegui2d {|w=250,h=500|
@@ -403,7 +405,7 @@ Tapes{
 	}
 
 	// add a reset button? use autogui?
-	slicegui {|w=250|
+	slicegui {|w=450|
 		var label;
 		var doslice = this;
 		var delta = 15;
@@ -454,32 +456,32 @@ Tapes{
 		});
 		*/
 		controls.add( EZSlider(slicerw, (w-10)@40, "start",
-			ControlSpec(0, 1, \lin, 0.001, 0),
+			ControlSpec(0, 1, \lin, 0.0001, 0),
 			{|sl|
 				slicestate[0] = sl.value.asFloat;
 				doslice.slice(*slicestate);
-		}, slicestate[0], layout:\line2, labelHeight:15).setColors(*cols).numberView.maxDecimals = 3 ;);
+		}, slicestate[0], layout:\line2, labelHeight:15).setColors(*cols).numberView.maxDecimals = 5 ;);
 
 		controls.add( EZSlider(slicerw, (w-10)@40, "shift",
-			ControlSpec(delta.neg, delta, \lin, 0.001, 0),
+			ControlSpec(delta.neg, delta, \lin, 0.0001, 0),
 			{|sl|
 				slicestate[1] = sl.value.asFloat;
 				doslice.slice(*slicestate);
-		}, slicestate[1], layout:\line2, labelHeight:15).setColors(*cols).numberView.maxDecimals = 3 ;);
+		}, slicestate[1], layout:\line2, labelHeight:15).setColors(*cols).numberView.maxDecimals = 5 ;);
 
 		controls.add( EZSlider(slicerw, (w-10)@40, "grain",
-			ControlSpec(0,1, \lin, 0.001, 0),
+			ControlSpec(0,1, \lin, 0.0001, 0),
 			{|sl|
 				slicestate[2] = sl.value.asFloat;
 				doslice.slice(*slicestate);
-		}, slicestate[2], layout:\line2, labelHeight:15).setColors(*cols).numberView.maxDecimals = 3 ;);
+		}, slicestate[2], layout:\line2, labelHeight:15).setColors(*cols).numberView.maxDecimals = 5 ;);
 
 		controls.add( EZSlider(slicerw, (w-10)@40, "grain shift",
-			ControlSpec(delta.neg, delta, \lin, 0.001, 0),
+			ControlSpec(delta.neg, delta, \lin, 0.0001, 0),
 			{|sl|
 				slicestate[3] = sl.value.asFloat;
 				doslice.slice(*slicestate);
-		}, slicestate[3], layout:\line2, labelHeight:15).setColors(*cols).numberView.maxDecimals = 3 ;);
+		}, slicestate[3], layout:\line2, labelHeight:15).setColors(*cols).numberView.maxDecimals = 5;);
 
 		slicerw.front;//!!!!!
 	}
@@ -786,6 +788,19 @@ Tapes{
 		this.action(\brate, range, 0, time, offset, defer, nil, t, o, d);
 	}
 
+	////////////
+
+	xloop {|func, offset=0, defer=0, o=0, d=0|
+		#offset, defer = [o?offset, d?defer];
+		func=func?{};
+		{grouplists[currentgroup].do({ |pl, index|
+			{
+				pl.xloop = func;
+			}.defer(offset.asFloat.rand)
+		})}.defer(defer)
+	}
+
+
 	/////// task's stuff ////
 	undo {|name|
 		if (name.isNil, {
@@ -823,13 +838,13 @@ Tapes{
 					if (verbose, {("-- now:"+name++time+(index.asInteger+1)++":"++iter).postln});
 
 					if (when.value, {
-						function.value;
+						function.value; // only run if {when} is true
 						if (then==0, {break.value(999)}) // task dies
 					});
 
-					if ((random.isArray),
+					if (random.isArray,
 						{sleep = random[0].wchoose(random[1])} ,
-						{sleep = sleep + (random.rand2)}
+						{sleep = sleep + random.rand2}
 					);// rand gets added to sleep
 					sleep.max(0.005).wait
 				};

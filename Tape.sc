@@ -7,7 +7,7 @@ Tape{
 	var buf, st=0, end=1, vol=1, rate=0, pan=0, bus=0, len=0, dur=0, dir=1, wobble=0, brown=0, vib; // state variables hidden
 	var memrate=1; // to store rate while stopped
 	var <>view=nil;
-	var <>statesDic, <>verbose=false, loopOSC, playheadOSC;
+	var <>statesDic, <>verbose=false, loopOSC, playheadOSC, <>xloop;
 
 	*new {| buffer=nil, bus=0 |
 		^super.new.initTape( buffer, bus );
@@ -24,10 +24,11 @@ Tape{
 		player.free;
 		player = Synth.tail(Server.default, \rPlayer, [\buffer, buf ? buf.bufnum, \rate, rate, \index, id, \out, abus]);
 
-/*		loopOSC.free;
-		loopOSC = OSCdef(\loop++id, {|msg, time, addr, recvPort|
-			if (id==msg[2], { this.done });
-		}, '/loop');*/
+		xloop = {};
+		loopOSC.free;
+		loopOSC = OSCdef(\xloop++id, {|msg|
+			if (id==msg[2], { this.xloop.value(this) });
+		}, '/xloop');
 
 		playheadOSC.free;
 		playheadOSC = OSCdef(\playhead++id, {|msg, time, addr, recvPort|
@@ -46,8 +47,6 @@ Tape{
 		playheadOSC.free;
 		statesDic=nil;
 	}
-
-	done {} // when loop crossing happens
 
 	/*	loadbuf {|server, path|
 	var abuf = Buffer.read(server, path, action:{ this.setbuf(abuf) });
@@ -248,10 +247,9 @@ Tape{
 	rate {|arate=nil, random=0, time=0|
 		if (arate.notNil, {
 			arate = arate + random.asFloat.rand2;
-			//if (rate != 0, { // only update if playing
 			player.set(\ratelag, time);
 			player.set(\rate, arate);
-			//});
+
 			memrate = rate;
 			rate = arate;
 			this.post("rate", rate);
@@ -296,7 +294,10 @@ Tape{
 		st = args[0].clip(0,1);//.clip(0, 1-(end-st));
 		end = args[1].clip(st,1);
 
-		if (st==end,{(id+"warning. start and end point are equal!").postln});
+		if (st==end,{
+			(id+"warning. start and end point are equal!").postln;
+			end=st+0.001;
+		});
 
 		player.set(\start, st);
 		player.set(\end, end);
@@ -360,6 +361,8 @@ Tape{
 	}
 
 	play {
+		if(memrate==0, {memrate=rate}); //otherwise it wont play
+		if(memrate==0, {memrate=1});
 		this.rate(memrate); // retrieve stored value
 	}
 
