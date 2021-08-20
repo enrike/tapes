@@ -810,16 +810,19 @@ Tapes{
 
 
 	/////// task's stuff ////
-	undo {|name|
-		if (name.isNil, {
-			"-- kill all procs".postln;
-			procs.collect(_.stop);
-			procs = Dictionary.new;
-		},{
-			("-- procs: killing"+name).postln;
-			procs[name.asSymbol].stop;
-			procs.removeAt(name.asSymbol);
-		})
+	undo {|name, defer=0, d=0|
+		defer = d?defer;
+		{
+			if (name.isNil, {
+				"-- kill all procs".postln;
+				procs.collect(_.stop);
+				procs = Dictionary.new;
+			},{
+				("-- procs: killing"+name).postln;
+				procs[name.asSymbol].stop;
+				procs.removeAt(name.asSymbol);
+			})
+		}.defer(defer)
 	}
 
 	do {|name="", function, sleep=5.0, random=0, defer=0, iter=inf, when=true, then=1, clock=0, verbose=true,

@@ -217,8 +217,9 @@ _sla(0.2); //slope above thr <1 for compression >1 for expansion*/
 
 
 // Loop crossing event. SCHEDULE actions at loop crossing points
+// beware that if you have 20 tapes there will be 20 xloops, one for each tape
 _xloop({ _rrate }) // everytime one single tape crosses the loop point, all off them change their rate
-_xloop({|me| me.rrate})  // everytime one changes ITS own rate. Others are not affected
+_xloop({|me| me.rrate})  // every individual xloop each changes ITS own rate. Others are not affected
 _xloop // this clears the xloop functions for everyone
 _one.xloop = {me.id.postln} // individually too
 
@@ -228,6 +229,7 @@ _one.xloop = {me.id.postln} // individually too
 _do(\randpan, {_rpan}, 15); //loop run a function named \randpan every 15 secs sleep.
 _undo(\randpan) // kill \randpan
 _undo // kill all scheduled functions
+_undo(\randpan, d:120) // it can be defferred too
 
 // you can overwrite a function by changing it and running it again as long as the name is the same
 _do(\blah, {"hi".postln}, 2) // run this first. it posts "hi" every 2 secs
