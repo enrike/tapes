@@ -821,8 +821,8 @@ Tapes{
 		})
 	}
 
-	do {|name="", function, sleep=5.0, defer=0, iter=inf, when=true, then=1, random=0, clock=0, verbose=true,
-		s, d, i, w, t, r, c, v|
+	do {|name="", function, sleep=5.0, random=0, defer=0, iter=inf, when=true, then=1, clock=0, verbose=true,
+		s, r, d, i, w, t, c, v|
 		var atask;
 		sleep = s?sleep; defer=d?defer; iter=i?iter; when=w?when; then=t?then;
 		random=r?random; clock=c?clock; verbose=v?verbose;
