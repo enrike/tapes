@@ -220,21 +220,14 @@ _one.xloop = {me.id.postln} // individually too
 
 
 // SCHEDULING FUNCTIONS: _do //
-// _do args are: name, function, sleep, defer, iter, when, then, random, verbose
+// _do args are: name, function, sleep, random, defer, iter, when, then, verbose
 _do(\randpan, {_rpan}, 15); //loop run a function named \randpan every 15 secs sleep.
-_undo(\randpan) // stops this one
-_undo // stops all scheduled functions
+_undo(\randpan) // kill \randpan
+_undo // kill all scheduled functions
 
-// defer
-_do(\spawn, {_rrate}, 3, defer:20); //wait 20 secs, then run every 3secs
-
-// num of iterations
-_do(\spawn, {_add(1,_0)}, 3, iter:10); //run every 3secs for 10 times then die
-
-// conditions: when, then
-z = 1;
-_do(\check, {"run!!!".postln}, 3, when:{z>0}) // will start running once z>1
-_do(\check, {"run!!!".postln}, 3, when:{z>0}, then:0) // will only run once, then die
+// you can overwrite a function by changing it and running it again as long as the name is the same
+_do(\blah, {"hi".postln}, 2) // run this first. it posts "hi" every 2 secs
+_do(\blah, {"hi ya!".postln}, 1) // now run this. it overwrites the previous \blah
 
 // random: introducing swing. irregular sleeps
 _do(\randpan, {_rrate}, 15, random:2); // rand swing: the next sch will happen after 15 + rrand(-2,+2) secs
@@ -243,13 +236,26 @@ _do(\wrand, {
 	"two options".postln;
 }, random:[[1,3],[0.9, 0.1]])// run every every 1 sec (90% chances) or 3 secs (10% chances)
 
+// defer
+_do(\spawn, {_rrate}, 3, defer:20); //wait 20 secs, then run every 3secs
+
+// num of iterations
+_do(\spawn, {_add(1,_0)}, 3, iter:10); //run every 3secs for 10 times then die
+
+// conditions: when, then
+z = 0;
+_do(\check, {"run!!!".postln}, 3, when:{z>0}) // will start running once z>1
+z = 1; // not it should start running
+
+_do(\check, {"run!!!".postln}, 3, when:{z>0}, then:0) // in this case it will only run once, then die
+
 // postln or not every run
-_do(\silent, { // wont print every run. useful with quick and repetitive tasks
+_do(\silent, { // wont print its state every run. useful with quick and repetitive tasks
 	_rpan
-}, 0.5, verbose:false);
+}, 0.2, verbose:false);
 
 // shorcuts work here too. beware that in this context t means THEN and not time
-_do(\test, {_rvol}, s:3, d:1, i:2, w:{z>1}, t:0, r:3, v:true)
+_do(\test, {_rvol}, s:3, r:3, d:1, i:2, w:{z>1}, t:0, v:true)
 
 
 
@@ -266,7 +272,7 @@ _do(\sch, {
 
 _do(\inoutrand, { //every 30 sec: 9 sec fade in- after 15 secs - 9 secs fade out
 	_fadein(9);
-	{_fadeout(9)}.defer(15)
+	_fadeout(9, d:15)
 }, 30)
 _undo(\inoutrand)
 
@@ -297,7 +303,7 @@ _do(\rum, {
 	_rbuf;
 	_rdir; _rrate; _rloop;
 	_fadein(fade);
-	{_fadeout(fade)}.defer(len-gap);
+	_fadeout(fade, d:(len-gap));
 }, len)
 )
 
