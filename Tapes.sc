@@ -550,14 +550,17 @@ Tapes{
 		this.action(\moveby, value, random, 0, offset, defer, r, nil, o, d);
 	}
 
-	solo {|id| // add offset and defer?
-		grouplists[currentgroup].do({ |pl|
-			if (pl.id!=id, {
-				if (pl.rate!=0, {pl.pause}); // if not already paused, pause.
-			}, {
-				pl.resume;
-			})
-		});
+	solo {|id, defer=0, d=nil| // add offset and defer?
+		defer = d?defer;
+		{
+			grouplists[currentgroup].do({ |pl|
+				if (pl.id!=id, {
+					if (pl.rate!=0, {pl.pause}); // if not already paused, pause.
+				}, {
+					pl.resume;
+				})
+			});
+		}.defer(defer)
 	}
 
 	push {|which| grouplists[currentgroup].do({ |pl| pl.push(which)}) } // if no which it appends to stack
@@ -849,8 +852,10 @@ Tapes{
 					if (verbose, {("-- now:"+name++time+(index.asInteger+1)++":"++iter).postln});
 
 					if (when.value, {
-						function.value; // only run if {when} is true
-						if (then==0, {break.value(999)}) // task dies
+						function.value(index.asInteger); // only run if {when} is true. pass index
+						if ( then==0, { // task dies after then
+							break.value(999);
+						});
 					});
 
 					if (random.isArray,
@@ -860,6 +865,7 @@ Tapes{
 					sleep.max(0.005).wait
 				};
 			};
+			then.value; // last will
 			("-- done with"+name).postln;
 			this.undo(name.asSymbol)
 		}, clock);
