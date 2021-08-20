@@ -19,7 +19,8 @@ Tapes{
 
 	initTapes {| amain, adir, asym |
 		~tapes = this; // keep me in a global
-		//this.path;
+
+		OSCdef.freeAll;
 
 		procs = Dictionary.new; // stores all tasks
 
@@ -47,7 +48,7 @@ Tapes{
 				"lp", "loop", "st", "move", "moveby", "end", "go", "gost", "goend", "dur", "len",
 				"push", "pop", "save", "load", "search", "id", "where",
 				"rbuf", "rrate", "rpan", "rloop", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rmove", "rand",
-				"bloop", "bpan", "brate", "bvol", "bpan", "bgo", "spread",
+				"bloop", "bmove", "bpan", "brate", "bvol", "bpan", "bgo", "spread",
 				//"comp", "thr", "slb", "sla",
 				"do", "undo", "xloop",
 				"slice", "slicegui",
@@ -149,7 +150,7 @@ Tapes{
 
 				(sfs.size + "files available").postln;
 				"loading sounds into buffers".postln;
-				"please wait ...".postln;
+				"PLEASE WAIT ...".postln;
 			});
 		})
 	}
@@ -212,7 +213,7 @@ Tapes{
 				("-----------").postln;
 				grouplists[currentgroup].add(lay); // check if = is needed
 
-				if (copythis.isNumber, { // by id
+				if (copythis.isNumber, { // by id. get the instance
 					copythis = this.id(copythis)
 				});
 				if (copythis.notNil, { lay.copy(copythis) });
@@ -658,8 +659,8 @@ Tapes{
 		//[act, time, random, offset, defer].postln};
 		{
 			grouplists[currentgroup].do({ |pl|
-				{pl.performList(act, [value, random, time])}.defer(offset.asFloat.rand)
-
+				//{pl.performList(act, [value, random, time])}.defer(offset.asFloat.rand)
+				{pl.performKeyValuePairs(act, [\value, value, \random, random, \time, time])}.defer(offset.asFloat.rand)
 			})
 		}.defer(defer)
 	}
@@ -717,11 +718,13 @@ Tapes{
 		this.action(\rrate, 0, 0, time, offset, defer, nil, t, o, d);
 	}
 
-	rbuf {|offset=0, defer=0, o=0, d=0|
+	rbuf {|mode=0, offset=0, defer=0, o=0, d=0|
+		var buffer = bufs.choose; // defaulto to all the same
 		#offset, defer = [o?offset, d?defer];
 		{grouplists[currentgroup].do({ |pl, index|
 			{
-				pl.buf(bufs.choose);
+				if (mode==1, {buffer=bufs.choose}); // each one different
+				pl.buf(buffer);
 				this.newplotdata(pl.buf, views[index]);
 			}.defer(offset.asFloat.rand)
 		})}.defer(defer)
@@ -770,6 +773,10 @@ Tapes{
 				}.defer(offset.asFloat.rand)
 			})
 		}.defer(defer)
+	}
+
+	bmove {|range=0.1, offset=0, defer=0, o=nil, d=nil|
+		this.action(\bmove, range, 0, 0, offset, defer, nil, nil, o, d);
 	}
 
 	bgo {|range=0.01, time=0, offset=0, defer=0, t=nil, o=nil, d=nil|

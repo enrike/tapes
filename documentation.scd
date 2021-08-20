@@ -147,7 +147,8 @@ p.do({|lay| lay.vol(0.3)}) // do whatever with the search results
 
 // RANDOM //
 
-_rbuf // each one gets a different buffer randomly
+_rbuf(0) // random buffer. all get the same one. default behaviour
+_rbuf(1) // each one gets a different buffer randomly
 _rpan
 _rrate
 _rdir // + or - rate
@@ -209,6 +210,13 @@ _comp(0.2, 0.6, 0.2) //threshold, slopeBelow, slopeAbove
 _thr(0.2); // threshold
 _slb(0.6); // slope below thr <1 for expansion
 _sla(0.2); //slope above thr <1 for compression >1 for expansion*/
+
+
+// Loop crossing event. SCHEDULE actions at loop crossing points
+_xloop({ _rrate }) // everytime one single tape crosses the loop point, all off them change their rate
+_xloop({|me| me.rrate})  // everytime one changes ITS own rate. Others are not affected
+_xloop // this clears the xloop functions for everyone
+_one.xloop = {me.id.postln} // individually too
 
 
 // SCHEDULING FUNCTIONS: _do //
@@ -359,4 +367,8 @@ _0.rpan
 _0.rrate
 _0.rdir
 _0.bloop(0.01) // single step small random
+
+// x loop events
+_0.xloop = {me.id.postln}
+
 // and so on...

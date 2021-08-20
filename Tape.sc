@@ -3,9 +3,10 @@
 
 Tape{
 
-	var <id, <player, <curpos;
+	var <id, <player, <curpos, <loops=0;
 	var buf, st=0, end=1, vol=1, rate=0, pan=0, bus=0, len=0, dur=0, dir=1, wobble=0, brown=0, vib; // state variables hidden
 	var memrate=1; // to store rate while stopped
+	var <>del=0.04; //time in between two consecutive p.set. required by gates
 	var <>view=nil;
 	var <>statesDic, <>verbose=false, loopOSC, playheadOSC, <>xloop;
 
@@ -21,13 +22,21 @@ Tape{
 
 		id = UniqueID.next;
 
-		player.free;
-		player = Synth.tail(Server.default, \rPlayer, [\buffer, buf ? buf.bufnum, \rate, rate, \index, id, \out, abus]);
+		//Server.default.waitForBoot{
+			player.free;
+			player = Synth.tail(Server.default, \rPlayer,
+				[\buffer, buf ? buf.bufnum, \rate, rate, \index, id, \out, abus]);
+
+			//Server.default.sync;
+		//};
 
 		xloop = {};
 		loopOSC.free;
-		loopOSC = OSCdef(\xloop++id, {|msg|
-			if (id==msg[2], { this.xloop.value(this) });
+		loopOSC = OSCdef(\xloop++id, {|msg, time, addr, recvPort|
+			if (id==msg[2], {
+				this.loopcount;
+				this.xloop.value(this)
+			});
 		}, '/xloop');
 
 		playheadOSC.free;
@@ -46,6 +55,10 @@ Tape{
 		loopOSC.free;
 		playheadOSC.free;
 		statesDic=nil;
+	}
+
+	loopcount {
+		loops = loops+1;
 	}
 
 	/*	loadbuf {|server, path|
@@ -91,7 +104,8 @@ Tape{
 	}
 
 	copy {|tape|
-		this.state( tape.state() )
+		this.state( tape.state() );
+		this.xloop = tape.xloop;
 	}
 
 	push { |which|
@@ -138,64 +152,60 @@ Tape{
 		if (verbose.asBoolean, {[id, action, value].postln});
 	}
 
-	go {|pos=0|
-		player.set(\reset, pos.clip(st,end));
-		player.set(\trig, 0);
-		{ player.set(\trig, 1) }.defer(0.04);
+	go {|value=0|
+		player.set(\reset, value.clip(st,end), \trig, 0);
+		{ player.set(\trig, 1) }.defer(del);
 	}
 
 	gost {this.go(st)}
 
 	goend {this.go(end)}
 
-	move {|pos=0, random=0| // moves the loop to another position maintaing the duration
-		pos = pos + random.asFloat.rand2;
-		this.loop(pos, pos+(end-st)); //keep len
+	move {|value=0, random=0| // moves the loop to another position maintaing the duration
+		value = value + random.asFloat.rand2;
+		this.loop(value, value+(end-st)); //keep len
 	}
 
-	moveby {|delta=0, random=0| // moves the loop to another position maintaing the duration
-		delta = delta + random.asFloat.rand2;
-		this.loop(st+delta, st+delta+(end-st)); //keep len
+	moveby {|value=0, random=0| // moves the loop to another position maintaing the duration
+		value = value + random.asFloat.rand2;
+		this.loop(st+value, st+value+(end-st)); //keep len
 	}
 
 	file {
 		^PathName(buf.path).fileName
 	}
 
-	outb {|abus=nil|
-		if (abus.notNil, {
-			bus = abus;
+	outb {|value=nil|
+		if (value.notNil, {
+			bus = value;
 			player.set(\out, bus)
 		}, {
 			^bus
 		})
 	}
 
-	pan {|apan=nil, time=0|
-		if (apan.notNil, {
-			pan = apan;
-			player.set(\panlag, time);
-			player.set(\pan, apan);
+	pan {|value=nil, time=0|
+		if (value.notNil, {
+			pan = value;
+			player.set(\panlag, time, \pan, value);
 			this.post("pan", pan);
 		}, {
 			^pan
 		})
 	}
 
-	out {|ch=0|
-		player.set(\out, ch);
+	out {|value=0|
+		player.set(\out, value);
 	}
 
-	vol {|avol=nil, random=0, time=0|
-		if (avol.notNil, {
-			avol = avol + random.asFloat.rand2;
+	vol {|value=nil, random=0, time=0|
+		if (value.notNil, {
+			value = value + random.asFloat.rand2;
 
-			vol = avol.clip(0,1); //limits
+			vol = value.clip(0,1); //limits
 
-			player.set(\amplag, time);
-			player.set(\amp, avol);
-
-			{player.set(\ampgate, 1)}.defer(0.05);
+			player.set(\amplag, time, \amp, vol);
+			{player.set(\ampgate, 1)}.defer(del);
 
 			this.post("volume", (vol.asString + time.asString  + random.asString) );
 		}, {
@@ -219,39 +229,35 @@ Tape{
 		this.vol(vol, time)
 	}
 
-	wobble {|arate=0, random=0, time=0|
-		arate = arate + random.asFloat.rand2;
-		wobble = arate;
-		player.set(\wobblelag, time);
-		player.set(\wobble, arate);
+	wobble {|value=0, random=0, time=0|
+		value = value + random.asFloat.rand2;
+		wobble = value;
+		player.set(\wobblelag, time, \wobble, value);
 	}
 
-	brown {|level=0, random=0, time=0|
-		level = level + random.asFloat.rand2;
-		brown = level;
-		player.set(\brownlag, time);
-		player.set(\brown, level.max(0));
+	brown {|value=0, random=0, time=0|
+		value = value + random.asFloat.rand2;
+		brown = value;
+		player.set(\brownlag, time, \brown, value.max(0));
 	}
 
 	vibrato { |rate=1, depth=0, ratev=0, depthv=0, time=0|
 		vib = [1, rate, depth, 0, 0, ratev, depthv];
-		player.set(\viblag, time);
-		player.setn(\vib, vib)
+		player.set(\viblag, time, \vib, vib)
 	}
 
-	dir {|adir=1, time=0|
-		dir = adir;
-		player.set(\dir, adir)
+	dir {|value=1, time=0|
+		dir = value;
+		player.set(\dir, value)
 	}
 
-	rate {|arate=nil, random=0, time=0|
-		if (arate.notNil, {
-			arate = arate + random.asFloat.rand2;
-			player.set(\ratelag, time);
-			player.set(\rate, arate);
+	rate {|value=nil, random=0, time=0|
+		if (value.notNil, {
+			value = value + random.asFloat.rand2;
+			player.set(\ratelag, time, \rate, value);
 
 			memrate = rate;
-			rate = arate;
+			rate = value;
 			this.post("rate", rate);
 		}, {
 			^rate
@@ -294,21 +300,20 @@ Tape{
 		st = args[0].clip(0,1);//.clip(0, 1-(end-st));
 		end = args[1].clip(st,1);
 
-		if (st==end,{
-			(id+"warning. start and end point are equal!").postln;
-			end=st+0.001;
+		if (st>=end,{
+			(id+"warning: start >= end! reseting...").postln;
+			end=st+0.01;
 		});
 
-		player.set(\start, st);
-		player.set(\end, end);
+		player.set(\start, st, \end, end);
 		//[st, end].postln;
 		this.post("loop", st.asString+"-"+end.asString);
 		this.updatelooppoints; //only if w open
 	}
 
-	st {|p, random=0|
-		if (p.notNil, {
-			st = p + random.asFloat.rand2;
+	st {|value, random=0|
+		if (value.notNil, {
+			st = value + random.asFloat.rand2;
 			player.set(\start, st);
 			this.updatelooppoints; //only if w open
 		}, {
@@ -316,9 +321,9 @@ Tape{
 		});
 	}
 
-	end {|p, random=0|
-		if (p.notNil, {
-			end = p + random.asFloat.rand2;
+	end {|value, random=0|
+		if (value.notNil, {
+			end = value + random.asFloat.rand2;
 			player.set(\end, end);
 			this.updatelooppoints; //only if w open
 		}, {
@@ -326,9 +331,9 @@ Tape{
 		})
 	}
 
-	dur {|adur, random=0|
-		if (adur.notNil, {
-			end = st + adur + random.asFloat.rand2;
+	dur {|value, random=0|
+		if (value.notNil, {
+			end = st + value + random.asFloat.rand2;
 			player.set(\end, end);
 			this.post("end", end);
 			this.updatelooppoints; //only if w open
@@ -337,9 +342,9 @@ Tape{
 		})
 	}
 
-	len {|ms| // IN MILLISECONDS
-		if (ms.notNil, {
-			var adur= ms / ((buf.numFrames/buf.sampleRate)*1000 ); // from millisecs to 0-1
+	len {|value| // IN MILLISECONDS
+		if (value.notNil, {
+			var adur= value / ((buf.numFrames/buf.sampleRate)*1000 ); // from millisecs to 0-1
 			this.dur(adur)
 		}, {
 			^len
@@ -372,9 +377,9 @@ Tape{
 			\pan, pan, \index, id, \out, bus]);
 	}
 
-	buf {|abuf|
-		if (abuf.notNil, {
-			buf = abuf;
+	buf {|value|
+		if (value.notNil, {
+			buf = value;
 			player.set(\buffer, buf.bufnum);
 			this.post("buffer", this.file());
 			this.updatelooppoints; //only if w open
@@ -383,8 +388,8 @@ Tape{
 		})
 	}
 
-	rvol {|limit=1.0, time=0 |
-		this.vol( limit.rand, time:time );
+	rvol {|value=1.0, time=0 |
+		this.vol( value.rand, time:time );
 	}
 
 	rpan {|time=0| // -1 to 1
@@ -455,10 +460,10 @@ Tape{
 	// set len
 
 	bloop {|range=0.01|
-		this.loop(this.st+range.rand2, this.end+range.rand2)
+		this.loop(this.st+(range.asFloat.rand2), this.end+(range.asFloat.rand2))
 	}
 
-	bgo {|range=0.01| this.go( curpos+(range.rand2)) }// single step brown variation
+	bgo {|range=0.01| this.go( curpos+(range.asFloat.rand2)) }// single step brown variation
 
 	bvol {|range=0.05, time=0|
 		this.vol( vol+(range.asFloat.rand2), time:time)
@@ -469,6 +474,11 @@ Tape{
 	}
 
 	brate {|range=0.05, time=0|
-		this.rate( rate+(range.rand2), time:time )
+		this.rate( rate+(range.asFloat.rand2), time:time )
 	}// single step brown variation
+
+	bmove {|range=0.05|
+		var pos = st+(range.asFloat.rand2);
+		this.loop(pos, pos+(end-st)); //keep len
+	}
 }
