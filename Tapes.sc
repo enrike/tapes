@@ -306,20 +306,21 @@ Tapes{
 		bufs.collect(_.normalize);
 	}
 
-	buf {|buf, offset=0, defer=0, o=nil, d=nil|
+	buf {|value, offset=0, defer=0, o=nil, d=nil|
 		#offset, defer = [o?offset, d?defer];
-		if (buf.isNil, {
-			buf=bufs.choose;
-			("choosing a random buffer:"+PathName(buf.path).fileName).postln
+		if (value.isNil, {
+			value=bufs.choose;
+			("choosing a random buffer:"+PathName(value.path).fileName).postln
 		});
+		if (value.isArray, {value=value.choose}); // choose between passed valyes
 
-		if (buf.isInteger, {buf = bufs[buf]}); // using the index
+		if (value.isInteger, {value = bufs[value]}); // using the index
 
 		{
 			grouplists[currentgroup].do({ |pl, index|
 				{
-					pl.buf(buf);
-					this.newplotdata(buf, views[index]);
+					pl.buf(value);
+					this.newplotdata(value, views[index]);
 				}.defer(offset.asFloat.rand)
 		})}.defer(defer)
 	}

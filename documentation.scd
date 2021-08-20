@@ -3,6 +3,8 @@ Tapes by ixi-audio.net
 license GPL
 
 Tapes allows to create and control multiple tapeloop-like sample players
+
+note that it expects stereo samples
 */
 
 
@@ -28,7 +30,7 @@ _0.copy(_1) // tape player 0 copies tape player 1's state (here you cannot pass 
 
 _group // all tape players in current group
 _1 // individual tape player _0, _1, _2, _3, etc...
-_id(1008) // returns the tape with that ID
+_id(1008) // returns the instance of the tape with that ID
 _where(1008)// returns the position of tape with that id in current group 0,1,2...
 
 _info // post internal states for all available tape players
@@ -73,6 +75,7 @@ _bufs // posts buffers available
 _curbufs // posts which buffers actually being used by which tape players (_0, filename)
 _bufinfo // posts index and name of laoded buffers
 _buf(5) // asign buffer 5 to all players in current group
+_buf([0,2,5]) // randomly choose between those buffers and assign
 
 // you could load new files and asign them again after tape players are alive
 _loadfiles("another/directory");
@@ -83,7 +86,7 @@ _asignbufs // force re-asign them
 // global controls. control ALL tape players *in current group* at the same time //
 ///////////////////////////////////////////////////////////////////////////////////
 
-_play // loop play
+_play // loop play all tapes in current group
 _stop
 _shot // single shot play. experimental
 _solo(0) // pause all but 0 player
@@ -155,7 +158,7 @@ _rdir // + or - rate
 _rvol
 _rloop // 0 to 1
 _rloop([0.2, 0.1]) // set start and *LENGTH* limits for the random. in this case start will be rrange(0,0.2) and length start+(0.1.rand)
-_rmove; // move current st-end to a random position
+_rmove; // move current loop to a random position maintaing the length
 _rst // start point
 _rend // end point (not length)
 _rlen(0.1) // length. in range 0-1
@@ -174,36 +177,36 @@ _brate
 
 // rand select some players to apply commands to only those but not to all
 _one.rrate // one gets random rate
-_some // returns a random list of N players
+_some // returns a list of random players
 _some(3) // 3 random players
 _some.collect(_.rrate) // some of them get random rate
 _some(3).collect(_.rrate) // 3 get random rate
 
 
 // DEFER
-// functions can be deferred
+// functions can be deferred in time
 _rate(defer:4) // same as {_rate}.defer(4)
 _rate(d:4) // shortcut
 
 // OFFSET //
 // functions also have offsets so that tape players dont run the function at the same time
-_rrate(offset:8) // all players get random rate at a different times within the next 8 secs
+_rrate(offset:8) // all players get random rate at a different random times within the next 8 secs
 _rate(o:4) // shortcut
 
 
 // TRANSITION TIME:
 // some functions (the ones related to panning, amplitude and pitch) can perform a transition between the current state and the target state in N secs
-// go to a value in N secs
 _rate(0.1, time:10)// go to 0.1 rate in 10secs
 _rate(1, t:4) // shortcut
-_brate(0.1, time:20, offset:8) // offset can be use here too
+_rate(0.1, time:20, offset:8) // offset can be use here too
 
 //local randoms
 _rate(1, random:0.1); // each of them will get a random rate ranging -0.1 to 0.1 around 1
-_end(0.5, random:0.01);
-_dur(0.1, random:0.05);
 _rate(r:4) // shortcut
 //etc...
+
+// ALL OPTIONS TOGETHER
+_rate(2, d:5, o:10, t:1, r:0.1)
 
 /*// compressor. yes, there is a built in compressor/expander. inactive by default
 _comp(0.2, 0.6, 0.2) //threshold, slopeBelow, slopeAbove
@@ -259,6 +262,8 @@ _do(\test, {_rvol}, s:3, r:3, d:1, i:2, w:{z>1}, t:0, v:true)
 
 
 
+
+
 // some examples of scheduling tasks
 _do(\backtoinit, {_reset}, 10) // resets every 10s
 _do(\rev, {_reverse(offset:5)}, 10)
@@ -277,11 +282,11 @@ _do(\inoutrand, { //every 30 sec: 9 sec fade in- after 15 secs - 9 secs fade out
 _undo(\inoutrand)
 
 _do(\ramps, {// this will move every 10 secs all the pitchs to a random value ranging -3 to +3 from the current value in a 5 sec transition
-	_brate(4, 5, \sin)
+	_brate(4, 5)
 }, 10, random:3)
 
 
-( // keeps mirror playing while slowly moving around the same area
+( // keeps mirror-playing while slowly moving around the same area
 _rdir;
 _do(\rev, {
 	_bgo(0.01);
@@ -289,7 +294,7 @@ _do(\rev, {
 }, 1, random:0.2)
 )
 
-( // moves forwards
+( // moves forwards in sample
 var st=0, end;
 _do(\go, {
 	st = st+(0.001.rand);
@@ -334,6 +339,9 @@ _do(\go, {
 // if in doubt check the source code at Tape.sc
 
 // GET
+_0.id;
+_1.id; // etc... _2, _3, ...
+
 _0.vol
 _0.info
 _0.file
