@@ -4,7 +4,7 @@
 
 Tapes{
 
-	var server, <path, <bufs, <sfs, <ps, procs;
+	var server, <path, <bufs, <sfs, <ps, <procs;
 	var plotwin=nil, plotview, drawview, plotwinrefresh;
 	var controlGUI, views;
 	//var buses, <compressor;
@@ -148,9 +148,9 @@ Tapes{
 					bufs = bufs.add( buf )
 				});
 
-				(sfs.size + "files available").postln;
-				"loading sounds into buffers".postln;
-				"PLEASE WAIT ...".postln;
+				("..." + sfs.size + "files available").postln;
+				"... loading sounds into buffers".postln;
+				"... PLEASE WAIT ...".postln;
 			});
 		})
 	}
@@ -277,13 +277,13 @@ Tapes{
 
 	free { bufs.collect(_.free) }
 
-	allbufs{
-		"-- Available buffers --".postln;
-		sfs.size.do({|i|
-			(i.asString++": ").post;
-			sfs[i].path.split($/).last.postln;
-		})
-	}
+	/*	allbufs{
+	"-- Available buffers --".postln;
+	sfs.size.do({|i|
+	(i.asString++": ").post;
+	sfs[i].path.split($/).last.postln;
+	})
+	}*/
 
 	curbufs {
 		"-- index of player, filename --".postln;
@@ -550,11 +550,14 @@ Tapes{
 		this.action(\moveby, value, random, 0, offset, defer, r, nil, o, d);
 	}
 
-	solo {|id, defer=0, d=nil| // add offset and defer?
+	solo {|index, defer=0, d=nil| // add offset and defer?
+		index.postln;
+		grouplists[currentgroup][index].id.postln;
 		defer = d?defer;
 		{
 			grouplists[currentgroup].do({ |pl|
-				if (pl.id!=id, {
+				//if (pl.id!=id, {
+				if (pl!=grouplists[currentgroup][index], {
 					if (pl.rate!=0, {pl.pause}); // if not already paused, pause.
 				}, {
 					pl.resume;
@@ -813,15 +816,15 @@ Tapes{
 
 
 	/////// task's stuff ////
-	undo {|name, defer=0, d=0|
+	undo {|name, defer=0, d=nil|
 		defer = d?defer;
 		{
 			if (name.isNil, {
-				"-- kill all procs".postln;
+				"-- kill all _do".postln;
 				procs.collect(_.stop);
 				procs = Dictionary.new;
 			},{
-				("-- procs: killing"+name).postln;
+				("-- _do: killing"+name+procs[name.asSymbol]).postln;
 				procs[name.asSymbol].stop;
 				procs.removeAt(name.asSymbol);
 			})
@@ -840,7 +843,13 @@ Tapes{
 			name.postln;
 		});
 
-		if (procs[name.asSymbol].notNil, { this.undo(name.asSymbol) }); // kill before rebirth if already there
+		("creating _do"+name).postln;
+
+		if (procs[name.asSymbol].notNil, {// kill before rebirth if already there
+			//this.undo(name.asSymbol);
+			procs[name.asSymbol].stop;
+			procs.removeAt(name.asSymbol)
+		});
 
 		clock ?? clock = TempoClock; // default
 
@@ -867,117 +876,120 @@ Tapes{
 			};
 			then.value; // last will
 			("-- done with"+name).postln;
-			this.undo(name.asSymbol)
+			//this.undo(name.asSymbol)
+			procs[name.asSymbol].stop;
+			procs.removeAt(name.asSymbol)
 		}, clock);
 
 		{ atask.start }.defer(defer);
 
 		procs.add(name.asSymbol -> atask);// to keep track of them
-	}
-	////////////////////////////
+		}
+		////////////////////////////
 
-	/*	// compressor/expander ///
-	comp{|thr=0.5, sla=1, slb=1| // threshold, slopeBelow, slopeAbove
-	compressor.set(\thr, thr);
-	compressor.set(\sla, sla);
-	compressor.set(\slb, slb)
-	}
-	thr{|val=0.5| compressor.set(\thr, val)}
-	sla{|val=1| compressor.set(\sla, val)}
-	slb{|val=1| compressor.set(\slb, val)}
-	nocomp{this.comp(0.5,1,1)} // reset
-	/////////////////
-	*/
+		/*	// compressor/expander ///
+		comp{|thr=0.5, sla=1, slb=1| // threshold, slopeBelow, slopeAbove
+		compressor.set(\thr, thr);
+		compressor.set(\sla, sla);
+		compressor.set(\slb, slb)
+		}
+		thr{|val=0.5| compressor.set(\thr, val)}
+		sla{|val=1| compressor.set(\sla, val)}
+		slb{|val=1| compressor.set(\slb, val)}
+		nocomp{this.comp(0.5,1,1)} // reset
+		/////////////////
+		*/
 
-	updateplot {|buf| // draw the choosen buffer
-		if (plotwin.notNil, {
-			var f = { |b,v|
-				b.loadToFloatArray(action: { |a| { v.setData(a) }.defer });
-				//v.gridResolution(b.duration/10); // I would like to divide the window in 10 parts no matter what the sound dur is. Cannot change gridRes on the fly?
-			};
-			//if (buf.notNil, {f.(buf, plotview)}); // only if a buf is provided
-			buf !? f.(buf, plotview)
-		});
-	}
-
-	control {|cwidth, cheight|
-		var gap=0, height=0;
-		if (controlGUI.isNil, {
-			controlGUI = Window("All tapes", Rect(500, 200, cwidth?500, cheight?700));
-			controlGUI.alwaysOnTop = true;
-			controlGUI.front;
-			controlGUI.onClose = {
-				controlGUI = nil;
-				grouplists[currentgroup].do({|play| play.view = nil });
-				plotwinrefresh.stop;
-			};
-			"OPENING CONTROL GUI".postln;
-
-			//height = controlGUI.bounds.height/howmany;
-
-			controlGUI.layout = VLayout();
-
-			// 		"To zoom in/out: Shift + right-click + mouse-up/down".postln;
-			// 		"To scroll: right-click + mouse-left/right".postln;
-			views.size.do({|index|
-				views[index] = SoundFileView().timeCursorOn_(true)
-				.elasticMode_(true)
-				.timeCursorColor_(Color.red)
-				.drawsWaveForm_(true)
-				.gridOn_(true)
-				//.gridResolution(10)
-				.gridColor_(Color.white)
-				.waveColors_([ Color.new255(103, 148, 103), Color.new255(103, 148, 103) ])
-				.background_(Color.new255(155, 205, 155))
-				.canFocus_(false)
-				.setSelectionColor(0, Color.blue)
-				.currentSelection_(0)
-				.setEditableSelectionStart(0, true)
-				.setEditableSelectionSize(0, true)
-
-				.mouseDownAction_({ |thisview, x, y, mod, buttonNumber| // update selection loop
-					grouplists[currentgroup][index].st( x.linlin(0, thisview.bounds.width, 0,1) ) // what about when zoomed in?
-				})
-				.mouseUpAction_({ |thisview, x, y, mod|
-					grouplists[currentgroup][index].end( x.linlin(0, thisview.bounds.width, 0,1) )
-				});
-				controlGUI.layout.add(views[index]);
-
-				grouplists.values.flat[index].view = views[index];// to update loop point when they change
-				grouplists.values.flat[index].updatelooppoints();
-
-				this.newplotdata(grouplists.values.flat[index].buf, views[index]);
+		updateplot {|buf| // draw the choosen buffer
+			if (plotwin.notNil, {
+				var f = { |b,v|
+					b.loadToFloatArray(action: { |a| { v.setData(a) }.defer });
+					//v.gridResolution(b.duration/10); // I would like to divide the window in 10 parts no matter what the sound dur is. Cannot change gridRes on the fly?
+				};
+				//if (buf.notNil, {f.(buf, plotview)}); // only if a buf is provided
+				buf !? f.(buf, plotview)
 			});
+		}
 
-			plotwinrefresh = Task({
-				inf.do({|index|
-					views.do({|view, index|
-						view.timeCursorPosition = grouplists.values.flat[index].curpos * (grouplists.values.flat[index].buf.numFrames);
-						0.1.wait;
+		control {|cwidth, cheight|
+			var gap=0, height=0;
+			if (controlGUI.isNil, {
+				controlGUI = Window("All tapes", Rect(500, 200, cwidth?500, cheight?700));
+				controlGUI.alwaysOnTop = true;
+				controlGUI.front;
+				controlGUI.onClose = {
+					controlGUI = nil;
+					grouplists[currentgroup].do({|play| play.view = nil });
+					plotwinrefresh.stop;
+				};
+				"OPENING CONTROL GUI".postln;
+
+				//height = controlGUI.bounds.height/howmany;
+
+				controlGUI.layout = VLayout();
+
+				// 		"To zoom in/out: Shift + right-click + mouse-up/down".postln;
+				// 		"To scroll: right-click + mouse-left/right".postln;
+				views.size.do({|index|
+					views[index] = SoundFileView().timeCursorOn_(true)
+					.elasticMode_(true)
+					.timeCursorColor_(Color.red)
+					.drawsWaveForm_(true)
+					.gridOn_(true)
+					//.gridResolution(10)
+					.gridColor_(Color.white)
+					.waveColors_([ Color.new255(103, 148, 103), Color.new255(103, 148, 103) ])
+					.background_(Color.new255(155, 205, 155))
+					.canFocus_(false)
+					.setSelectionColor(0, Color.blue)
+					.currentSelection_(0)
+					.setEditableSelectionStart(0, true)
+					.setEditableSelectionSize(0, true)
+
+					.mouseDownAction_({ |thisview, x, y, mod, buttonNumber| // update selection loop
+						grouplists[currentgroup][index].st( x.linlin(0, thisview.bounds.width, 0,1) ) // what about when zoomed in?
+					})
+					.mouseUpAction_({ |thisview, x, y, mod|
+						grouplists[currentgroup][index].end( x.linlin(0, thisview.bounds.width, 0,1) )
 					});
-					//"----".postln;
-				})
-			}, AppClock);
-			plotwinrefresh.start;
-		});
+					controlGUI.layout.add(views[index]);
+
+					grouplists.values.flat[index].view = views[index];// to update loop point when they change
+					grouplists.values.flat[index].updatelooppoints();
+
+					this.newplotdata(grouplists.values.flat[index].buf, views[index]);
+				});
+
+				plotwinrefresh = Task({
+					inf.do({|index|
+						views.do({|view, index|
+							view.timeCursorPosition = grouplists.values.flat[index].curpos * (grouplists.values.flat[index].buf.numFrames);
+							0.1.wait;
+						});
+						//"----".postln;
+					})
+				}, AppClock);
+				plotwinrefresh.start;
+			});
+		}
+
+		newplotdata {|buf, view|
+			if (controlGUI.notNil, {
+				var sf = SoundFile.new;
+				sf.openRead(buf.path);
+				view.soundfile = sf;            // set soundfile
+				view.read(0, sf.numFrames);     // read in the entire file.
+				view.refresh;
+				//buf.loadToFloatArray(action: { |a| { view.setData(a) }.defer })
+			})
+		}
+
+		newselection {|st, end, view, buf|
+			if (controlGUI.notNil, {
+				view.setSelectionStart(0, (buf.numFrames) * st); // loop the selection
+				view.setSelectionSize(0, (buf.numFrames) * (end-st));
+			})
+		}
 	}
 
-	newplotdata {|buf, view|
-		if (controlGUI.notNil, {
-			var sf = SoundFile.new;
-			sf.openRead(buf.path);
-			view.soundfile = sf;            // set soundfile
-			view.read(0, sf.numFrames);     // read in the entire file.
-			view.refresh;
-			//buf.loadToFloatArray(action: { |a| { view.setData(a) }.defer })
-		})
-	}
-
-	newselection {|st, end, view, buf|
-		if (controlGUI.notNil, {
-			view.setSelectionStart(0, (buf.numFrames) * st); // loop the selection
-			view.setSelectionSize(0, (buf.numFrames) * (end-st));
-		})
-	}
-}
-
+	
