@@ -76,6 +76,7 @@ _curbufs // posts which buffers actually being used by which tape players (_0, f
 _bufinfo // posts index and name of laoded buffers
 _buf(5) // asign buffer 5 to all players in current group
 _buf([0,2,5]) // randomly choose between those buffers and assign
+_buf // randomly chooses and assigns one
 
 // you could load new files and asign them again after tape players are alive
 _loadfiles("another/directory");
