@@ -202,35 +202,43 @@ Tapes{
 	}
 	/////////
 
-	add {|howmany=1, copythis|
-		("creating players:"+howmany.asString).postln;
-		howmany.do({
-			var thebuffer, lay;
-			if (bufs.size>0, {
-				thebuffer = bufs.wrapAt( grouplists[currentgroup].size );
-				lay = Tape.new(thebuffer);
-				("at group"+currentgroup+"in position @"++grouplists[currentgroup].size).postln;
-				("-----------").postln;
-				grouplists[currentgroup].add(lay); // check if = is needed
+	add {|howmany=1, copythis, defer=0, d|
+		var target = currentgroup;
+		defer = d?defer;
+		{
+			("creating players:"+howmany.asString).postln;
+			howmany.do({
+				var thebuffer, lay;
+				if (bufs.size>0, {
+					thebuffer = bufs.wrapAt( grouplists[target].size );
+					lay = Tape.new(thebuffer);
+					("at group"+currentgroup+"in position @"++grouplists[target].size).postln;
+					("-----------").postln;
+					grouplists[target].add(lay); // check if = is needed
 
-				if (copythis.isNumber, { // by id. get the instance
-					copythis = this.id(copythis)
-				});
-				if (copythis.notNil, { lay.copy(copythis) });
+					if (copythis.isNumber, { // by id. get the instance
+						copythis = this.id(copythis)
+					});
+					if (copythis.notNil, { lay.copy(copythis) });
 
-				views.add(0);
-			}, {
-				"error: no buffers available!! run _loadfiles".postln;
+					views.add(0);
+				}, {
+					"error: no buffers available!! run _loadfiles".postln;
+				})
 			})
-		})
+		}.defer(defer)
 	}
 
-	kill {|index, agroup|
-		index ?? index = grouplists[currentgroup].size.rand;
-		agroup !? agroup = currentgroup;
-		grouplists[agroup].removeAt(index).kill;
-		views.pop;
-		("free"+index+"at group"+agroup).postln;
+	kill {|index, agroup, defer=0, d|
+		var target = currentgroup;
+		defer = d?defer;
+		{
+			index ?? index = grouplists[target].size.rand;
+			agroup !? agroup = currentgroup;
+			grouplists[agroup].removeAt(index).kill;
+			views.pop;
+			("free"+index+"at group"+agroup).postln;
+		}.defer(defer)
 	}
 
 	killall {|agroup|
@@ -241,13 +249,15 @@ Tapes{
 		};
 		grouplists[agroup] = List.new;
 		("free group"+agroup).postln;
-
 	}
 
-	killthemall{
-		grouplists.values.flat.collect(_.kill);
-		grouplists = Dictionary.new.add(\a -> List.new);
-		"killall in all groups".postln;
+	killthemall{|defer=0, d|
+		defer = d?defer;
+		{
+			grouplists.values.flat.collect(_.kill);
+			grouplists = Dictionary.new.add(\a -> List.new);
+			"killall in all groups".postln;
+		}.defer(defer)
 	}
 
 	search {|st|
@@ -662,12 +672,14 @@ Tapes{
 	}
 
 	action { |act=nil, value=1, random=0, time=0, offset=0, defer=0, r=nil, t=nil, o=nil, d=nil|
+		var target = currentgroup; // freeze target in case of defer
 		#random, time, offset, defer = [r?random, t?time, o?offset, d?defer];
 		//[act, time, random, offset, defer].postln};
 		{
-			grouplists[currentgroup].do({ |pl|
+			grouplists[target].do({ |pl|
 				//{pl.performList(act, [value, random, time])}.defer(offset.asFloat.rand)
-				{pl.performKeyValuePairs(act, [\value, value, \random, random, \time, time])}.defer(offset.asFloat.rand)
+				{pl.performKeyValuePairs(act,
+					[\value, value, \random, random, \time, time])}.defer(offset.asFloat.rand)
 			})
 		}.defer(defer)
 	}
@@ -685,22 +697,25 @@ Tapes{
 	}
 	//(freq: 440.0, rate: 6, depth: 0.02, delay: 0.0, onset: 0.0, rateVariation: 0.04, depthVariation: 0.1, iphase: 0.0, trig: 0.0)
 	vibrato {|value=1, depth=0, ratev=0, depthv=0, time=0, offset=0, defer=0, t=nil, o=nil, d=nil|
+		var target = currentgroup; // freeze target in case of defer
 		#time, offset, defer = [t?time, o?offset, d?defer];
-		{grouplists[currentgroup].do({ |pl|
+		{grouplists[target].do({ |pl|
 			{pl.vibrato(value,depth,ratev,depthv, time)}.defer(offset.asFloat.rand)
 		})}.defer(defer)
 	}
 
 	reverse {|time=0, offset=0, defer=0, t=nil, o=nil, d=nil|
+		var target = currentgroup; // freeze target in case of defer
 		#time, offset, defer = [t?time, o?offset, d?defer];
-		{grouplists[currentgroup].do({ |pl|
+		{grouplists[target].do({ |pl|
 			{pl.rate(pl.rate.neg, time:time)}.defer(offset.asFloat.rand)
 		})}.defer(defer)
 	}
 
 	scratch {|target=0, tIn=1, tStay=0.5, tOut=1, offset=0, defer=0, o=nil, d=nil| // boomerang like pitch change
+		var gtarget = currentgroup; // freeze target in case of defer
 		#offset, defer = [o?offset, d?defer];
-		{ grouplists[currentgroup].do({ |pl|
+		{ grouplists[gtarget].do({ |pl|
 			{pl.scratch(target, tIn, tStay, tOut)}.defer(offset.asFloat.rand)
 		})}.defer(defer)
 	}
@@ -727,8 +742,9 @@ Tapes{
 
 	rbuf {|mode=0, offset=0, defer=0, o=0, d=0|
 		var buffer = bufs.choose; // defaulto to all the same
+		var target = currentgroup; // freeze target in case of defer
 		#offset, defer = [o?offset, d?defer];
-		{grouplists[currentgroup].do({ |pl, index|
+		{grouplists[target].do({ |pl, index|
 			{
 				if (mode==1, {buffer=bufs.choose}); // each one different
 				pl.buf(buffer);
@@ -737,7 +753,10 @@ Tapes{
 		})}.defer(defer)
 	}
 
-	out { |ch=0| grouplists[currentgroup].collect(_.out(ch)) }
+	out { |ch=0|
+		var target = currentgroup; // freeze target in case of defer
+		grouplists[target].collect(_.out(ch))
+	}
 
 	spread { // each tape takes one out chanel
 		grouplists.values.flat.do{|tap, n|
@@ -750,9 +769,15 @@ Tapes{
 		this.action(\vol, value, random, time, offset, defer, r, t, o, d);
 	}
 
-	vold { grouplists[currentgroup].collect(_.vold) }
+	vold {
+		var target = currentgroup; // freeze target in case of defer
+		grouplists[target].collect(_.vold)
+	}
 
-	volu { grouplists[currentgroup].collect(_.volu) }
+	volu {
+		var target = currentgroup; // freeze target in case of defer
+		grouplists[target].collect(_.volu)
+	}
 
 	fadeout {|time=1, offset=0, defer=0, t=nil, o=nil, d=nil|
 		this.action(\vol, 0, 0, time, offset, defer, nil, t, o, d);
@@ -771,9 +796,10 @@ Tapes{
 	}
 
 	bloop {|range=0.01, offset=0, defer=0, o=0, d=0|
+		var target = currentgroup; // freeze target in case of defer
 		#offset, defer = [o?offset, d?defer];
 		{
-			grouplists[currentgroup].do({|pl, index|
+			grouplists[target].do({|pl, index|
 				{
 					pl.bloop(range);
 					this.newselection(pl.st, pl.end, views[index], pl.buf);
@@ -805,9 +831,10 @@ Tapes{
 	////////////
 
 	xloop {|func, offset=0, defer=0, o=0, d=0|
+		var target = currentgroup; // freeze target in case of defer
 		#offset, defer = [o?offset, d?defer];
 		func=func?{};
-		{grouplists[currentgroup].do({ |pl, index|
+		{grouplists[target].do({ |pl, index|
 			{
 				pl.xloop = func;
 			}.defer(offset.asFloat.rand)
@@ -822,6 +849,7 @@ Tapes{
 			if (name.isNil, {
 				"-- kill all _do".postln;
 				procs.collect(_.stop);
+				//procs.do{|p|p.postln;p.stop};
 				procs = Dictionary.new;
 			},{
 				("-- _do: killing"+name+procs[name.asSymbol]).postln;
@@ -868,8 +896,12 @@ Tapes{
 					});
 
 					if (random.isArray,
-						{sleep = random[0].wchoose(random[1])} ,
-						{sleep = sleep + random.rand2}
+						{if (random[1].isArray, {
+							sleep = random[0].wchoose(random[1]) ; // {values}, {chances}
+						}, {
+							sleep = random.choose; // {n1, n2, n3}
+						})
+						},{sleep = sleep + random.rand2}
 					);// rand gets added to sleep
 					sleep.max(0.005).wait
 				};
@@ -884,42 +916,45 @@ Tapes{
 		{ atask.start }.defer(defer);
 
 		procs.add(name.asSymbol -> atask);// to keep track of them
-		}
-		////////////////////////////
+	}
+	////////////////////////////
 
-		/*	// compressor/expander ///
-		comp{|thr=0.5, sla=1, slb=1| // threshold, slopeBelow, slopeAbove
-		compressor.set(\thr, thr);
-		compressor.set(\sla, sla);
-		compressor.set(\slb, slb)
-		}
-		thr{|val=0.5| compressor.set(\thr, val)}
-		sla{|val=1| compressor.set(\sla, val)}
-		slb{|val=1| compressor.set(\slb, val)}
-		nocomp{this.comp(0.5,1,1)} // reset
-		/////////////////
-		*/
+	/*	// compressor/expander ///
+	comp{|thr=0.5, sla=1, slb=1| // threshold, slopeBelow, slopeAbove
+	compressor.set(\thr, thr);
+	compressor.set(\sla, sla);
+	compressor.set(\slb, slb)
+	}
+	thr{|val=0.5| compressor.set(\thr, val)}
+	sla{|val=1| compressor.set(\sla, val)}
+	slb{|val=1| compressor.set(\slb, val)}
+	nocomp{this.comp(0.5,1,1)} // reset
+	/////////////////
+	*/
 
-		updateplot {|buf| // draw the choosen buffer
-			if (plotwin.notNil, {
-				var f = { |b,v|
-					b.loadToFloatArray(action: { |a| { v.setData(a) }.defer });
-					//v.gridResolution(b.duration/10); // I would like to divide the window in 10 parts no matter what the sound dur is. Cannot change gridRes on the fly?
-				};
-				//if (buf.notNil, {f.(buf, plotview)}); // only if a buf is provided
-				buf !? f.(buf, plotview)
-			});
-		}
+	updateplot {|buf| // draw the choosen buffer
+		if (plotwin.notNil, {
+			var f = { |b,v|
+				b.loadToFloatArray(action: { |a| { v.setData(a) }.defer });
+				//v.gridResolution(b.duration/10); // I would like to divide the window in 10 parts no matter what the sound dur is. Cannot change gridRes on the fly?
+			};
+			//if (buf.notNil, {f.(buf, plotview)}); // only if a buf is provided
+			buf !? f.(buf, plotview)
+		});
+	}
 
-		control {|cwidth, cheight|
-			var gap=0, height=0;
+	control {|cwidth, cheight, defer=0, d|
+		var gap=0, height=0;
+		var target = currentgroup; // freeze target in case of defer
+		defer=d?defer;
+		{
 			if (controlGUI.isNil, {
 				controlGUI = Window("All tapes", Rect(500, 200, cwidth?500, cheight?700));
 				controlGUI.alwaysOnTop = true;
 				controlGUI.front;
 				controlGUI.onClose = {
 					controlGUI = nil;
-					grouplists[currentgroup].do({|play| play.view = nil });
+					grouplists[target].do({|play| play.view = nil });
 					plotwinrefresh.stop;
 				};
 				"OPENING CONTROL GUI".postln;
@@ -947,10 +982,10 @@ Tapes{
 					.setEditableSelectionSize(0, true)
 
 					.mouseDownAction_({ |thisview, x, y, mod, buttonNumber| // update selection loop
-						grouplists[currentgroup][index].st( x.linlin(0, thisview.bounds.width, 0,1) ) // what about when zoomed in?
+						grouplists[target][index].st( x.linlin(0, thisview.bounds.width, 0,1) ) // what about when zoomed in?
 					})
 					.mouseUpAction_({ |thisview, x, y, mod|
-						grouplists[currentgroup][index].end( x.linlin(0, thisview.bounds.width, 0,1) )
+						grouplists[target][index].end( x.linlin(0, thisview.bounds.width, 0,1) )
 					});
 					controlGUI.layout.add(views[index]);
 
@@ -971,25 +1006,25 @@ Tapes{
 				}, AppClock);
 				plotwinrefresh.start;
 			});
-		}
-
-		newplotdata {|buf, view|
-			if (controlGUI.notNil, {
-				var sf = SoundFile.new;
-				sf.openRead(buf.path);
-				view.soundfile = sf;            // set soundfile
-				view.read(0, sf.numFrames);     // read in the entire file.
-				view.refresh;
-				//buf.loadToFloatArray(action: { |a| { view.setData(a) }.defer })
-			})
-		}
-
-		newselection {|st, end, view, buf|
-			if (controlGUI.notNil, {
-				view.setSelectionStart(0, (buf.numFrames) * st); // loop the selection
-				view.setSelectionSize(0, (buf.numFrames) * (end-st));
-			})
-		}
+		}.defer(defer)
 	}
 
-	
+	newplotdata {|buf, view|
+		if (controlGUI.notNil, {
+			var sf = SoundFile.new;
+			sf.openRead(buf.path);
+			view.soundfile = sf;            // set soundfile
+			view.read(0, sf.numFrames);     // read in the entire file.
+			view.refresh;
+			//buf.loadToFloatArray(action: { |a| { view.setData(a) }.defer })
+		})
+	}
+
+	newselection {|st, end, view, buf|
+		if (controlGUI.notNil, {
+			view.setSelectionStart(0, (buf.numFrames) * st); // loop the selection
+			view.setSelectionSize(0, (buf.numFrames) * (end-st));
+		})
+	}
+}
+
