@@ -176,6 +176,7 @@ Tapes{
 	}
 	usegroup {|name|
 		if (grouplists.keys.includes(name), {
+			("currentgroup is"+name).postln;
 			currentgroup=name;
 		}, {
 			("group"+name+"does NOT exist").postln
@@ -317,6 +318,7 @@ Tapes{
 	}
 
 	buf {|value, offset=0, defer=0, o=nil, d=nil|
+		var target = currentgroup;
 		#offset, defer = [o?offset, d?defer];
 		if (value.isNil, {
 			value=bufs.choose;
@@ -327,7 +329,7 @@ Tapes{
 		if (value.isInteger, {value = bufs[value]}); // using the index
 
 		{
-			grouplists[currentgroup].do({ |pl, index|
+			grouplists[target].do({ |pl, index|
 				{
 					pl.buf(value);
 					this.newplotdata(value, views[index]);
@@ -351,11 +353,12 @@ Tapes{
 	newplayer {|asynth| grouplists[currentgroup].do({ |pl| pl.newplayer(asynth)}) }
 
 	slice {|sttime, shift, grain, grainshift, offset=0, defer=0, o=nil, d=nil| // SLICER like behaviour
+		var target = currentgroup;
 		{
 			offset=o?offset;defer?d?defer;
 			slicestate = [sttime, shift, grain, grainshift];
 
-			grouplists[currentgroup].do({ |pl, index|
+			grouplists[target].do({ |pl, index|
 				var mysttime = sttime + (index * (shift/100.0));
 				var myendtime;// = mysttime + grain + (index * (grainshift/100.0));
 
