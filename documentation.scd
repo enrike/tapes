@@ -45,7 +45,7 @@ _them // last ones choosen by _some
 _one // choose one rand
 _it // last one choosen by _one
 
-// groups
+// groups. NOTE: beware that if you defer a function the current group might have changed by the time the function runs
 _currentgroup // active group: default is \a
 _group // posts current group's content
 _groups // all groups' content
@@ -71,9 +71,9 @@ _plot(4) // optional pass the buffer to draw on the background of the window. us
 
 _loadfiles("some/directory"); // load all files from this directory. BEWARE: loading files takes time
 _normalize // normalise buffers
-_bufs // posts buffers available
-_curbufs // posts which buffers actually being used by which tape players (_0, filename)
-_bufinfo // posts index and name of laoded buffers
+_bufs // list with available buffers
+_curbufs // posts tape, buffer for each tape. eg: _0, blah.wav, etc...
+_bufinfo // posts index and name of available buffers
 _buf(5) // asign buffer 5 to all players in current group
 _buf([0,2,5]) // randomly choose between those buffers and assign
 _buf // randomly chooses and assigns one
@@ -226,10 +226,12 @@ _one.xloop = {me.id.postln} // individually too
 
 // SCHEDULING FUNCTIONS: _do //
 // _do args are: name, function, sleep, random, defer, iter, when, then, verbose
-_do(\randpan, {_rpan}, 15); //loop run a function named \randpan every 15 secs sleep.
+_do(\randpan, {_rpan}, 2); //loop run a function named \randpan every 15 secs sleep.
 _undo(\randpan) // kill \randpan
 _undo // kill all scheduled functions
-_undo(\randpan, d:120) // it can be defferred too
+_undo(\randpan, d:10) // it can be deferred too
+
+_do(\num, {|i| i.postln}, 1) // get access to num of loops
 
 // you can overwrite a function by changing it and running it again as long as the name is the same
 _do(\blah, {"hi".postln}, 2) // run this first. it posts "hi" every 2 secs
@@ -237,6 +239,8 @@ _do(\blah, {"hi ya!".postln}, 1) // now run this. it overwrites the previous \bl
 
 // random: introducing swing. irregular sleeps
 _do(\randpan, {_rrate}, 15, random:2); // rand swing: the next sch will happen after 15 + rrand(-2,+2) secs
+
+_do(\randpan, {_rrate}, 15, random:[2,4,6]); // rand choose betwen given values
 
 _do(\wrand, {
 	"two options".postln;
@@ -248,12 +252,17 @@ _do(\spawn, {_rrate}, 3, defer:20); //wait 20 secs, then run every 3secs
 // num of iterations
 _do(\spawn, {_add(1,_0)}, 3, iter:10); //run every 3secs for 10 times then die
 
-// conditions: when, then
+// conditions: when
 z = 0;
 _do(\check, {"run!!!".postln}, 3, when:{z>0}) // will start running once z>1
 z = 1; // not it should start running
 
-_do(\check, {"run!!!".postln}, 3, when:{z>0}, then:0) // in this case it will only run once, then die
+// aftermath: when + then
+_do(\check, {"run!!!".postln}, 3, when:{z>0}, then:0) // run once then die
+_do(\check, {"run!!!".postln}, 3, when:{z>0}, then:{_rate(2, t:5)}) // go to 2 rate in 5secs then die
+
+// iter + then
+_do(\check, {|i| i.postln}, 0.5, iter:5, then:{"goodbye!!!!!".postln})
 
 // postln or not every run
 _do(\silent, { // wont print its state every run. useful with quick and repetitive tasks
