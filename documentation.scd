@@ -45,17 +45,32 @@ _them // last ones choosen by _some
 _one // choose one rand
 _it // last one choosen by _one
 
-// groups. NOTE: beware that if you defer a function the current group might have changed by the time the function runs
-_currentgroup // active group: default is \a
+// groups. are stacks of tapes that will respond to commands. This allows to have a group doing something and
+// create other tapes that are not affected by commmand unless selected with _currentgroup
+// by default there is a group called \default
+_currentgroup // active group: default is \default
 _group // posts current group's content
 _groups // all groups' content
 _newgroup(\dirty) // creates a new group
-_usegroup(\dirty) // switch to this roup
+_usegroup(\dirty) // switch to this group
+_usegroup // if no arg it defaults to \default group
 //_useall // use all groups
 _removegroup(\dirty) // removes the group and kills all players in it
 //_togroup(_1, \dirty) //move _1 from current group to group \a
 //_whichgroup(1001) // by ID
 _mergegroups // merge all players to group \a and usegroup(\a)
+
+// and example of using groups ///
+_add; // creates a tape in \default
+_buf; // rand buf tapes in \default
+_rate(0.5); // changes rate of tapes in \default
+_newgroup(\straight);
+_usegroup(\straight); //subsequent calls only affect tapes in \straight
+_add;
+_buf;
+_rate(2);
+/////////////////////////////////
+
 
 _kill(2) // kills tape player at pos 2 in current group. if N is too big it kills the last one
 _kill // kills a random tape player at current group
@@ -70,6 +85,7 @@ _plot(4) // optional pass the buffer to draw on the background of the window. us
 //  BUFFERS // assumes stereo samples
 
 _loadfiles("some/directory"); // load all files from this directory. BEWARE: loading files takes time
+_loadfiles("another/directory", overwrite:0); // load and append new buffers
 _normalize // normalise buffers
 _bufs // list with available buffers
 _curbufs // posts tape, buffer for each tape. eg: _0, blah.wav, etc...
@@ -81,6 +97,13 @@ _buf // randomly chooses and assigns one
 // you could load new files and asign them again after tape players are alive
 _loadfiles("another/directory");
 _asignbufs // force re-asign them
+
+// banks of buffers
+_newbank(\bells);
+_usebank(\bells);
+_currentbank; // hows active
+_mergebanks; // join all into default
+_delbank(\bells); // free buffers and delete this bank
 
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -103,8 +126,8 @@ _fadeout
 _pan(0) //-1 to 1
 _out(0) // tapes send output to channel 0,1
 _rate(0.8)
-_wobble(0.07) // rand fluctuation in rate
-_brown(0.5) // brownian fluctuation in rate
+_wobble(0.27) // rand fluctuation in rate
+_brown(0.7) // brownian fluctuation in rate
 _vibrato(value:3, depth:0.04, ratev:0.01, depthv:0.02)
 
 _lp(0, 0.01) // set loop start and end. in 0 to 1 range

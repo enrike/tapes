@@ -11,6 +11,7 @@ Tapes{
 	var volume=1;
 	var it, them; // to remember @one and @some
 	var <grouplists, <currentgroup;
+	var <currentbank;
 	var <slicestate=#[ 0.624, 7.156, 0.05, 0.0 ];
 
 	*new {| main=nil, dir, symbol="_" | // systemdir
@@ -20,14 +21,20 @@ Tapes{
 	initTapes {| amain, adir, asym |
 		~tapes = this; // keep me in a global
 
+		Platform.case(\linux, { Server.supernova });
+
 		OSCdef.freeAll;
 
 		procs = Dictionary.new; // stores all tasks
 
-		currentgroup = \a;
+		currentgroup = \default;
 		grouplists = Dictionary[currentgroup -> List.new];
 
 		views = List.new;
+
+		//bufs = List.new;
+		bufs = Dictionary[currentbank -> List.new];
+		currentbank = \default;
 
 		this.boot(adir);
 
@@ -52,7 +59,8 @@ Tapes{
 				//"comp", "thr", "slb", "sla",
 				"do", "undo", "xloop",
 				"slice", "slicegui",
-				"group", "groups", "mergegroups", "usegroup", "currentgroup", "newgroup", "killgroup", "all"
+				"group", "groups", "mergegroups", "usegroup", "currentgroup", "newgroup", "killgroup", "all",
+				"bank", "banks", "mergebanks", "usebank", "currentbank", "newbank", "delbank"
 			];
 
 			keywords.do({|met| // _go --> ~tapes.go
@@ -122,30 +130,41 @@ Tapes{
 		})
 	}
 
-	loadfiles {|apath|
+	loadfiles {|apath, overwrite=1| // overwrite will remove the previous one if any
+		var files=List.new;
+		var already = sfs.size;
+		var target = currentbank;
+
 		server.waitForBoot({
 			path = apath;
 			("path is"+apath).postln;
 
 			if (PathName.new(apath).isFile, {
-				sfs = List.newUsing( [SoundFile(apath)] );
-			}, {
-				sfs = List.newUsing( SoundFile.collect( apath++"*") ); // if a folder apply wildcards
+				files = List.newUsing( [SoundFile(apath)] );
+			}, { // if a folder apply wildcards
+				files = List.newUsing( SoundFile.collect( apath++Platform.pathSeparator++"*") );
 			});
 
-			if (sfs.size < 1, {
+			if (files.size < 1, {
 				"no files found!".postln;
 			}, {
-				bufs = Array.new(sfs.size);// all files in the dir
 
-				sfs.size.do({ arg n; // load ALL buffers
-					var buf = Buffer.read(server, sfs.wrapAt(n).path,
+				if (overwrite==1, {
+					sfs=files;
+					bufs[target] = List.new;//(files.size);// all files in the dir
+				},{
+					sfs=sfs++files; // append but later do not load all of them! just the new ones
+					//bufs = Array.new(files.size);// all files in the dir
+				});
+
+				files.size.do({ arg n; // load ALL buffers
+					var buf = Buffer.read(server, files.wrapAt(n).path,
 						action:{
-							("...loaded"+PathName(sfs.wrapAt(n).path).fileName).postln;
-							if (n>=(sfs.size-1), {"...DONE LOADING FILES!".postln})
+							("...loaded"+PathName(files.wrapAt(n).path).fileName).postln;
+							if (n>=(files.size-1), {"...DONE LOADING FILES!".postln})
 						}
 					);
-					bufs = bufs.add( buf )
+					bufs[target] = bufs[target].add( buf )
 				});
 
 				("..." + sfs.size + "files available").postln;
@@ -170,17 +189,17 @@ Tapes{
 	}
 	mergegroups{
 		var players = grouplists.values.flat;
-		grouplists = Dictionary.new.add(\a -> players);
-		currentgroup = \a;
+		grouplists = Dictionary.new.add(\default -> players);
+		currentgroup = \default;
 		this.usegroup(currentgroup)
 	}
 	usegroup {|name|
-		if (grouplists.keys.includes(name), {
-			("currentgroup is"+name).postln;
-			currentgroup=name;
-		}, {
-			("group"+name+"does NOT exist").postln
+		if (grouplists.keys.includes(name).not, {
+			("group"+name+"does NOT exist").postln;
+			name = \default;
 		});
+		currentgroup=name;
+		("currentgroup is"+name).postln;
 	}
 	newgroup {|name|
 		grouplists.add(name -> List.new);
@@ -202,6 +221,41 @@ Tapes{
 		^p
 	}
 	/////////
+	// BANKS
+
+	bank {
+		^bufs[currentbank]
+	}
+	/*	banks {
+	^bufs
+	}*/
+	mergebanks{
+		var bs = bufs.values.flat;
+		bufs = Dictionary.new.add(\default -> bs);
+		currentbank = \default;
+		this.usebank(currentbank)
+	}
+	usebank {|name|
+		if (bufs.keys.includes(name).not, {
+			("bank"+name+"does NOT exist").postln;
+			name = \default;
+		});
+		currentbank=name;
+		("currentbank is"+name).postln;
+	}
+	newbank {|name|
+		bufs.add(name -> List.new);
+		("created bank"+name).postln;
+	}
+	removebank {|name|
+		bufs[currentbank].collect(_.free);
+		bufs.removeAt(name);
+		("removed bank"+name).postln;
+	}
+
+	//////////////////
+
+
 
 	add {|howmany=1, copythis, defer=0, d|
 		var target = currentgroup;
@@ -210,8 +264,8 @@ Tapes{
 			("creating players:"+howmany.asString).postln;
 			howmany.do({
 				var thebuffer, lay;
-				if (bufs.size>0, {
-					thebuffer = bufs.wrapAt( grouplists[target].size );
+				if (bufs[currentbank].size>0, {
+					thebuffer = bufs[currentbank].wrapAt( grouplists[target].size );
 					lay = Tape.new(thebuffer);
 					("at group"+currentgroup+"in position @"++grouplists[target].size).postln;
 					("-----------").postln;
@@ -256,7 +310,7 @@ Tapes{
 		defer = d?defer;
 		{
 			grouplists.values.flat.collect(_.kill);
-			grouplists = Dictionary.new.add(\a -> List.new);
+			grouplists = Dictionary.new.add(\default -> List.new);
 			"killall in all groups".postln;
 		}.defer(defer)
 	}
@@ -286,7 +340,8 @@ Tapes{
 
 	them {^them;}
 
-	free { bufs.collect(_.free) }
+	free { bufs[currentbank].collect(_.free) }
+	freeall { bufs.values.flat.collect(_.kill) }
 
 	/*	allbufs{
 	"-- Available buffers --".postln;
@@ -314,19 +369,19 @@ Tapes{
 	}
 
 	normalize {
-		bufs.collect(_.normalize);
+		bufs[currentbank].collect(_.normalize);
 	}
 
 	buf {|value, offset=0, defer=0, o=nil, d=nil|
 		var target = currentgroup;
 		#offset, defer = [o?offset, d?defer];
 		if (value.isNil, {
-			value=bufs.choose;
+			value=bufs[currentbank].choose;
 			("choosing a random buffer:"+PathName(value.path).fileName).postln
 		});
 		if (value.isArray, {value=value.choose}); // choose between passed valyes
 
-		if (value.isInteger, {value = bufs[value]}); // using the index
+		if (value.isInteger, {value = bufs[currentbank][value]}); // using the index
 
 		{
 			grouplists[target].do({ |pl, index|
@@ -339,14 +394,14 @@ Tapes{
 
 	asignbufs { // asign buffers sequentially if more tapes than buffers then wrap
 		grouplists[currentgroup].do({ |pl, index|
-			pl.buf( bufs.wrapAt(index))
+			pl.buf( bufs[currentbank].wrapAt(index))
 		})
 	}
 
 	bufinfo {
-		"-- buffer index, filename --".postln;
-		bufs.do{|b, i|
-			(i + PathName(b.path).fileName).postln;
+		"-- buffer bank index, filename --".postln;
+		bufs[currentbank].do{|b, i|
+			("bank:" ++ currentbank.asString + "/ i:" ++ i.asString +"/"+ PathName(b.path).fileName).postln;
 		}
 	}
 
@@ -744,12 +799,12 @@ Tapes{
 	}
 
 	rbuf {|mode=0, offset=0, defer=0, o=0, d=0|
-		var buffer = bufs.choose; // defaulto to all the same
+		var buffer = bufs[currentbank].choose; // defaulto to all the same
 		var target = currentgroup; // freeze target in case of defer
 		#offset, defer = [o?offset, d?defer];
 		{grouplists[target].do({ |pl, index|
 			{
-				if (mode==1, {buffer=bufs.choose}); // each one different
+				if (mode==1, {buffer=bufs[currentbank].choose}); // each one different
 				pl.buf(buffer);
 				this.newplotdata(pl.buf, views[index]);
 			}.defer(offset.asFloat.rand)
