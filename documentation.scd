@@ -8,11 +8,14 @@ note that it expects stereo samples
 */
 
 
-
-// quick "how to use" guide
+//////////////////////////////
+// quick "how to use" guide //
 Tapes(this, "~/Mahaigaina/audio/00works/"); // prepare the system and load all samples from this folder. must wait until loaded to continue
-_add(4); // create 4 players. wait until created to continue
+_add(4); // create 4 players
 _play;
+//////////////////////////////
+
+
 
 
 _verbose(true) // will post extra log information
@@ -82,15 +85,16 @@ _plot; // draws the play heads of each tape player the same window
 _plot(4) // optional pass the buffer to draw on the background of the window. useful when all tape players share the same buffer
 
 
-//  BUFFERS // assumes stereo samples
+//  BUFFERS // *assumes stereo samples*
 
-_loadfiles("some/directory"); // load all files from this directory. BEWARE: loading files takes time
-_loadfiles("another/directory", overwrite:0); // load and append new buffers
+_loadfiles("some/directory"); // load all files from this directory into current buffer bank. BEWARE: loading files might take time
+_loadfiles("another/directory", overwrite:0); // load and append new buffers to previously existing ones
+_loadfiles("some/directory/somefile.wav");// load this file only
 _normalize // normalise buffers
 _bufs // list with available buffers
 _curbufs // posts tape, buffer for each tape. eg: _0, blah.wav, etc...
-_bufinfo // posts index and name of available buffers
-_buf(5) // asign buffer 5 to all players in current group
+_bufinfo // posts bank, index and name of available buffers
+_buf(5) // asign buffer 5 of current bank to all players in current group
 _buf([0,2,5]) // randomly choose between those buffers and assign
 _buf // randomly chooses and assigns one
 
@@ -98,13 +102,21 @@ _buf // randomly chooses and assigns one
 _loadfiles("another/directory");
 _asignbufs // force re-asign them
 
-// banks of buffers
+// banks of buffers. organise your samples into different banks
 _newbank(\bells);
 _usebank(\bells);
-_currentbank; // hows active
-_mergebanks; // join all into default
+_currentbank; // who's active
+_mergebanks; // join all into default bank
 _delbank(\bells); // free buffers and delete this bank
 
+// for instance:
+_newbank(\bells);
+_usebank(\bells);
+_loadfiles("some/directory/bells/");
+// wait
+_newbank(\voices);
+_usebank(\voices);
+_loadfiles("some/directory/voices/");
 
 ///////////////////////////////////////////////////////////////////////////////////
 // global controls. control ALL tape players *in current group* at the same time //
@@ -151,7 +163,6 @@ _reset // reset loop to 0-1, play from 0, pitch to 1
 _lp // resets loop to 0-1
 _gost // to to loop start point
 _goend // go to loops end point
-
 _go // resets pos to 0 --> *SAME* happens with _pan, _rate, _vol. They reset to default value
 
 

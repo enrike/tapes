@@ -51,6 +51,7 @@ Tapes{
 				"add", "kill", "killall", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "bufinfo", "normalize",
 				"one", "it", "some", "them", "info", "verbose", "plot", "control", "hm",
 				"scratch", "pause", "solo", "fwd", "bwd", "dir", "reverse", "volu", "vold", "vol", "fadein", "fadeout",
+				"rwd",
 				"pan", "rate", "wobble", "brown", "vibrato", "reset", "resume", "shot", "out", "stop", "play",
 				"lp", "loop", "st", "move", "moveby", "end", "go", "gost", "goend", "dur", "len",
 				"push", "pop", "save", "load", "search", "id", "where",
@@ -768,6 +769,23 @@ Tapes{
 		{grouplists[target].do({ |pl|
 			{pl.rate(pl.rate.neg, time:time)}.defer(offset.asFloat.rand)
 		})}.defer(defer)
+	}
+
+	//fwd {
+
+	//}
+
+	rwd {|time=2, offset=0, defer=0, t=nil, o=nil, d=nil|
+		var target = currentgroup; // freeze target in case of defer
+		#time, offset, defer = [t?time, o?offset, d?defer];
+		{grouplists[target].do({ |pl|
+			{
+				var olrd=pl.rate;
+				pl.rate(-1.8, time:time/2.0); //back accelerate
+				{pl.rate(olrd, time:time/2.0)}.defer(time); // wait and finally slow down
+			}.defer(offset.asFloat.rand)
+		})}.defer(defer)
+
 	}
 
 	scratch {|target=0, tIn=1, tStay=0.5, tOut=1, offset=0, defer=0, o=nil, d=nil| // boomerang like pitch change
