@@ -24,8 +24,6 @@ Quarks.install("https://github.com/enrike/tapes.git");
 or download https://github.com/enrike/tapes/archive/refs/heads/master.zip and uncompress into the Supercollider's Extensions folder.
 
 
-windows 
-
 License : GNU GPL
 
 This application is free software; you can redistribute it and/or modify it under the terms of the GNU, General Public License as published by the Free Software Foundation.
