@@ -256,10 +256,11 @@ _xloop({ _rrate }) // everytime one single tape crosses the loop point, all off 
 _xloop({|me| me.rrate})  // every individual xloop each changes ITS own rate. Others are not affected
 _xloop // this clears the xloop functions for everyone
 _one.xloop = {me.id.postln} // individually too
+_0.xloop = {me.id.postln} // too
 
 
 // SCHEDULING FUNCTIONS: _do //
-// _do args are: name, function, sleep, random, defer, iter, when, then, verbose
+// _do args are: name, function, sleep, random, defer, iter, when, then, verbose, group
 _do(\randpan, {_rpan}, 2); //loop run a function named \randpan every 15 secs sleep.
 _undo(\randpan) // kill \randpan
 _undo // kill all scheduled functions
@@ -271,12 +272,18 @@ _do(\num, {|i| i.postln}, 1) // get access to num of loops
 _do(\blah, {"hi".postln}, 2) // run this first. it posts "hi" every 2 secs
 _do(\blah, {"hi ya!".postln}, 1) // now run this. it overwrites the previous \blah
 
+// playing with sleeping times //
+
+// cycle an array of sleep times
+_do(\cycle, {"sequence".postln}, [1,2,3])
+_do(\cycle, {"sequence".postln}, [0.1, 3, 0.2].mirror) // you can use all the sclang commands related to arrays
+
 // random: introducing swing. irregular sleeps
 _do(\randpan, {_rrate}, 15, random:2); // rand swing: the next sch will happen after 15 + rrand(-2,+2) secs
 
 _do(\randpan, {_rrate}, 15, random:[2,4,6]); // rand choose betwen given values
 
-_do(\wrand, {
+_do(\wrand, { // weight random
 	"two options".postln;
 }, random:[[1,3],[0.9, 0.1]])// run every every 1 sec (90% chances) or 3 secs (10% chances)
 
@@ -289,11 +296,10 @@ _do(\spawn, {_add(1,_0)}, 3, iter:10); //run every 3secs for 10 times then die
 // conditions: when
 z = 0;
 _do(\check, {"run!!!".postln}, 3, when:{z>0}) // will start running once z>1
-z = 1; // not it should start running
+z = 1; // run this line to start running _do
 
-// aftermath: when + then
-_do(\check, {"run!!!".postln}, 3, when:{z>0}, then:0) // run once then die
-_do(\check, {"run!!!".postln}, 3, when:{z>0}, then:{_rate(2, t:5)}) // go to 2 rate in 5secs then die
+// when + then
+_do(\check, {"run!!!".postln}, 3, when:{z>0}, then:0) // run once when z>0 then die
 
 // iter + then
 _do(\check, {|i| i.postln}, 0.5, iter:5, then:{"goodbye!!!!!".postln})
@@ -303,9 +309,18 @@ _do(\silent, { // wont print its state every run. useful with quick and repetiti
 	_rpan
 }, 0.2, verbose:false);
 
-// shorcuts work here too. beware that in this context t means THEN and not time
-_do(\test, {_rvol}, s:3, r:3, d:1, i:2, w:{z>1}, t:0, v:true)
+// which group of tapes to apply the commands to
+_newgroup(\noises);
+_add;
+_do(\rand, {_rrand}, 1, group:\noises); // will only affect to tapes in noises group
+// this is the same as
+_do(\rand, {
+	_usegroup(\noises);
+	_rrand
+}, 1)
 
+// shorcuts work here too. beware that in this context t means THEN and not time
+_do(\test, {_rvol}, s:3, r:3, d:1, i:2, w:{z>1}, t:0, v:true, g:\noises)
 
 
 

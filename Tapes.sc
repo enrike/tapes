@@ -21,7 +21,7 @@ Tapes{
 	initTapes {| amain, adir, asym |
 		~tapes = this; // keep me in a global
 
-		Platform.case(\linux, { Server.supernova });
+		//Platform.case(\linux, { Server.supernova });
 
 		OSCdef.freeAll;
 
@@ -196,11 +196,10 @@ Tapes{
 	}
 	usegroup {|name|
 		if (grouplists.keys.includes(name).not, {
-			("group"+name+"does NOT exist").postln;
 			name = \default;
 		});
 		currentgroup=name;
-		("currentgroup is"+name).postln;
+		//("currentgroup is"+name).postln;
 	}
 	newgroup {|name|
 		grouplists.add(name -> List.new);
@@ -935,11 +934,11 @@ Tapes{
 		}.defer(defer)
 	}
 
-	do {|name="", function, sleep=5.0, random=0, defer=0, iter=inf, when=true, then=1, clock=0, verbose=true,
-		s, r, d, i, w, t, c, v|
+	do {|name="", function, sleep=5.0, random=0, defer=0, iter=inf, when=true, then,
+		clock=0, verbose=true, group, s, r, d, i, w, t, c, v, g|
 		var atask;
 		sleep = s?sleep; defer=d?defer; iter=i?iter; when=w?when; then=t?then;
-		random=r?random; clock=c?clock; verbose=v?verbose;
+		random=r?random; clock=c?clock; verbose=v?verbose; group=g?group;
 
 		if (name=="", {
 			"TASKS MUST HAVE A NAME. Making up one".postln;
@@ -958,6 +957,7 @@ Tapes{
 		clock ?? clock = TempoClock; // default
 
 		atask = Task({
+			var wait = sleep;
 			block {|break|
 				iter.do {|index|
 					var time = ""+Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second;
@@ -965,21 +965,26 @@ Tapes{
 					if (verbose, {("-- now:"+name++time+(index.asInteger+1)++":"++iter).postln});
 
 					if (when.value, {
+						this.usegroup(group);
 						function.value(index.asInteger); // only run if {when} is true. pass index
-						if ( then==0, { // task dies after then
+						if ( then.isNil.not, { // task dies after then
 							break.value(999);
 						});
 					});
 
+					if (sleep.isArray, {
+						wait = sleep.wrapAt(index); //cycle
+					});
+
 					if (random.isArray,
 						{if (random[1].isArray, {
-							sleep = random[0].wchoose(random[1]) ; // {values}, {chances}
+							wait = random[0].wchoose(random[1]) ; // {values}, {chances}
 						}, {
-							sleep = random.choose; // {n1, n2, n3}
+							wait = random.choose; // {n1, n2, n3}
 						})
-						},{sleep = sleep + random.rand2}
+						},{wait = wait + random.rand2}
 					);// rand gets added to sleep
-					sleep.max(0.005).wait
+					wait.max(0.005).wait
 				};
 			};
 			then.value; // last will
