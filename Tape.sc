@@ -23,11 +23,11 @@ Tape{
 		id = UniqueID.next;
 
 		//Server.default.waitForBoot{
-			player.free;
-			player = Synth.tail(Server.default, \rPlayer,
-				[\buffer, buf ? buf.bufnum, \rate, rate, \index, id, \out, abus]);
+		player.free;
+		player = Synth.tail(Server.default, \rPlayer,
+			[\buffer, buf ? buf.bufnum, \rate, rate, \index, id, \out, abus]);
 
-			//Server.default.sync;
+		//Server.default.sync;
 		//};
 
 		xloop = {};
@@ -203,9 +203,7 @@ Tape{
 			value = value + random.asFloat.rand2;
 
 			vol = value.clip(0,1); //limits
-
-			player.set(\amplag, time, \amp, vol);
-			{player.set(\ampgate, 1)}.defer(del);
+			player.set(\amplag, time, \amp, vol, \gate, 1);
 
 			this.post("volume", (vol.asString + time.asString  + random.asString) );
 		}, {
@@ -228,6 +226,11 @@ Tape{
 	fadein {|time=1|
 		this.vol(vol, time)
 	}
+
+	/*	env {| attackTime= 0.01, decayTime= 0.3, sustainLevel= 0.5, releaseTime= 1.0,
+	peakLevel= 1.0, curve= -4.0, bias=0 |
+	player.set(\gate, 1, \attackTime, attackTime, \decayTime, decayTime, \sustainLevel, sustainLevel, \releaseTime, releaseTime, \peakLevel, peakLevel, \curve, curve, \bias, bias)
+	}*/
 
 	wobble {|value=0, random=0, time=0|
 		value = value + random.asFloat.rand2;
@@ -351,10 +354,10 @@ Tape{
 		})
 	}
 
-	pause {
-		memrate = rate; // store
-		this.rate(0)
-	}
+	// pause {
+	// 	memrate = rate; // store
+	// 	this.rate(0)
+	// }
 
 	resume {
 		this.rate(memrate); // retrieve stored value

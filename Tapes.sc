@@ -4,7 +4,7 @@
 
 Tapes{
 
-	var server, <path, <bufs, <sfs, <ps, <procs;
+	var server, <path, <bufs, <sfs, <ps, <procs, <onsets;
 	var plotwin=nil, plotview, drawview, plotwinrefresh;
 	var controlGUI, views;
 	//var buses, <compressor;
@@ -36,6 +36,8 @@ Tapes{
 		bufs = Dictionary[currentbank -> List.new];
 		currentbank = \default;
 
+		onsets = Dictionary.new;
+
 		this.boot(adir);
 
 		amain !? this.lang(amain, asym)
@@ -51,9 +53,9 @@ Tapes{
 				"add", "kill", "killall", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "bufinfo", "normalize",
 				"one", "it", "some", "them", "info", "verbose", "plot", "control", "hm",
 				"scratch", "pause", "solo", "fwd", "bwd", "dir", "reverse", "volu", "vold", "vol", "fadein", "fadeout",
-				"rwd",
+				"rwd", "trans",
 				"pan", "rate", "wobble", "brown", "vibrato", "reset", "resume", "shot", "out", "stop", "play",
-				"lp", "loop", "st", "move", "moveby", "end", "go", "gost", "goend", "dur", "len",
+				"lp", "loop", "st", "move", "moveby", "end", "go", "gost", "goend", "dur", "len", "env",
 				"push", "pop", "save", "load", "search", "id", "where",
 				"rbuf", "rrate", "rpan", "rloop", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rmove", "rand",
 				"bloop", "bmove", "bpan", "brate", "bvol", "bpan", "bgo", "spread",
@@ -61,7 +63,8 @@ Tapes{
 				"do", "undo", "xloop",
 				"slice", "slicegui",
 				"group", "groups", "mergegroups", "usegroup", "currentgroup", "newgroup", "killgroup", "all",
-				"bank", "banks", "mergebanks", "usebank", "currentbank", "newbank", "delbank"
+				"bank", "banks", "mergebanks", "usebank", "currentbank", "newbank", "delbank",
+				"loadonsetanalysis", "onsets"
 			];
 
 			keywords.do({|met| // _go --> ~tapes.go
@@ -377,7 +380,7 @@ Tapes{
 		#offset, defer = [o?offset, d?defer];
 		if (value.isNil, {
 			value=bufs[currentbank].choose;
-			("choosing a random buffer:"+PathName(value.path).fileName).postln
+			//("choosing a random buffer:"+PathName(value.path).fileName).postln
 		});
 		if (value.isArray, {value=value.choose}); // choose between passed valyes
 
@@ -742,6 +745,11 @@ Tapes{
 		}.defer(defer)
 	}
 
+	trans { |value=1, random=0, time=0, offset=0, defer=0, r=nil, t=nil, o=nil, d=nil|
+		//var result = (value * 2.log / 12).exp;
+		this.action(\rate, value.midiratio, random, time, offset, defer, r, t, o, d);
+	}
+
 	rate { |value=1, random=0, time=0, offset=0, defer=0, r=nil, t=nil, o=nil, d=nil|
 		this.action(\rate, value, random, time, offset, defer, r, t, o, d);
 	}
@@ -904,6 +912,43 @@ Tapes{
 	}
 
 	////////////
+/*	env {| attackTime= 0.01, decayTime= 0.3, sustainTime=0.5, sustainLevel= 0.5, releaseTime= 1.0, peakLevel= 1.0,
+		curve= -4.0, bias=0,
+		offset=0, defer=0, o=nil, d=nil|
+		var target = currentgroup;
+		#offset, defer = [o?offset, d?defer];
+		{grouplists[target].do({ |pl, index|
+			{
+				pl.env(attackTime, decayTime, sustainLevel, releaseTime, peakLevel, curve, bias);
+				{pl.gate(0)}.defer(sustainTime)
+			}.defer(offset.asFloat.rand)
+		})}.defer(defer)
+	}*/
+		// add rate too? but then must have some way to keep the current rate
+	env {|vol=1, fadein=0.01, len=0.5, fadeout=0.1, offset=0, defer=0, o=nil, d=nil|
+		var target = currentgroup;
+		#offset, defer = [o?offset, d?defer];
+		{grouplists[target].do({ |pl, index|
+			{
+				//if (rate.isNil.not, { pl.rate(rate) }); // only if requiered
+				pl.vol(vol, time:fadein); //rump up
+				{pl.vol(0,  time:fadeout)}.defer(fadein+len); // ramp down / fade len
+			}.defer(offset.asFloat.rand)
+		})}.defer(defer)
+	}
+
+	// add rate too? but then must have some way to keep the current rate
+/*	env {|vol=1, fadein=0.01, len=0.5, fadeout=0.1, offset=0, defer=0, o=nil, d=nil|
+		var target = currentgroup;
+		#offset, defer = [o?offset, d?defer];
+		{grouplists[target].do({ |pl, index|
+			{
+				//if (rate.isNil.not, { pl.rate(rate) }); // only if requiered
+				pl.vol(vol, time:fadein); //rump up
+				{pl.vol(0,   time:fadeout)}.defer(len); // ramp down / fade len
+			}.defer(offset.asFloat.rand)
+		})}.defer(defer)
+	}*/
 
 	xloop {|func, offset=0, defer=0, o=0, d=0|
 		var target = currentgroup; // freeze target in case of defer
@@ -935,10 +980,10 @@ Tapes{
 	}
 
 	do {|name="", function, sleep=5.0, random=0, defer=0, iter=inf, when=true, then,
-		clock=0, verbose=true, group, s, r, d, i, w, t, c, v, g|
-		var atask;
+		clock=0, verbose=true, s, r, d, i, w, t, c, v|
+		var atask, target;
 		sleep = s?sleep; defer=d?defer; iter=i?iter; when=w?when; then=t?then;
-		random=r?random; clock=c?clock; verbose=v?verbose; group=g?group;
+		random=r?random; clock=c?clock; verbose=v?verbose;
 
 		if (name=="", {
 			"TASKS MUST HAVE A NAME. Making up one".postln;
@@ -956,16 +1001,18 @@ Tapes{
 
 		clock ?? clock = TempoClock; // default
 
+		target = currentgroup;
+
 		atask = Task({
-			var wait = sleep;
 			block {|break|
 				iter.do {|index|
+					var wait = sleep; // reset each time
 					var time = ""+Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second;
 
 					if (verbose, {("-- now:"+name++time+(index.asInteger+1)++":"++iter).postln});
 
 					if (when.value, {
-						this.usegroup(group);
+						this.usegroup(target);
 						function.value(index.asInteger); // only run if {when} is true. pass index
 						if ( then.isNil.not, { // task dies after then
 							break.value(999);
@@ -976,15 +1023,18 @@ Tapes{
 						wait = sleep.wrapAt(index); //cycle
 					});
 
-					if (random.isArray,
-						{if (random[1].isArray, {
+					if (random.isArray,{
+						if (random[1].isArray, {
 							wait = random[0].wchoose(random[1]) ; // {values}, {chances}
 						}, {
 							wait = random.choose; // {n1, n2, n3}
 						})
-						},{wait = wait + random.rand2}
-					);// rand gets added to sleep
-					wait.max(0.005).wait
+					},{
+						wait = wait + random.rand2
+					});// rand gets added to sleep
+
+					//["s", sleep, "r", random, "w", wait].postln;
+					wait.max(0.005).wait;
 				};
 			};
 			then.value; // last will
@@ -1012,6 +1062,14 @@ Tapes{
 	nocomp{this.comp(0.5,1,1)} // reset
 	/////////////////
 	*/
+
+	loadonsetanalysis {|buffer, filepath| // onset analisys file from Segmentation(s)
+		var	data = Object.readArchive(filepath);
+		data.do{|onset, i|
+			data[i][0] = data[i][0] / buffer.numFrames
+		};
+		onsets.put(PathName(buffer.path).fileName, data)
+	}
 
 	updateplot {|buf| // draw the choosen buffer
 		if (plotwin.notNil, {
