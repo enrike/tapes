@@ -197,7 +197,7 @@ Tapes{
 		currentgroup = \default;
 		this.usegroup(currentgroup)
 	}
-	usegroup {|name|
+	usegroup {|name=\default|
 		if (grouplists.keys.includes(name).not, {
 			name = \default;
 		});
@@ -446,7 +446,7 @@ Tapes{
 		}.defer(defer)
 	}
 
-	slicegui2d {|w=250,h=500|
+	slicegui2d {|w=250,h=500, target=\default|
 		var label;
 		var doslice = this;
 		var delta = 15;
@@ -459,9 +459,11 @@ Tapes{
 		.action_({|sl|
 			slicestate[0] = sl.x.asFloat;
 			slicestate[1] = sl.y.linlin(0,1, delta.neg, delta).asFloat;
+			this.usegroup(target);
 			doslice.slice(*slicestate);
 			label.string = format("% % % %", slicestate[0].asStringPrec(2), slicestate[1].asStringPrec(2),
-				slicestate[2].asStringPrec(2), slicestate[3].asStringPrec(2))
+				slicestate[2].asStringPrec(2), slicestate[3].asStringPrec(2));
+			this.usegroup;
 		});
 		Slider2D(slicerw, (w-10)@(h-10))
 		.x_(0) // initial location of x
@@ -470,8 +472,10 @@ Tapes{
 			slicestate[2] = sl.x.asFloat;
 			slicestate[3] = sl.y.linlin(0,1,  delta.neg, delta).asFloat;
 			doslice.slice(*slicestate);
+			this.usegroup(target);
 			label.string = format("% % % %", slicestate[0].asStringPrec(2), slicestate[1].asStringPrec(2),
-				slicestate[2].asStringPrec(2), slicestate[3].asStringPrec(2))
+				slicestate[2].asStringPrec(2), slicestate[3].asStringPrec(2));
+			this.usegroup;
 		});
 		label = StaticText(slicerw, 140@20);
 		slicerw.front;
@@ -1030,7 +1034,7 @@ Tapes{
 							wait = random.choose; // {n1, n2, n3}
 						})
 					},{
-						wait = wait + random.rand2
+						wait = wait + random.asFloat.rand2
 					});// rand gets added to sleep
 
 					//["s", sleep, "r", random, "w", wait].postln;
