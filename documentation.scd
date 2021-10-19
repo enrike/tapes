@@ -151,6 +151,9 @@ _move(0.5) // move loop start point to that position and try to maintain the loo
 _moveby(-0.01) // move loop start and end point by that amount
 _go(0.5) // send playhead to point in sample (only works if >st and <end)
 
+_env(vol:1, fadein:0.01, len:0.5, fadeout:0.1); // fadein time to vol, stay len, fadeout time
+_trans(-2)// transpose pitch by n semitones
+
 // slicer-like behaviour (http://github.com/enrike/slicer)
 //  good idea to use together with _control
 _slice(sttime:0.5, shift:2, grain:0.001, grainshift:1)
@@ -258,9 +261,14 @@ _xloop // this clears the xloop functions for everyone
 _one.xloop = {me.id.postln} // individually too
 _0.xloop = {me.id.postln} // too
 
+// MIDI
+_midion
+_midioff
+_ccin(\test, 41, {|v|v.postln}) //bind a midi CC message with a function
+
 
 // SCHEDULING FUNCTIONS: _do //
-// _do args are: name, function, sleep, random, defer, iter, when, then, verbose, group
+// _do args are: name, function, sleep, random, defer, iter, when, then, verbose
 _do(\randpan, {_rpan}, 2); //loop run a function named \randpan every 15 secs sleep.
 _undo(\randpan) // kill \randpan
 _undo // kill all scheduled functions
@@ -309,15 +317,23 @@ _do(\silent, { // wont print its state every run. useful with quick and repetiti
 	_rpan
 }, 0.2, verbose:false);
 
-// which group of tapes to apply the commands to
+// which group of tapes to apply the commands to. it defaults to \default
 _newgroup(\noises);
+_usegroup(\noises);
 _add;
-_do(\rand, {_rrand}, 1, group:\noises); // will only affect to tapes in noises group
-// this is the same as
+_do(\rand, {_rrand}, 1); // will only affect to tapes in noises group
+// this line above is the same as this code below
 _do(\rand, {
 	_usegroup(\noises);
 	_rrand
 }, 1)
+// you can always switch groups within the function
+_do(\mix, {
+	_usegroup; // default
+	_rrate;
+	_usegroup(\noises);
+	_rvol;
+}, 10)
 
 // shorcuts work here too. beware that in this context t means THEN and not time
 _do(\test, {_rvol}, s:3, r:3, d:1, i:2, w:{z>1}, t:0, v:true, g:\noises)

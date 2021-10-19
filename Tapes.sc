@@ -64,7 +64,8 @@ Tapes{
 				"slice", "slicegui",
 				"group", "groups", "mergegroups", "usegroup", "currentgroup", "newgroup", "killgroup", "all",
 				"bank", "banks", "mergebanks", "usebank", "currentbank", "newbank", "delbank",
-				"loadonsetanalysis", "onsets"
+				"loadonsetanalysis", "onsets", //experimental
+				"midion", "midioff", "ccin"
 			];
 
 			keywords.do({|met| // _go --> ~tapes.go
@@ -255,6 +256,24 @@ Tapes{
 		bufs.removeAt(name);
 		("removed bank"+name).postln;
 	}
+
+	//////////////////
+
+	midion {
+		MIDIClient.init;
+		MIDIIn.connectAll;
+		MIDIdef.freeAll
+	}
+
+	midioff {MIDIIn.disconnectAll}
+
+	ccin {|name="cc", cc=0, action|
+		if (action.isNil, {action={|i| ("no valid action defined for cc" +cc).postln} });
+		MIDIdef.cc(name, {arg ...args;
+			action.value(args[0])
+		}, cc);
+	}
+
 
 	//////////////////
 
@@ -916,19 +935,19 @@ Tapes{
 	}
 
 	////////////
-/*	env {| attackTime= 0.01, decayTime= 0.3, sustainTime=0.5, sustainLevel= 0.5, releaseTime= 1.0, peakLevel= 1.0,
-		curve= -4.0, bias=0,
-		offset=0, defer=0, o=nil, d=nil|
-		var target = currentgroup;
-		#offset, defer = [o?offset, d?defer];
-		{grouplists[target].do({ |pl, index|
-			{
-				pl.env(attackTime, decayTime, sustainLevel, releaseTime, peakLevel, curve, bias);
-				{pl.gate(0)}.defer(sustainTime)
-			}.defer(offset.asFloat.rand)
-		})}.defer(defer)
+	/*	env {| attackTime= 0.01, decayTime= 0.3, sustainTime=0.5, sustainLevel= 0.5, releaseTime= 1.0, peakLevel= 1.0,
+	curve= -4.0, bias=0,
+	offset=0, defer=0, o=nil, d=nil|
+	var target = currentgroup;
+	#offset, defer = [o?offset, d?defer];
+	{grouplists[target].do({ |pl, index|
+	{
+	pl.env(attackTime, decayTime, sustainLevel, releaseTime, peakLevel, curve, bias);
+	{pl.gate(0)}.defer(sustainTime)
+	}.defer(offset.asFloat.rand)
+	})}.defer(defer)
 	}*/
-		// add rate too? but then must have some way to keep the current rate
+	// add rate too? but then must have some way to keep the current rate
 	env {|vol=1, fadein=0.01, len=0.5, fadeout=0.1, offset=0, defer=0, o=nil, d=nil|
 		var target = currentgroup;
 		#offset, defer = [o?offset, d?defer];
@@ -942,16 +961,16 @@ Tapes{
 	}
 
 	// add rate too? but then must have some way to keep the current rate
-/*	env {|vol=1, fadein=0.01, len=0.5, fadeout=0.1, offset=0, defer=0, o=nil, d=nil|
-		var target = currentgroup;
-		#offset, defer = [o?offset, d?defer];
-		{grouplists[target].do({ |pl, index|
-			{
-				//if (rate.isNil.not, { pl.rate(rate) }); // only if requiered
-				pl.vol(vol, time:fadein); //rump up
-				{pl.vol(0,   time:fadeout)}.defer(len); // ramp down / fade len
-			}.defer(offset.asFloat.rand)
-		})}.defer(defer)
+	/*	env {|vol=1, fadein=0.01, len=0.5, fadeout=0.1, offset=0, defer=0, o=nil, d=nil|
+	var target = currentgroup;
+	#offset, defer = [o?offset, d?defer];
+	{grouplists[target].do({ |pl, index|
+	{
+	//if (rate.isNil.not, { pl.rate(rate) }); // only if requiered
+	pl.vol(vol, time:fadein); //rump up
+	{pl.vol(0,   time:fadeout)}.defer(len); // ramp down / fade len
+	}.defer(offset.asFloat.rand)
+	})}.defer(defer)
 	}*/
 
 	xloop {|func, offset=0, defer=0, o=0, d=0|
