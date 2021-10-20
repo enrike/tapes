@@ -306,11 +306,16 @@ z = 0;
 _do(\check, {"run!!!".postln}, 3, when:{z>0}) // will start running once z>1
 z = 1; // run this line to start running _do
 
-// when + then
-_do(\check, {"run!!!".postln}, 3, when:{z>0}, then:0) // run once when z>0 then die
+// when + iter
+_do(\check, {"run!!!".postln}, 3, when:{z>0}, iter:1) // run once when z>0 then run only onces
 
-// iter + then
+// iter + then. Then will never happen if no iter is specified (iter is inf in that case)
 _do(\check, {|i| i.postln}, 0.5, iter:5, then:{"goodbye!!!!!".postln})
+
+// when + iter + then
+a=false;
+_do(\check, {|i| i.postln}, 1, when:{a}, iter:3, then:{"done".postln})
+a=true; // will start when a is true
 
 // postln or not every run
 _do(\silent, { // wont print its state every run. useful with quick and repetitive tasks

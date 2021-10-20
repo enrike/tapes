@@ -1028,37 +1028,37 @@ Tapes{
 
 		atask = Task({
 			block {|break|
-				iter.do {|index|
-					var wait = sleep; // reset each time
-					var time = ""+Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second;
+				inf.do{
+					if (when.value.asBoolean, { //go
+						iter.do{|index|
+							var wait = sleep; // reset each time
+							var time = ""+Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second;
 
-					if (verbose, {("-- now:"+name++time+(index.asInteger+1)++":"++iter).postln});
+							if (verbose, {("-- now:"+name++time+(index.asInteger+1)++":"++iter).postln});
+							this.usegroup(target);
+							function.value(index.asInteger); // only run if {when} is true. pass index
 
-					if (when.value, {
-						this.usegroup(target);
-						function.value(index.asInteger); // only run if {when} is true. pass index
-						if ( then.isNil.not, { // task dies after then
-							break.value(999);
-						});
+							if (sleep.isArray, {
+								wait = sleep.wrapAt(index); //cycle
+							});
+
+							if (random.isArray,{
+								if (random[1].isArray, {
+									wait = random[0].wchoose(random[1]) ; // {values}, {chances}
+								}, {
+									wait = random.choose; // {n1, n2, n3}
+								})
+							},{
+								wait = wait + random.asFloat.rand2
+							});// rand gets added to sleep
+
+							//["s", sleep, "r", random, "w", wait].postln;
+							wait.max(0.005).wait;
+						};
+						break.value(999); // done iter. never if iter is inf
 					});
-
-					if (sleep.isArray, {
-						wait = sleep.wrapAt(index); //cycle
-					});
-
-					if (random.isArray,{
-						if (random[1].isArray, {
-							wait = random[0].wchoose(random[1]) ; // {values}, {chances}
-						}, {
-							wait = random.choose; // {n1, n2, n3}
-						})
-					},{
-						wait = wait + random.asFloat.rand2
-					});// rand gets added to sleep
-
-					//["s", sleep, "r", random, "w", wait].postln;
-					wait.max(0.005).wait;
-				};
+					0.01.wait // chek for when
+				}
 			};
 			then.value; // last will
 			("-- done with"+name).postln;
