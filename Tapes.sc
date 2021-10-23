@@ -40,7 +40,10 @@ Tapes{
 
 		this.boot(adir);
 
-		amain !? this.lang(amain, asym)
+		//amain !? this.lang(amain, asym)
+		if (amain.isNil.not, {
+			this.lang(amain, asym)
+		});
 	}
 
 
@@ -60,7 +63,7 @@ Tapes{
 				"rbuf", "rrate", "rpan", "rloop", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rmove", "rand",
 				"bloop", "bmove", "bpan", "brate", "bvol", "bpan", "bgo", "spread",
 				//"comp", "thr", "slb", "sla",
-				"do", "undo", "xloop",
+				"do", "undo", "xloop", "does",
 				"slice", "slicegui",
 				"group", "groups", "mergegroups", "usegroup", "currentgroup", "newgroup", "killgroup", "all",
 				"bank", "banks", "mergebanks", "usebank", "currentbank", "newbank", "delbank",
@@ -986,6 +989,7 @@ Tapes{
 
 
 	/////// task's stuff ////
+	does{ procs.keys.postln }
 	undo {|name, defer=0, d=nil|
 		defer = d?defer;
 		{
@@ -1007,6 +1011,8 @@ Tapes{
 		var atask, target;
 		sleep = s?sleep; defer=d?defer; iter=i?iter; when=w?when; then=t?then;
 		random=r?random; clock=c?clock; verbose=v?verbose;
+
+		iter=(iter-1).max(0);
 
 		if (name=="", {
 			"TASKS MUST HAVE A NAME. Making up one".postln;
