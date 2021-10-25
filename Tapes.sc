@@ -898,7 +898,7 @@ Tapes{
 
 	mute {|time=0, offset=0, defer=0, t=nil, o=nil, d=nil|
 		volume = 0; // remember for the fadein/out
-		this.action(\vol, volume, 0, time, offset, defer, 0, t, o, d);
+		this.action(\vol, volume, 0, time, offset, defer, nil, t, o, d);
 	}
 
 
