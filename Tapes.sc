@@ -896,9 +896,9 @@ Tapes{
 		this.action(\vol, volume, 0, time, offset, defer, nil, t, o, d); // volume is a var that stores the prev volume value
 	}
 
-	mute {|random=0, time=0, offset=0, defer=0, r=nil, t=nil, o=nil, d=nil|
+	mute {|time=0, offset=0, defer=0, t=nil, o=nil, d=nil|
 		volume = 0; // remember for the fadein/out
-		this.action(\vol, volume, random, time, offset, defer, r, t, o, d);
+		this.action(\vol, volume, 0, time, offset, defer, 0, t, o, d);
 	}
 
 
