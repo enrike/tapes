@@ -55,7 +55,7 @@ Tapes{
 			var keywords = [
 				"add", "kill", "killall", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "bufinfo", "normalize",
 				"one", "it", "some", "them", "info", "verbose", "plot", "control", "hm",
-				"scratch", "pause", "solo", "fwd", "bwd", "dir", "reverse", "volu", "vold", "vol", "fadein", "fadeout",
+				"scratch", "pause", "solo", "fwd", "bwd", "dir", "reverse", "volu", "vold", "vol", "fadein", "fadeout", "mute",
 				"rwd", "trans",
 				"pan", "rate", "wobble", "brown", "vibrato", "reset", "resume", "shot", "out", "stop", "play",
 				"lp", "loop", "st", "move", "moveby", "end", "go", "gost", "goend", "dur", "len", "env",
@@ -895,6 +895,12 @@ Tapes{
 	fadein {|time=1, offset=0, defer=0, t=nil, o=nil, d=nil|
 		this.action(\vol, volume, 0, time, offset, defer, nil, t, o, d); // volume is a var that stores the prev volume value
 	}
+
+	mute {|random=0, time=0, offset=0, defer=0, r=nil, t=nil, o=nil, d=nil|
+		volume = 0; // remember for the fadein/out
+		this.action(\vol, volume, random, time, offset, defer, r, t, o, d);
+	}
+
 
 	pan { |value=0, random=0, time=0, offset=0, defer=0, r=nil, t=nil, o=nil, d=nil|
 		this.action(\pan, value, random, time, offset, defer, r, t, o, d);
