@@ -721,7 +721,7 @@ Tapes{
 	}
 
 	rvol {|time=0, offset=0, defer=0, t=nil, o=nil, d=nil|
-		this.action(\rvol, 1.0/grouplists[currentgroup].size, 0, time, offset, defer, nil, t, o, d);
+		this.action(\rvol, 1.0/this.hm, 0, time, offset, defer, nil, t, o, d);
 	}
 
 	rpan {|time=0, offset=0, defer=0, t=nil, o=nil, d=nil|
