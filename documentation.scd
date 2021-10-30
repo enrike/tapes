@@ -135,6 +135,7 @@ _vold // DOWN by 2/100th
 _vol(0.5)
 _fadein
 _fadeout
+_mute // == _vol(0)
 _pan(0) //-1 to 1
 _out(0) // tapes send output to channel 0,1
 _rate(0.8)
@@ -340,8 +341,8 @@ _do(\mix, {
 	_rvol;
 }, 10)
 
-// shorcuts work here too. beware that in this context t means THEN and not time
-_do(\test, {_rvol}, s:3, r:3, d:1, i:2, w:{z>1}, t:0, v:true, g:\noises)
+// SHORTCUTS do work here too. beware that in this context t means THEN and not time
+_do(\test, {_rvol}, s:3, r:3, d:1, i:2, w:{z>1}, t:0, v:true)
 
 
 
@@ -361,12 +362,14 @@ _do(\inoutrand, { //every 30 sec: 9 sec fade in- after 15 secs - 9 secs fade out
 	_fadein(9);
 	_fadeout(9, d:15)
 }, 30)
-_undo(\inoutrand)
+
+// iterarte an array of times only once
+_do(\speedup, {|i| i.postln}, [1, 0.1, 1, 0.15, 1.5], iter:5);
+_do(\speedup, {|i| i.postln}, Array.interpolation(20, 1, 0.1), iter:20);
 
 _do(\ramps, {// this will move every 10 secs all the pitchs to a random value ranging -3 to +3 from the current value in a 5 sec transition
 	_brate(4, 5)
 }, 10, random:3)
-
 
 ( // keeps mirror-playing while slowly moving around the same area
 _rdir;

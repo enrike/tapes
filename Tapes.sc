@@ -1012,13 +1012,13 @@ Tapes{
 		}.defer(defer)
 	}
 
-	do {|name="", function, sleep=5.0, random=0, defer=0, iter=inf, when=true, then,
+	do {|name="", function, sleep=1, random=0, defer=0, iter=inf, when=true, then,
 		clock=0, verbose=true, s, r, d, i, w, t, c, v|
 		var atask, target;
 		sleep = s?sleep; defer=d?defer; iter=i?iter; when=w?when; then=t?then;
 		random=r?random; clock=c?clock; verbose=v?verbose;
 
-		iter=(iter-1).max(0);
+		iter=iter.max(0);
 
 		if (name=="", {
 			"TASKS MUST HAVE A NAME. Making up one".postln;
