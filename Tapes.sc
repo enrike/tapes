@@ -13,6 +13,7 @@ Tapes{
 	var <grouplists, <currentgroup;
 	var <currentbank;
 	var <slicestate=#[ 0.624, 7.156, 0.05, 0.0 ];
+	var <rbuffer, rsynth; // to record
 
 	*new {| main=nil, dir, symbol="_" | // systemdir
 		^super.new.initTapes( main, dir, symbol );
@@ -41,7 +42,7 @@ Tapes{
 		this.boot(adir);
 
 		//amain !? this.lang(amain, asym)
-		if (amain.isNil.not, {
+		if (amain.notNil, {
 			this.lang(amain, asym)
 		});
 	}
@@ -68,7 +69,8 @@ Tapes{
 				"group", "groups", "mergegroups", "usegroup", "currentgroup", "newgroup", "killgroup", "all",
 				"bank", "banks", "mergebanks", "usebank", "currentbank", "newbank", "delbank",
 				"loadonsetanalysis", "onsets", //experimental
-				"midion", "midioff", "ccin"
+				"midion", "midioff", "ccin",
+				"rec", "preparerec", "bufrec", "zerorecbuf"
 			];
 
 			keywords.do({|met| // _go --> ~tapes.go
@@ -88,6 +90,10 @@ Tapes{
 
 		server = Server.default;
 		server.waitForBoot({
+			SynthDef(\recb, { |in=0, out = 0, bufnum = 0, loop = 0|
+				var signal = In.ar(in, 2);
+				RecordBuf.ar(signal, bufnum, doneAction: Done.freeSelf, loop: loop);
+			}).load;
 
 			SynthDef( \rPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, dir=1, index=0, trig=0, reset=0, loop=1, wobble=0, amplag=0, ratelag=0, panlag=0, wobblelag=0, brown=0, brownlag=0,
 				vib = #[1,1,0,0,0,0,0], viblag=0;
@@ -134,8 +140,34 @@ Tapes{
 			//	buses = Bus.audio(server, 2);
 			//compressor = Synth(\comp, [\inbus, buses]);
 
-			if (dir.isNil.not, {this.loadfiles(dir)})
+			if (dir.notNil, {this.loadfiles(dir)})
 		})
+	}
+
+	// REC ///////
+	preparerec {|len|
+		Buffer.alloc(Server.default,
+			len*Server.default.sampleRate, 2); // must wait for alloc before next line!!!!!!!!!
+	}
+	zerorecbuf{
+		rbuffer.zero;
+	}
+	bufrec {
+		^rbuffer
+	}
+	rec {|in=0, len=1, loop=0|
+		rsynth.free;
+		rbuffer.free;
+		"start sampling into _recbuf".postln;
+		Routine.run { // INSIDE A ONE SHOT ROUTINE TO BE ABLE TO SYNC
+			rbuffer = Buffer.alloc(Server.default, len*Server.default.sampleRate, 2);
+			Server.default.sync;// wait til is allocated
+			rsynth = Synth.tail(Server.default, \recb, [\in, in, \bufnum, rbuffer, \loop, loop]);
+			if (loop==0, { {"done sampling!".postln}.defer(len) });
+		}
+	}
+	stopr { // this should kill the \recb synth if loop
+		rsynth.free;
 	}
 
 	loadfiles {|apath, overwrite=1| // overwrite will remove the previous one if any
@@ -144,11 +176,11 @@ Tapes{
 		var target = currentbank;
 
 		server.waitForBoot({
-			path = apath;
+			//path = apath;
 			("path is"+apath).postln;
 
 			if (PathName.new(apath).isFile, {
-				files = List.newUsing( [SoundFile(apath)] );
+				files = List.newUsing( SoundFile.collect(apath) );
 			}, { // if a folder apply wildcards
 				files = List.newUsing( SoundFile.collect( apath++Platform.pathSeparator++"*") );
 			});
@@ -164,6 +196,8 @@ Tapes{
 					sfs=sfs++files; // append but later do not load all of them! just the new ones
 					//bufs = Array.new(files.size);// all files in the dir
 				});
+
+				files.postln;
 
 				files.size.do({ arg n; // load ALL buffers
 					var buf = Buffer.read(server, files.wrapAt(n).path,
@@ -227,6 +261,7 @@ Tapes{
 		}
 		^p
 	}
+
 	/////////
 	// BANKS
 
@@ -301,7 +336,7 @@ Tapes{
 					});
 					if (copythis.notNil, { lay.copy(copythis) });
 
-					views.add(0);
+					views.add( SoundFileView() );
 				}, {
 					"error: no buffers available!! run _loadfiles".postln;
 				})
@@ -397,22 +432,22 @@ Tapes{
 		bufs[currentbank].collect(_.normalize);
 	}
 
-	buf {|value, offset=0, defer=0, o=nil, d=nil|
+	buf {|value, offset=0, defer=0, o=nil, d=nil| // value can be a Buffer, an array of ints
 		var target = currentgroup;
 		#offset, defer = [o?offset, d?defer];
-		if (value.isNil, {
-			value=bufs[currentbank].choose;
-			//("choosing a random buffer:"+PathName(value.path).fileName).postln
-		});
-		if (value.isArray, {value=value.choose}); // choose between passed valyes
-
-		if (value.isInteger, {value = bufs[currentbank][value]}); // using the index
 
 		{
+			if (value.isArray, {value=value.choose}); // choose between given integer values
+
+			// finally if valus is an Integer we need the actual buffer
+			if (value.isInteger, {value = bufs[currentbank][value]}); // using the index
+
+			if (value.isNil, { value=bufs[currentbank].choose }); // get an actual buffer
+
 			grouplists[target].do({ |pl, index|
 				{
 					pl.buf(value);
-					this.newplotdata(value, views[index]);
+					this.newplotdata(value, views[index]); // if control is open then update display
 				}.defer(offset.asFloat.rand)
 		})}.defer(defer)
 	}
@@ -701,7 +736,7 @@ Tapes{
 
 	readstates {|path|
 		var data = Object.readArchive(path);
-		if (data.isNil.not, {
+		if (data.notNil, {
 			grouplists[currentgroup].do({ |pl, index|
 				pl.statesDic = data[\tape++index];
 				if (index==0, {
@@ -1106,14 +1141,13 @@ Tapes{
 		onsets.put(PathName(buffer.path).fileName, data)
 	}
 
-	updateplot {|buf| // draw the choosen buffer
-		if (plotwin.notNil, {
+	updateplot {|buf, aview| // draw the choosen buffer
+		if (controlGUI.notNil, {
 			var f = { |b,v|
 				b.loadToFloatArray(action: { |a| { v.setData(a) }.defer });
 				//v.gridResolution(b.duration/10); // I would like to divide the window in 10 parts no matter what the sound dur is. Cannot change gridRes on the fly?
 			};
-			//if (buf.notNil, {f.(buf, plotview)}); // only if a buf is provided
-			buf !? f.(buf, plotview)
+			buf !? f.(buf, aview)
 		});
 	}
 
@@ -1164,6 +1198,7 @@ Tapes{
 					controlGUI.layout.add(views[index]);
 
 					grouplists.values.flat[index].view = views[index];// to update loop point when they change
+
 					grouplists.values.flat[index].updatelooppoints();
 
 					this.newplotdata(grouplists.values.flat[index].buf, views[index]);
@@ -1185,12 +1220,16 @@ Tapes{
 
 	newplotdata {|buf, view|
 		if (controlGUI.notNil, {
-			var sf = SoundFile.new;
-			sf.openRead(buf.path);
-			view.soundfile = sf;            // set soundfile
-			view.read(0, sf.numFrames);     // read in the entire file.
+			if (buf.path.notNil, {
+				var sf = SoundFile.new;
+				sf.openRead(buf.path);
+				view.soundfile = sf;
+				view.read(0, sf.numFrames);     // read in the entire file.
+			}, {
+				buf.loadToFloatArray(action: { |a| { view.setData(a, channels:2) }.defer })
+			});
+
 			view.refresh;
-			//buf.loadToFloatArray(action: { |a| { view.setData(a) }.defer })
 		})
 	}
 
