@@ -172,7 +172,9 @@ Tape{
 	}
 
 	file {
-		^PathName(buf.path).fileName
+		var res = "buffer in memory?";
+		try { res = PathName(buf.path).fileName };
+		^res
 	}
 
 	outb {|value=nil|
