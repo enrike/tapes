@@ -3,7 +3,7 @@
 
 Tape{
 
-	var <id, <player, <curpos, <loops=0;
+	var <id, <player, <curpos, <loops=0, out=0;
 	var buf, st=0, end=1, vol=1, rate=0, pan=0, bus=0, len=0, dur=0, dir=1, wobble=0, brown=0, vib; // state variables hidden
 	var memrate=1; // to store rate while stopped
 	var <>del=0.04; //time in between two consecutive p.set. required by gates
@@ -145,6 +145,7 @@ Tape{
 		["brown", brown].postln;
 		["vibrato", vib].postln;
 		["verbose", verbose].postln;
+		["out", out].postln;
 		"--------------".postln;
 	}
 
@@ -197,6 +198,7 @@ Tape{
 	}
 
 	out {|value=0|
+		out = value;
 		player.set(\out, value);
 	}
 
