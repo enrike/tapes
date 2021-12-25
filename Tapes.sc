@@ -6,7 +6,7 @@ Tapes{
 
 	var server, <path, <bufs, <sfs, <ps, <procs, <onsets;
 	var plotwin=nil, plotview, drawview, plotwinrefresh;
-	var controlGUI, views;
+	var controlGUI, <views;
 	//var buses, <compressor;
 	var volume=1;
 	var it, them; // to remember @one and @some
@@ -31,7 +31,7 @@ Tapes{
 		currentgroup = \default;
 		grouplists = Dictionary[currentgroup -> List.new];
 
-		views = List.new;
+		views =  Dictionary[currentgroup -> List.new];
 
 		//bufs = List.new;
 		bufs = Dictionary[currentbank -> List.new];
@@ -64,13 +64,13 @@ Tapes{
 				"rbuf", "rrate", "rpan", "rloop", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rmove", "rand",
 				"bloop", "bmove", "bpan", "brate", "bvol", "bpan", "bgo", "spread",
 				//"comp", "thr", "slb", "sla",
-				"do", "undo", "xloop", "does",
+				"do", "undo", "xloop", "does", "dogui",
 				"slice", "slicegui",
 				"group", "groups", "mergegroups", "usegroup", "currentgroup", "newgroup", "killgroup", "all",
 				"bank", "banks", "mergebanks", "usebank", "currentbank", "newbank", "delbank",
 				"loadonsetanalysis", "onsets", //experimental
 				"midion", "midioff", "ccin",
-				"rec", "preparerec", "bufrec", "zerorecbuf"
+				"rec", "preparerec", "bufrec", "zerorecbuf", "recstate"
 			];
 
 			keywords.do({|met| // _go --> ~tapes.go
@@ -169,6 +169,9 @@ Tapes{
 	stopr { // this should kill the \recb synth if loop
 		rsynth.free;
 	}
+	recstate { //recording?
+		^rsynth.notNil
+	}
 
 	loadfiles {|apath, overwrite=1| // overwrite will remove the previous one if any
 		var files=List.new;
@@ -179,11 +182,21 @@ Tapes{
 			//path = apath;
 			("path is"+apath).postln;
 
-			if (PathName.new(apath).isFile, {
-				files = List.newUsing( SoundFile.collect(apath) );
-			}, { // if a folder apply wildcards
-				files = List.newUsing( SoundFile.collect( apath++Platform.pathSeparator++"*") );
-			});
+			try {
+				if (PathName.new(apath).isFile, { // string with path to a single file
+					files = List.newUsing( SoundFile.collect(apath) );
+				}, {
+					if (PathName.new(apath).isFolder, { // if a folder apply wildcards
+						files = List.newUsing( SoundFile.collect( apath++Platform.pathSeparator++"*") );
+					})
+				});
+			} {|er|
+				apath.do{|pa, i|
+					if (PathName.new(pa).isFile, {
+						files.add( SoundFile.new(pa) );
+					})
+				}
+			};
 
 			if (files.size < 1, {
 				"no files found!".postln;
@@ -202,8 +215,8 @@ Tapes{
 				files.size.do({ arg n; // load ALL buffers
 					var buf = Buffer.read(server, files.wrapAt(n).path,
 						action:{
-							("...loaded"+PathName(files.wrapAt(n).path).fileName).postln;
-							if (n>=(files.size-1), {"...DONE LOADING FILES!".postln})
+							("... loaded"+PathName(files.wrapAt(n).path).fileName).postln;
+							if (n>=(files.size-1), {"... DONE LOADING FILES!".postln})
 						}
 					);
 					bufs[target] = bufs[target].add( buf )
@@ -232,6 +245,7 @@ Tapes{
 	mergegroups{
 		var players = grouplists.values.flat;
 		grouplists = Dictionary.new.add(\default -> players);
+		views = Dictionary.new.add(\default -> views.values.flat);
 		currentgroup = \default;
 		this.usegroup(currentgroup)
 	}
@@ -244,11 +258,13 @@ Tapes{
 	}
 	newgroup {|name|
 		grouplists.add(name -> List.new);
+		views.add(name -> List.new);
 		("created group"+name).postln;
 	}
 	removegroup {|name|
 		this.killall(name);
 		grouplists.removeAt(name);
+		views.removeAt(name);
 		("removed group"+name).postln;
 	}
 	id {|id| // return the tape whose ID==id
@@ -336,7 +352,7 @@ Tapes{
 					});
 					if (copythis.notNil, { lay.copy(copythis) });
 
-					views.add( SoundFileView() );
+					views[target].add( SoundFileView() );
 				}, {
 					"error: no buffers available!! run _loadfiles".postln;
 				})
@@ -351,7 +367,7 @@ Tapes{
 			index ?? index = grouplists[target].size.rand;
 			agroup !? agroup = currentgroup;
 			grouplists[agroup].removeAt(index).kill;
-			views.pop;
+			views[agroup].pop;
 			("free"+index+"at group"+agroup).postln;
 		}.defer(defer)
 	}
@@ -360,9 +376,10 @@ Tapes{
 		agroup !? agroup = currentgroup;
 		grouplists[agroup].do{|pla|
 			pla.kill;
-			views.pop
+			views[agroup].pop
 		};
 		grouplists[agroup] = List.new;
+		views[agroup] = List.new;
 		("free group"+agroup).postln;
 	}
 
@@ -447,7 +464,7 @@ Tapes{
 			grouplists[target].do({ |pl, index|
 				{
 					pl.buf(value);
-					this.newplotdata(value, views[index]); // if control is open then update display
+					this.newplotdata(value, views[target][index]); // if control is open then update display
 				}.defer(offset.asFloat.rand)
 		})}.defer(defer)
 	}
@@ -497,7 +514,7 @@ Tapes{
 
 				{
 					pl.loop(mysttime, myendtime);
-					this.newselection(mysttime, myendtime, views[index], pl.buf);
+					this.newselection(mysttime, myendtime, views[target][index], pl.buf);
 				}.defer(offset.asFloat.rand);
 			})
 		}.defer(defer)
@@ -622,12 +639,13 @@ Tapes{
 
 	// SCLANG DOES NOT LIKE THAT WE USE THE NAME "LOOP" FOR OUR METHOD. change
 	lp {|st, end, offset=0, defer=0, o=nil, d=nil|
+		var target = currentgroup;
 		if (st.isNil, {st=0; end=1}); // reset
 		#offset, defer = [o?offset, d?defer];
-		{grouplists[currentgroup].do({ |pl, index|
+		{grouplists[target].do({ |pl, index|
 			{
 				pl.loop(st, end);
-				this.newselection(st, end, views[index], pl.buf);
+				this.newselection(st, end, views[target][index], pl.buf);
 			}.defer(offset.asFloat.rand)
 		})}.defer(defer)
 	}
@@ -768,11 +786,12 @@ Tapes{
 	}
 
 	rloop {|offset=0, defer=0, o=nil, d=nil|
+		var target = currentgroup;
 		#offset, defer = [o?offset, d?defer];
-		{grouplists[currentgroup].do({ |pl, index|
+		{grouplists[target].do({ |pl, index|
 			{
 				pl.rloop;
-				this.newselection(pl.st, pl.end, views[index], pl.buf);
+				this.newselection(pl.st, pl.end, views[target][index], pl.buf);
 			}.defer(offset.asFloat.rand)
 		})}.defer(defer)
 	}
@@ -892,7 +911,7 @@ Tapes{
 			{
 				if (mode==1, {buffer=bufs[currentbank].choose}); // each one different
 				pl.buf(buffer);
-				this.newplotdata(pl.buf, views[index]);
+				this.newplotdata(pl.buf, views[target][index]);
 			}.defer(offset.asFloat.rand)
 		})}.defer(defer)
 	}
@@ -952,7 +971,7 @@ Tapes{
 			grouplists[target].do({|pl, index|
 				{
 					pl.bloop(range);
-					this.newselection(pl.st, pl.end, views[index], pl.buf);
+					this.newselection(pl.st, pl.end, views[target][index], pl.buf);
 				}.defer(offset.asFloat.rand)
 			})
 		}.defer(defer)
@@ -1036,17 +1055,18 @@ Tapes{
 		{
 			if (name.isNil, {
 				"-- kill all _do".postln;
-				procs.collect(_.stop);
-				//procs.do{|p|p.postln;p.stop};
+				//procs.collect(_.stop);
+				procs.do{|p|p[0].stop};
 				procs = Dictionary.new;
 			},{
 				("-- _do: killing"+name+procs[name.asSymbol]).postln;
-				procs[name.asSymbol].stop;
+				procs[name.asSymbol][0].stop;
 				procs.removeAt(name.asSymbol);
 			})
 		}.defer(defer)
 	}
 
+	// TO DO: sleep as bpm argument?
 	do {|name="", function, sleep=1, random=0, defer=0, iter=inf, when=true, then,
 		clock=0, verbose=true, s, r, d, i, w, t, c, v|
 		var atask, target;
@@ -1065,7 +1085,7 @@ Tapes{
 
 		if (procs[name.asSymbol].notNil, {// kill before rebirth if already there
 			//this.undo(name.asSymbol);
-			procs[name.asSymbol].stop;
+			procs[name.asSymbol][0].stop;
 			procs.removeAt(name.asSymbol)
 		});
 
@@ -1110,13 +1130,39 @@ Tapes{
 			then.value; // last will
 			("-- done with"+name).postln;
 			//this.undo(name.asSymbol)
-			procs[name.asSymbol].stop;
+			procs[name.asSymbol][0].stop;
 			procs.removeAt(name.asSymbol)
 		}, clock);
 
 		{ atask.start }.defer(defer);
 
-		procs.add(name.asSymbol -> atask);// to keep track of them
+		procs.add(name.asSymbol -> [atask, function, sleep, random]);// to keep track of them
+	}
+
+	dogui {
+		var w=Window.new("do", 150@80).front;
+		w.layout = VLayout();
+		procs.keys.do{|key|
+			Button(w, 40@20).states_([
+				[key, Color.red, Color.grey],
+				[key, Color.black, Color.grey]
+			])
+			.action_({|bu|
+				if (bu.value==1, {
+					procs[key][0].stop
+				}, {
+					procs[key][0].start
+				})
+			});
+			/*EZSlider( w,         // parent
+			120@20,    // bounds
+			"sleep",  // label
+			{ |ez| // chage sleep freq of this _do
+			procs[key][0]
+			} // action*/
+		};
+
+
 	}
 	////////////////////////////
 
@@ -1151,13 +1197,13 @@ Tapes{
 		});
 	}
 
-	control {|cwidth, cheight, defer=0, d|
+	control {|cwidth, cheight, defer=0, target, d|
 		var gap=0, height=0;
-		var target = currentgroup; // freeze target in case of defer
+		target = target?currentgroup; // freeze target in case of defer
 		defer=d?defer;
 		{
 			if (controlGUI.isNil, {
-				controlGUI = Window("All tapes", Rect(500, 200, cwidth?500, cheight?700));
+				controlGUI = Window( ("Tapes from group"+target), Rect(500, 200, cwidth?500, cheight?700));
 				controlGUI.alwaysOnTop = true;
 				controlGUI.front;
 				controlGUI.onClose = {
@@ -1165,16 +1211,15 @@ Tapes{
 					grouplists[target].do({|play| play.view = nil });
 					plotwinrefresh.stop;
 				};
-				"OPENING CONTROL GUI".postln;
+				("OPENING CONTROL GUI: group"+target).postln;
 
 				//height = controlGUI.bounds.height/howmany;
 
 				controlGUI.layout = VLayout();
-
 				// 		"To zoom in/out: Shift + right-click + mouse-up/down".postln;
 				// 		"To scroll: right-click + mouse-left/right".postln;
-				views.size.do({|index|
-					views[index] = SoundFileView().timeCursorOn_(true)
+				views[target].size.do({|index|
+					views[target][index] = SoundFileView().timeCursorOn_(true)
 					.elasticMode_(true)
 					.timeCursorColor_(Color.red)
 					.drawsWaveForm_(true)
@@ -1195,18 +1240,18 @@ Tapes{
 					.mouseUpAction_({ |thisview, x, y, mod|
 						grouplists[target][index].end( x.linlin(0, thisview.bounds.width, 0,1) )
 					});
-					controlGUI.layout.add(views[index]);
+					controlGUI.layout.add(views[target][index]);
 
-					grouplists.values.flat[index].view = views[index];// to update loop point when they change
+					grouplists.values.flat[index].view = views[target][index];// to update loop point when they change
 
 					grouplists.values.flat[index].updatelooppoints();
 
-					this.newplotdata(grouplists.values.flat[index].buf, views[index]);
+					this.newplotdata(grouplists.values.flat[index].buf, views[target][index]);
 				});
 
 				plotwinrefresh = Task({
 					inf.do({|index|
-						views.do({|view, index|
+						views[target].do({|view, index|
 							view.timeCursorPosition = grouplists.values.flat[index].curpos * (grouplists.values.flat[index].buf.numFrames);
 							0.1.wait;
 						});
