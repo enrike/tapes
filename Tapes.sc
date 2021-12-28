@@ -193,7 +193,7 @@ Tapes{
 			} {|er|
 				apath.do{|pa, i|
 					if (PathName.new(pa).isFile, {
-						files.add( SoundFile.new(pa) );
+						files.add( SoundFile.collect(pa)[0] ); // for some reason collect() processes paths different than new()
 					})
 				}
 			};
@@ -1141,6 +1141,7 @@ Tapes{
 
 	dogui {
 		var w=Window.new("do", 150@80).front;
+		w.alwaysOnTop = true;
 		w.layout = VLayout();
 		procs.keys.do{|key|
 			Button(w, 40@20).states_([
@@ -1242,11 +1243,14 @@ Tapes{
 					});
 					controlGUI.layout.add(views[target][index]);
 
-					grouplists.values.flat[index].view = views[target][index];// to update loop point when they change
+					grouplists[target][index].view = views[target][index];
+					grouplists[target][index].updatelooppoints();
+					this.newplotdata(grouplists[target][index].buf, views[target][index]);
 
-					grouplists.values.flat[index].updatelooppoints();
+					//grouplists.values.flat[index].view = views[target][index];// to update loop point when they change
+					//grouplists.values.flat[index].updatelooppoints();
 
-					this.newplotdata(grouplists.values.flat[index].buf, views[target][index]);
+					//this.newplotdata(grouplists.values.flat[index].buf, views[target][index]);
 				});
 
 				plotwinrefresh = Task({
