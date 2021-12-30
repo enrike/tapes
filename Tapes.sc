@@ -1098,7 +1098,7 @@ Tapes{
 				inf.do{
 					if (when.value.asBoolean, { //go
 						iter.do{|index|
-							var wait = sleep; // reset each time
+							var wait = sleep.asString.asFloat; // reset each time
 							var time = ""+Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second;
 
 							if (verbose, {("-- now:"+name++time+(index.asInteger+1)++":"++iter).postln});
@@ -1106,7 +1106,7 @@ Tapes{
 							function.value(index.asInteger); // only run if {when} is true. pass index
 
 							if (sleep.isArray, {
-								wait = sleep.wrapAt(index); //cycle
+								wait = sleep.wrapAt(index).asString.asFloat; //cycle
 							});
 
 							if (random.isArray,{
@@ -1140,11 +1140,24 @@ Tapes{
 	}
 
 	dogui {
-		var w=Window.new("do", 150@80).front;
+		var w=Window.new("do", 250@(30+(procs.size*25))).front;
+		var string;
+		var clean={|data=""| // removes [ and ] from array.asString for displaying it in a statictext
+			var res=data;
+			if (data.isArray, {res=data.asString[2..data.asString.size-2]}, {res.asString});
+			res;
+		};
 		w.alwaysOnTop = true;
-		w.layout = VLayout();
+		//w.layout = VLayout();
+		w.view.decorator = FlowLayout(w.view.bounds);
+
+		StaticText(w, 80@18).align_(\left).string_("Do").resize_(7);
+		StaticText(w, 75@18).align_(\left).string_("Sleep").resize_(7);
+		StaticText(w, 45@18).align_(\left).string_("Random").resize_(7);
+		w.view.decorator.nextLine;
+
 		procs.keys.do{|key|
-			Button(w, 40@20).states_([
+			var bu = Button(w, 80@20).states_([
 				[key, Color.red, Color.grey],
 				[key, Color.black, Color.grey]
 			])
@@ -1155,12 +1168,28 @@ Tapes{
 					procs[key][0].start
 				})
 			});
-			/*EZSlider( w,         // parent
-			120@20,    // bounds
-			"sleep",  // label
-			{ |ez| // chage sleep freq of this _do
-			procs[key][0]
-			} // action*/
+
+			string = clean.value(procs[key][2]);
+
+			TextField(w, 75@20) // sleep
+			.string_(string)
+			.action_({|txt|
+				this.do(key, procs[key][1], txt.value.asArray, procs[key][3]); //rebirth task w new sleep
+				bu.value = 0;// display it
+			});
+			TextField(w, 45@20) // random
+			.string_(procs[key][3].asString)
+			.action_({|txt|
+				this.do(key, procs[key][1], procs[key][2], txt.value.asFloat); //rebirth task w new rand
+				bu.value = 0;// display it
+			});
+			Button(w, 30@20).states_([ // once
+				["once", Color.black, Color.grey]
+			])
+			.action_({|bu|
+				procs[key][1].value
+			});
+			w.view.decorator.nextLine;
 		};
 
 
