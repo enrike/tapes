@@ -1237,7 +1237,7 @@ Tapes{
 
 	control {|cwidth, cheight, defer=0, group, d|
 		var gap=0, height=0;
-		target = group?currentgroup; // freeze target in case of defer
+		var target = group?currentgroup; // freeze target in case of defer
 		if (grouplists[target].isNil, {target=\default}); // default if not there
 		defer=d?defer;
 		{
