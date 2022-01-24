@@ -54,7 +54,7 @@ Tapes{
 		main.preProcessor = { |code|
 			// list with all the commands defined by Tapes
 			var keywords = [
-				"add", "kill", "killall", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "bufinfo", "normalize",
+				"add", "new", "kill", "killall", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "bufinfo", "normalize",
 				"one", "it", "some", "them", "info", "verbose", "plot", "control", "hm",
 				"scratch", "pause", "solo", "fwd", "bwd", "dir", "reverse", "volu", "vold", "vol", "fadein", "fadeout", "mute",
 				"rwd", "trans",
@@ -73,7 +73,7 @@ Tapes{
 				"rec", "preparerec", "bufrec", "zerorecbuf", "recstate"
 			];
 
-			keywords.do({|met| // _go --> ~tapes.go
+			keywords.do({|met| // eg: _go --> ~tapes.go
 				code = code.replace(sym++met, globalvar++"."++met);
 			});
 			100.reverseDo({|num| // reverse to avoid errors with index > 1 digit
@@ -331,7 +331,15 @@ Tapes{
 
 	//////////////////
 
-
+	new {|howmany=1, buffer, group=\default, defer=0, d|
+		defer = d?defer;
+		if (grouplists[group].isNil, {this.newgroup(group)});
+		{
+			this.usegroup(group);
+			this.add(howmany);
+			if (buffer.notNil, {this.buf(buffer)})
+		}.defer(defer)
+	}
 
 	add {|howmany=1, copythis, defer=0, d|
 		var target = currentgroup;
@@ -1049,7 +1057,7 @@ Tapes{
 
 
 	/////// task's stuff ////
-	does{ procs.keys.postln }
+	does { procs.keys.postln; ^procs }
 	undo {|name, defer=0, d=nil|
 		defer = d?defer;
 		{
@@ -1227,9 +1235,10 @@ Tapes{
 		});
 	}
 
-	control {|cwidth, cheight, defer=0, target, d|
+	control {|cwidth, cheight, defer=0, group, d|
 		var gap=0, height=0;
-		target = target?currentgroup; // freeze target in case of defer
+		target = group?currentgroup; // freeze target in case of defer
+		if (grouplists[target].isNil, {target=\default}); // default if not there
 		defer=d?defer;
 		{
 			if (controlGUI.isNil, {
