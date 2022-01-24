@@ -31,6 +31,8 @@ _add(3, _0) // adds 3 tape players copying tape players 0's state
 _add(1, 1008) // you can also pass the player's id
 _0.copy(_1) // tape player 0 copies tape player 1's state (here you cannot pass the id)
 
+_new(2, 1, \base) // create two players playing buffer 1 at group \base (and create \base if not there)
+
 _group // all tape players in current group
 _1 // individual tape player _0, _1, _2, _3, etc...
 _id(1008) // returns the instance of the tape with that ID
@@ -61,7 +63,7 @@ _usegroup // if no arg it defaults to \default group
 _removegroup(\dirty) // removes the group and kills all players in it
 //_togroup(_1, \dirty) //move _1 from current group to group \a
 //_whichgroup(1001) // by ID
-_mergegroups // merge all players to group \a and usegroup(\a)
+_mergegroups // merge all players to group \default and usegroup(\default)
 
 // and example of using groups ///
 _add; // creates a tape in \default
@@ -85,11 +87,12 @@ _plot; // draws the play heads of each tape player the same window
 _plot(4) // optional pass the buffer to draw on the background of the window. useful when all tape players share the same buffer
 
 
-//  BUFFERS // *assumes stereo samples*
+//  BUFFERS // *beware that Tapes assumes STEREO samples*
 
-_loadfiles("some/directory"); // load all files from this directory into current buffer bank. BEWARE: loading files might take time
+_loadfiles("some/directory"); // load ALL files from this directory into current buffer bank. BEWARE: loading many files might take time and RAM
 _loadfiles("another/directory", overwrite:0); // load and append new buffers to previously existing ones
 _loadfiles("some/directory/somefile.wav");// load this file only
+_loadfiles( ["some/file.wav", "another/file.wav"] );// load array of files
 _normalize // normalise buffers
 _bufs // list with available buffers
 _curbufs // posts tape, buffer for each tape. eg: _0, blah.wav, etc...
@@ -178,8 +181,9 @@ _load // open a dialogue to search for a file containg states
 _load("/home/xxx/caos.states") // tries to load states from the file
 _pop(\dut) // load \dut from current states
 
-_control // opens a GUI window with displays of all tape players waveform. you can click+drag to control de loop selection as well
-_control( 300, 200 ) // open with this size
+_control // opens a GUI window with displays of \default group tape players waveform. you can click+drag to control de loop selection as well
+_control( 300, 200 ) // open control window with this size
+_control(target: \b) // display Tapes in group \b
 
 // search. identify which tape players are playing which sound file
 p = _search("Roll") //returns a list of tape players whose buffer contains this string in the file name. no case sensitive
@@ -274,6 +278,9 @@ _do(\randpan, {_rpan}, 2); //loop run a function named \randpan every 15 secs sl
 _undo(\randpan) // kill \randpan
 _undo // kill all scheduled functions
 _undo(\randpan, d:10) // it can be deferred too
+
+_does; //posts existing _do names
+_dogui; //gui to pause/resume existing _do with a button
 
 _do(\num, {|i| i.postln}, 1) // get access to num of loops
 
