@@ -279,6 +279,11 @@ _undo(\randpan) // kill \randpan
 _undo // kill all scheduled functions
 _undo(\randpan, d:10) // it can be deferred too
 
+_pause;(\randpan, d:2) // pause \randpan
+_pause; // pause all
+_resume;(\randpan, d:8) // resume \randpan
+_resume; // resume all
+
 _does; //posts existing _do names
 _dogui; //gui to pause/resume existing _do with a button
 

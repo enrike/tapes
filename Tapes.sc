@@ -64,7 +64,7 @@ Tapes{
 				"rbuf", "rrate", "rpan", "rloop", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rmove", "rand",
 				"bloop", "bmove", "bpan", "brate", "bvol", "bpan", "bgo", "spread",
 				//"comp", "thr", "slb", "sla",
-				"do", "undo", "xloop", "does", "dogui",
+				"do", "undo", "xloop", "does", "dogui", "pause", "resume",
 				"slice", "slicegui",
 				"group", "groups", "mergegroups", "usegroup", "currentgroup", "newgroup", "killgroup", "all",
 				"bank", "banks", "mergebanks", "usebank", "currentbank", "newbank", "delbank",
@@ -95,7 +95,9 @@ Tapes{
 				RecordBuf.ar(signal, bufnum, doneAction: Done.freeSelf, loop: loop);
 			}).load;
 
-			SynthDef( \rPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, dir=1, index=0, trig=0, reset=0, loop=1, wobble=0, amplag=0, ratelag=0, panlag=0, wobblelag=0, brown=0, brownlag=0,
+			SynthDef( \rPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, dir=1, index=0,
+				trig=0, reset=0, loop=1, wobble=0, amplag=0, ratelag=0, panlag=0, wobblelag=0,
+				brown=0, brownlag=0,
 				vib = #[1,1,0,0,0,0,0], viblag=0;
 
 				var left, right, phasor, dur = BufFrames.kr(buffer);
@@ -105,7 +107,8 @@ Tapes{
 				rate = rate + BrownNoise.ar(brown.lag(brownlag));
 				rate = rate * Vibrato.ar(*vib.lag(viblag));
 
-				amp = amp.lag(amplag);
+				//amp = amp.lag(amplag);
+				amp = VarLag.kr(amp,amplag, Env.shapeNumber(\lin));
 				pan = pan.lag(panlag);
 
 				phasor = Phasor.ar( trig, rate * BufRateScale.kr(buffer), start*dur, end*dur, resetPos: reset*dur);
@@ -445,6 +448,9 @@ Tapes{
 
 	info {
 		if (this.hm==0, {"no players!".postln});
+		("--------------").postln;
+		("-- Group:" + currentgroup + "--").postln;
+		("--------------").postln;
 		grouplists[currentgroup].collect(_.info)
 	}
 
@@ -1058,6 +1064,30 @@ Tapes{
 
 	/////// task's stuff ////
 	does { procs.keys.postln; ^procs }
+	pause {|name, defer=0, d=nil|
+		defer = d?defer;
+		if (name.isNil, {
+			"-- pause all _do".postln;
+			procs.do{|p|p[0].pause};
+		},{
+			{
+				("-- _do: pause"+name+procs[name.asSymbol]).postln;
+				procs[name.asSymbol][0].pause;
+			}.defer(defer)
+		})
+	}
+	resume {|name, defer=0, d=nil|
+		defer = d?defer;
+		if (name.isNil, {
+			"-- resume all _do".postln;
+			procs.do{|p|p[0].resume};
+		},{
+			{
+				("-- _do: resume"+name+procs[name.asSymbol]).postln;
+				procs[name.asSymbol][0].resume;
+			}.defer(defer)
+		})
+	}
 	undo {|name, defer=0, d=nil|
 		defer = d?defer;
 		{
