@@ -28,6 +28,8 @@ Tapes{
 
 		procs = Dictionary.new; // stores all tasks
 
+		controlGUI = Dictionary.new;
+
 		currentgroup = \default;
 		grouplists = Dictionary[currentgroup -> List.new];
 
@@ -66,7 +68,7 @@ Tapes{
 				//"comp", "thr", "slb", "sla",
 				"do", "undo", "xloop", "does", "dogui", "pause", "resume",
 				"slice", "slicegui",
-				"group", "groups", "mergegroups", "usegroup", "currentgroup", "newgroup", "killgroup", "all",
+				"group", "groups", "mergegroups", "usegroup", "ug", "currentgroup", "newgroup", "killgroup", "all",
 				"bank", "banks", "mergebanks", "usebank", "currentbank", "newbank", "delbank",
 				"loadonsetanalysis", "onsets", //experimental
 				"midion", "midioff", "ccin",
@@ -252,6 +254,9 @@ Tapes{
 		currentgroup = \default;
 		this.usegroup(currentgroup)
 	}
+	ug {|name=\default|
+		this.usegroup(name)
+	}
 	usegroup {|name=\default|
 		if (grouplists.keys.includes(name).not, {
 			name = \default;
@@ -333,7 +338,7 @@ Tapes{
 
 
 	//////////////////
-
+	//change new keyword to something else. new is the constructor of classes in SC
 	new {|howmany=1, buffer, group=\default, defer=0, d|
 		defer = d?defer;
 		if (grouplists[group].isNil, {this.newgroup(group)});
@@ -478,7 +483,7 @@ Tapes{
 			grouplists[target].do({ |pl, index|
 				{
 					pl.buf(value);
-					this.newplotdata(value, views[target][index]); // if control is open then update display
+					this.newplotdata(value, views[target][index], target); // if control is open then update display
 				}.defer(offset.asFloat.rand)
 		})}.defer(defer)
 	}
@@ -528,7 +533,7 @@ Tapes{
 
 				{
 					pl.loop(mysttime, myendtime);
-					this.newselection(mysttime, myendtime, views[target][index], pl.buf);
+					this.newselection(mysttime, myendtime, views[target][index], pl.buf, target);
 				}.defer(offset.asFloat.rand);
 			})
 		}.defer(defer)
@@ -577,6 +582,7 @@ Tapes{
 		var slicerw = Window("Slicer 4x", w@175).alwaysOnTop_(true);
 		var cols = [Color.grey,Color.white, Color.grey(0.7),Color.grey,Color.white, Color.yellow,nil,nil, Color.grey(0.7)];
 		var controls = [];
+		var target = currentgroup;
 		slicerw.view.decorator = FlowLayout(slicerw.view.bounds);
 		slicerw.view.decorator.gap=2@2;
 		/*
@@ -623,6 +629,7 @@ Tapes{
 		controls.add( EZSlider(slicerw, (w-10)@40, "start",
 			ControlSpec(0, 1, \lin, 0.0001, 0),
 			{|sl|
+				this.usegroup(target);
 				slicestate[0] = sl.value.asFloat;
 				doslice.slice(*slicestate);
 		}, slicestate[0], layout:\line2, labelHeight:15).setColors(*cols).numberView.maxDecimals = 5 ;);
@@ -630,6 +637,7 @@ Tapes{
 		controls.add( EZSlider(slicerw, (w-10)@40, "shift",
 			ControlSpec(delta.neg, delta, \lin, 0.0001, 0),
 			{|sl|
+				this.usegroup(target);
 				slicestate[1] = sl.value.asFloat;
 				doslice.slice(*slicestate);
 		}, slicestate[1], layout:\line2, labelHeight:15).setColors(*cols).numberView.maxDecimals = 5 ;);
@@ -637,6 +645,7 @@ Tapes{
 		controls.add( EZSlider(slicerw, (w-10)@40, "grain",
 			ControlSpec(0,1, \lin, 0.0001, 0),
 			{|sl|
+				this.usegroup(target);
 				slicestate[2] = sl.value.asFloat;
 				doslice.slice(*slicestate);
 		}, slicestate[2], layout:\line2, labelHeight:15).setColors(*cols).numberView.maxDecimals = 5 ;);
@@ -644,6 +653,7 @@ Tapes{
 		controls.add( EZSlider(slicerw, (w-10)@40, "grain shift",
 			ControlSpec(delta.neg, delta, \lin, 0.0001, 0),
 			{|sl|
+				this.usegroup(target);
 				slicestate[3] = sl.value.asFloat;
 				doslice.slice(*slicestate);
 		}, slicestate[3], layout:\line2, labelHeight:15).setColors(*cols).numberView.maxDecimals = 5;);
@@ -659,7 +669,7 @@ Tapes{
 		{grouplists[target].do({ |pl, index|
 			{
 				pl.loop(st, end);
-				this.newselection(st, end, views[target][index], pl.buf);
+				this.newselection(st, end, views[target][index], pl.buf, target);
 			}.defer(offset.asFloat.rand)
 		})}.defer(defer)
 	}
@@ -805,7 +815,7 @@ Tapes{
 		{grouplists[target].do({ |pl, index|
 			{
 				pl.rloop;
-				this.newselection(pl.st, pl.end, views[target][index], pl.buf);
+				this.newselection(pl.st, pl.end, views[target][index], pl.buf, target);
 			}.defer(offset.asFloat.rand)
 		})}.defer(defer)
 	}
@@ -925,7 +935,7 @@ Tapes{
 			{
 				if (mode==1, {buffer=bufs[currentbank].choose}); // each one different
 				pl.buf(buffer);
-				this.newplotdata(pl.buf, views[target][index]);
+				this.newplotdata(pl.buf, views[target][index], target);
 			}.defer(offset.asFloat.rand)
 		})}.defer(defer)
 	}
@@ -985,7 +995,7 @@ Tapes{
 			grouplists[target].do({|pl, index|
 				{
 					pl.bloop(range);
-					this.newselection(pl.st, pl.end, views[target][index], pl.buf);
+					this.newselection(pl.st, pl.end, views[target][index], pl.buf, target);
 				}.defer(offset.asFloat.rand)
 			})
 		}.defer(defer)
@@ -1255,8 +1265,8 @@ Tapes{
 		onsets.put(PathName(buffer.path).fileName, data)
 	}
 
-	updateplot {|buf, aview| // draw the choosen buffer
-		if (controlGUI.notNil, {
+	updateplot {|buf, aview, agroup| // draw the choosen buffer
+		if (controlGUI[agroup].notNil, {
 			var f = { |b,v|
 				b.loadToFloatArray(action: { |a| { v.setData(a) }.defer });
 				//v.gridResolution(b.duration/10); // I would like to divide the window in 10 parts no matter what the sound dur is. Cannot change gridRes on the fly?
@@ -1265,18 +1275,18 @@ Tapes{
 		});
 	}
 
-	control {|cwidth, cheight, defer=0, group, d|
+	control {|group, cwidth, cheight, defer=0, d|
 		var gap=0, height=0;
 		var target = group?currentgroup; // freeze target in case of defer
-		if (grouplists[target].isNil, {target=\default}); // default if not there
+		if (grouplists[target].isNil, {target=\default; "group does not exist!".postln}); // default if not there
 		defer=d?defer;
 		{
-			if (controlGUI.isNil, {
-				controlGUI = Window( ("Tapes from group"+target), Rect(500, 200, cwidth?500, cheight?700));
-				controlGUI.alwaysOnTop = true;
-				controlGUI.front;
-				controlGUI.onClose = {
-					controlGUI = nil;
+			if (controlGUI[target].isNil, {
+				controlGUI[target] = Window( ("Tapes from group"+target), Rect(500, 200, cwidth?500, cheight?700));
+				controlGUI[target].alwaysOnTop = true;
+				controlGUI[target].front;
+				controlGUI[target].onClose = {
+					controlGUI[target] = nil;
 					grouplists[target].do({|play| play.view = nil });
 					plotwinrefresh.stop;
 				};
@@ -1284,7 +1294,7 @@ Tapes{
 
 				//height = controlGUI.bounds.height/howmany;
 
-				controlGUI.layout = VLayout();
+				controlGUI[target].layout = VLayout();
 				// 		"To zoom in/out: Shift + right-click + mouse-up/down".postln;
 				// 		"To scroll: right-click + mouse-left/right".postln;
 				views[target].size.do({|index|
@@ -1309,11 +1319,11 @@ Tapes{
 					.mouseUpAction_({ |thisview, x, y, mod|
 						grouplists[target][index].end( x.linlin(0, thisview.bounds.width, 0,1) )
 					});
-					controlGUI.layout.add(views[target][index]);
+					controlGUI[target].layout.add(views[target][index]);
 
 					grouplists[target][index].view = views[target][index];
 					grouplists[target][index].updatelooppoints();
-					this.newplotdata(grouplists[target][index].buf, views[target][index]);
+					this.newplotdata(grouplists[target][index].buf, views[target][index], target);
 
 					//grouplists.values.flat[index].view = views[target][index];// to update loop point when they change
 					//grouplists.values.flat[index].updatelooppoints();
@@ -1335,8 +1345,8 @@ Tapes{
 		}.defer(defer)
 	}
 
-	newplotdata {|buf, view|
-		if (controlGUI.notNil, {
+	newplotdata {|buf, view, group=\default|
+		if (controlGUI[group].notNil, {
 			if (buf.path.notNil, {
 				var sf = SoundFile.new;
 				sf.openRead(buf.path);
@@ -1350,8 +1360,8 @@ Tapes{
 		})
 	}
 
-	newselection {|st, end, view, buf|
-		if (controlGUI.notNil, {
+	newselection {|st, end, view, buf, group=\default|
+		if (controlGUI[group].notNil, {
 			view.setSelectionStart(0, (buf.numFrames) * st); // loop the selection
 			view.setSelectionSize(0, (buf.numFrames) * (end-st));
 		})

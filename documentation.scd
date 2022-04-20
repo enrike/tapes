@@ -182,8 +182,9 @@ _load("/home/xxx/caos.states") // tries to load states from the file
 _pop(\dut) // load \dut from current states
 
 _control // opens a GUI window with displays of \default group tape players waveform. you can click+drag to control de loop selection as well
-_control( 300, 200 ) // open control window with this size
-_control(target: \b) // display Tapes in group \b
+_control(group: \b) // display Tapes in group \b
+_control(\default, 300, 200) // specify size
+
 
 // search. identify which tape players are playing which sound file
 p = _search("Roll") //returns a list of tape players whose buffer contains this string in the file name. no case sensitive
@@ -263,8 +264,9 @@ _sla(0.2); //slope above thr <1 for compression >1 for expansion*/
 _xloop({ _rrate }) // everytime one single tape crosses the loop point, all off them change their rate
 _xloop({|me| me.rrate})  // every individual xloop each changes ITS own rate. Others are not affected
 _xloop // this clears the xloop functions for everyone
-_one.xloop = {me.id.postln} // individually too
-_0.xloop = {me.id.postln} // too
+_one.xloop = {|me| me.id.postln} // individually too
+_0.xloop = {|me| me.id.postln} // too
+
 
 // MIDI
 _midion
@@ -338,6 +340,7 @@ _do(\silent, { // wont print its state every run. useful with quick and repetiti
 // which group of tapes to apply the commands to. it defaults to \default
 _newgroup(\noises);
 _usegroup(\noises);
+_ug(\noises); // shortcut
 _add;
 _do(\rand, {_rrand}, 1); // will only affect to tapes in noises group
 // this line above is the same as this code below
