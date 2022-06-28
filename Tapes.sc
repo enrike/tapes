@@ -68,7 +68,8 @@ Tapes{
 				//"comp", "thr", "slb", "sla",
 				"do", "undo", "xloop", "does", "dogui", "pause", "resume",
 				"slice", "slicegui",
-				"group", "groups", "mergegroups", "usegroup", "ug", "currentgroup", "newgroup", "killgroup", "all",
+				"group", "groups", "mergegroups", "usegroup", "ug", "currentgroup", "newgroup",
+				"killgroup", "all", "ggui",
 				"bank", "banks", "mergebanks", "usebank", "currentbank", "newbank", "delbank",
 				"loadonsetanalysis", "onsets", //experimental
 				"midion", "midioff", "ccin",
@@ -740,12 +741,16 @@ Tapes{
 		}.defer(defer)
 	}
 
+	states {
+		grouplists[currentgroup][0].statesDic.postln;
+	}
+
 	push {|which| grouplists[currentgroup].do({ |pl| pl.push(which)}) } // if no which it appends to stack
 
 	pop {|which| grouplists[currentgroup].do({ |pl| pl.pop(which)}) } // if no which it pops last one
 
 	save { |filename| // save to a file current state dictionary. in the folder where the samples are
-		var data;
+		var data, path;
 		if (filename.isNil, {
 			filename = Date.getDate.stamp++".states";
 		}, {
@@ -758,12 +763,15 @@ Tapes{
 			data.put(\tape++index, pl.statesDic)
 		});
 
-		// open dialogue if no file path is provided
-		("saving" + Platform.userHomeDir ++ Platform.pathSeparator ++ filename).postln;
-		data.writeArchive(Platform.userHomeDir ++ Platform.pathSeparator ++ filename);
+		path = thisProcess.nowExecutingPath.dirname ++ Platform.pathSeparator ++ "states" ++ Platform.pathSeparator ++ filename;
+		("saving" + path).postln;
+		data.writeArchive(path);
+		//("saving" + Platform.userHomeDir ++ Platform.pathSeparator ++ filename).postln;
+		//data.writeArchive(Platform.userHomeDir ++ Platform.pathSeparator ++ filename);
 	}
 
 	load {|filepath|
+
 		if (filepath.isNil, {// opn dialogue to load file with state dictionary
 			FileDialog({ |path|
 				this.readstates(path[0])
@@ -771,6 +779,7 @@ Tapes{
 			path: Platform.userHomeDir
 			)
 		},{
+			var path =  thisProcess.nowExecutingPath.dirname ++ Platform.pathSeparator ++ "states" ++ Platform.pathSeparator ++ filepath;
 			this.readstates(filepath)
 		})
 
@@ -1149,12 +1158,11 @@ Tapes{
 							var wait = sleep.asString.asFloat; // reset each time
 							var time = ""+Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second;
 
-							if (verbose, {("-- now:"+name++time+(index.asInteger+1)++":"++iter).postln});
 							this.usegroup(target);
 							function.value(index.asInteger); // only run if {when} is true. pass index
 
 							if (sleep.isArray, {
-								wait = sleep.wrapAt(index).asString.asFloat; //cycle
+								wait = sleep.wrapAt(index).asString.asFloat; //cycle //USE Pseq instead?
 							});
 
 							if (random.isArray,{
@@ -1166,6 +1174,8 @@ Tapes{
 							},{
 								wait = wait + random.asFloat.rand2
 							});// rand gets added to sleep
+
+							if (verbose, {("-- now:"+name++time+(index.asInteger+1)++":"++iter+"wait"+wait).postln});
 
 							//["s", sleep, "r", random, "w", wait].postln;
 							wait.max(0.005).wait;
@@ -1187,7 +1197,62 @@ Tapes{
 		procs.add(name.asSymbol -> [atask, function, sleep, random]);// to keep track of them
 	}
 
-	dogui {
+	ggui { //controls groups
+		var w=Window.new("tape groups", 500@(30+(grouplists.size*25))).front;
+		var string;
+		var clean={|data=""| // removes [ and ] from array.asString for displaying it in a statictext
+			var res=data;
+			if (data.isArray, {res=data.asString[2..data.asString.size-2]}, {res.asString});
+			res;
+		};
+		w.alwaysOnTop = true;
+		//w.layout = VLayout();
+		w.view.decorator = FlowLayout(w.view.bounds);
+
+		/*StaticText(w, 80@18).align_(\left).string_("play").resize_(7);
+		StaticText(w, 75@18).align_(\left).string_("vol").resize_(7);
+		StaticText(w, 45@18).align_(\left).string_("rate").resize_(7);
+		w.view.decorator.nextLine;*/
+
+		grouplists.keys.do{|key|
+			var bu = Button(w, 80@20).states_([
+				[key, Color.red, Color.grey],
+				[key, Color.black, Color.grey]
+			])
+			.action_({|bu|
+				this.usegroup(key);
+				if (bu.value==1, {
+					this.stop
+				}, {
+					this.play
+				})
+			});
+			EZSlider( w,         // parent
+				200@20,    // bounds
+				"amp",  // label
+				ControlSpec(0, 2, \lin, 0.001, 1),     // controlSpec
+				{ |ez|
+					this.usegroup(key);
+					this.vol(ez.value)
+				}, // action
+				labelWidth:30
+			); //.numberView.maxDecimals = 3 ;
+			EZSlider( w,         // parent
+				200@20,    // bounds
+				"freq",  // label
+				ControlSpec(-2, 2, \lin, 0.001, 1),     // controlSpec
+				{ |ez|
+					this.usegroup(key);
+					this.rate(ez.value)
+				}, // action
+				labelWidth:30
+			); //.numberView.maxDecimals = 3 ;
+			w.view.decorator.nextLine;
+		};
+		w.front;
+	}
+
+	dogui { // control do processes
 		var w=Window.new("do", 250@(30+(procs.size*25))).front;
 		var string;
 		var clean={|data=""| // removes [ and ] from array.asString for displaying it in a statictext
