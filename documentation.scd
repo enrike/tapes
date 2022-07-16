@@ -125,14 +125,14 @@ _loadfiles("some/directory/voices/");
 // global controls. control ALL tape players *in current group* at the same time //
 ///////////////////////////////////////////////////////////////////////////////////
 
-_play // loop play all tapes in current group
+_play // loop play all tapes in current group. it will resume if _stop
+_play(3) // will loop 3 times and stop
 _stop
-_shot // single shot play. experimental
 _solo(0) // pause all but 0 player
 _reverse // reverse play direction. +rate to -rate
-_dir(1) // 1 forwards, -1 backwards. same as _rate(1) or rate(-1)
-_fwd // turn current rate positive. same as _rate(1)
-_bwd // turn current rate negative. same as _rate(-1)
+_dir(1) // 1 forwards, -1 backwards
+_fwd // change playing direction forwards
+_bwd // change playing direction backwards
 _volu // UP by 2/100th
 _vold // DOWN by 2/100th
 _vol(0.5)
@@ -141,18 +141,18 @@ _fadeout
 _mute // == _vol(0)
 _pan(0) //-1 to 1
 _out(0) // tapes send output to channel 0,1
-_rate(0.8)
+_rate(0.8)  // sets rate. if rate is not 0 the tape will play
 _wobble(0.27) // rand fluctuation in rate
 _brown(0.7) // brownian fluctuation in rate
 _vibrato(value:3, depth:0.04, ratev:0.01, depthv:0.02)
 
-_lp(0, 0.01) // set loop start and end. in 0 to 1 range
-_st(0.5) // loop start
-_end(0.55) // loop end
-_dur(0.006) // loop duration in 0-1 range from st
-_len(600) // loop length **in milliseconds** useful if they are using different buffers and you want the same loop duration
-_move(0.5) // move loop start point to that position and try to maintain the loop duration
-_moveby(-0.01) // move loop start and end point by that amount
+_frame(0, 0.01) // set frame start and end. in 0 to 1 range
+_st(0.5) // frame start
+_end(0.55) // frame end
+_dur(0.006) // frame duration in 0-1 range from st
+_len(600) // frame length **in milliseconds** useful if they are using different buffers and you want the same frame duration
+_move(0.5) // move frame start point to that position and try to maintain the frame duration
+_moveby(-0.01) // move frame start and end point by that amount
 _go(0.5) // send playhead to point in sample (only works if >st and <end)
 
 _env(vol:1, fadein:0.01, len:0.5, fadeout:0.1); // fadein time to vol, stay len, fadeout time
@@ -166,10 +166,10 @@ _slicegui(300,600); // 2x 2D GUI with sliders to control _slice parameters
 _scratch // experimental. |target=0, tIn=1, tStay=0.5, tOut=1, offset=0| // boomerang like pitch change
 
 // RESET
-_reset // reset loop to 0-1, play from 0, pitch to 1
-_lp // resets loop to 0-1
-_gost // to to loop start point
-_goend // go to loops end point
+_reset // reset frame to 0-1, play from 0, pitch to 1
+_frame // resets frame to 0-1
+_gost // to to frame start point
+_goend // go to frame end point
 _go // resets pos to 0 --> *SAME* happens with _pan, _rate, _vol. They reset to default value
 
 
@@ -180,8 +180,9 @@ _save("caos") // optionally provide a name. if no name is provided it uses the t
 _load // open a dialogue to search for a file containg states
 _load("/home/xxx/caos.states") // tries to load states from the file
 _pop(\dut) // load \dut from current states
+_states // posts the current available states
 
-_control // opens a GUI window with displays of \default group tape players waveform. you can click+drag to control de loop selection as well
+_control // opens a GUI window with displays of \default group tape players waveform. you can click+drag to control de frame selection as well
 _control(group: \b) // display Tapes in group \b
 _control(\default, 300, 200) // specify size
 
@@ -200,18 +201,18 @@ _rpan
 _rrate
 _rdir // + or - rate
 _rvol
-_rloop // 0 to 1
-_rloop([0.2, 0.1]) // set start and *LENGTH* limits for the random. in this case start will be rrange(0,0.2) and length start+(0.1.rand)
-_rmove; // move current loop to a random position maintaing the length
+_rframe// 0 to 1
+_rframe([0.2, 0.1]) // set start and *LENGTH* limits for the random. in this case start will be rrange(0,0.2) and length start+(0.1.rand)
+_rmove; // move current frame to a random position maintaing the length
 _rst // start point
 _rend // end point (not length)
 _rlen(0.1) // length. in range 0-1
 _rgo // go to a random point in the sound
-_rand // random file, pan, vol, rate, dir, loop (st, end) and go
+_rand // random file, pan, vol, rate, dir, frame (st, end) and go
 
 // random walks
-_bloop // small range go. range defaults to 0.01
-_bloop(0.05) // single step small random
+_bframe // small range go. range defaults to 0.01
+_bframe(0.05) // single step small random
 _bvol // small range go. range defaults to 0.01
 _bvol(0.05) // single step small random
 _bpan
@@ -276,14 +277,15 @@ _ccin(\test, 41, {|v|v.postln}) //bind a midi CC message with a function
 
 // SCHEDULING FUNCTIONS: _do //
 // _do args are: name, function, sleep, random, defer, iter, when, then, verbose
+// args are explained below
 _do(\randpan, {_rpan}, 2); //loop run a function named \randpan every 15 secs sleep.
 _undo(\randpan) // kill \randpan
 _undo // kill all scheduled functions
 _undo(\randpan, d:10) // it can be deferred too
 
-_pause;(\randpan, d:2) // pause \randpan
+_pause(\randpan, d:2) // pause \randpan
 _pause; // pause all
-_resume;(\randpan, d:8) // resume \randpan
+_resume(\randpan, d:8) // resume \randpan
 _resume; // resume all
 
 _does; //posts existing _do names
@@ -304,45 +306,48 @@ _do(\cycle, {"sequence".postln}, [0.1, 3, 0.2].mirror) // you can use all the sc
 // random: introducing swing. irregular sleeps
 _do(\randpan, {_rrate}, 15, random:2); // rand swing: the next sch will happen after 15 + rrand(-2,+2) secs
 
-_do(\randpan, {_rrate}, 15, random:[2,4,6]); // rand choose betwen given values
+_do(\randpan, {_rrate}, 15, random:[2,4,6]); // rand choose betwen given values every loop
 
 _do(\wrand, { // weight random
 	"two options".postln;
 }, random:[[1,3],[0.9, 0.1]])// run every every 1 sec (90% chances) or 3 secs (10% chances)
 
 // defer
-_do(\spawn, {_rrate}, 3, defer:20); //wait 20 secs, then run every 3secs
+_do(\spawn, {_rrate}, 3, defer:20); //wait 20 secs to start, then run every 3secs
 
 // num of iterations
 _do(\spawn, {_add(1,_0)}, 3, iter:10); //run every 3secs for 10 times then die
 
 // conditions: when
 z = 0;
-_do(\check, {"run!!!".postln}, 3, when:{z>0}) // will start running once z>1
+_do(\check, {"run!!!".postln}, 3, when:{z>0}) // will start running once z>0
 z = 1; // run this line to start running _do
 
 // when + iter
-_do(\check, {"run!!!".postln}, 3, when:{z>0}, iter:1) // run once when z>0 then run only onces
+_do(\check, {"run!!!".postln}, 3, when:{z>0}, iter:1) // run once when z>0 then run only once
 
-// iter + then. Then will never happen if no iter is specified (iter is inf in that case)
+// iter + then. Then function will never happen if no iter is specified (iter is inf in that case)
 _do(\check, {|i| i.postln}, 0.5, iter:5, then:{"goodbye!!!!!".postln})
 
 // when + iter + then
 a=false;
 _do(\check, {|i| i.postln}, 1, when:{a}, iter:3, then:{"done".postln})
-a=true; // will start when a is true
+a=true; // will start when a is true, then run 3 times and finally post the value of a
+
+
 
 // postln or not every run
-_do(\silent, { // wont print its state every run. useful with quick and repetitive tasks
+_do(\silent, { // wont print its state every run. useful with quick and repetitive tasks that load the post window
 	_rpan
 }, 0.2, verbose:false);
 
 // which group of tapes to apply the commands to. it defaults to \default
-_newgroup(\noises);
-_usegroup(\noises);
+_newgroup(\noises); // create a group of tapes
+_usegroup(\noises); // lets work with that group
 _ug(\noises); // shortcut
-_add;
-_do(\rand, {_rrand}, 1); // will only affect to tapes in noises group
+_add; // in this case it will add a new tape to the current group which happens to be \noise
+_do(\rand, {_rrand}, 1); // again, it will only affect to tapes in noises group
+
 // this line above is the same as this code below
 _do(\rand, {
 	_usegroup(\noises);
@@ -356,7 +361,7 @@ _do(\mix, {
 	_rvol;
 }, 10)
 
-// SHORTCUTS do work here too. beware that in this context t means THEN and not time
+// SHORTCUTS do work here too. BEWARE that in this context "t" keyword means THEN and not time
 _do(\test, {_rvol}, s:3, r:3, d:1, i:2, w:{z>1}, t:0, v:true)
 
 
@@ -398,7 +403,7 @@ _do(\rev, {
 var st=0, end;
 _do(\go, {
 	st = st+(0.001.rand);
-	_loop(st, st+0.001)
+	_frame(st, st+0.001)
 }, 0.8)
 )
 
@@ -406,7 +411,7 @@ _do(\go, {
 var len=10, gap=5, fade=0.5;
 _do(\rum, {
 	_rbuf;
-	_rdir; _rrate; _rloop;
+	_rdir; _rrate; _rframe;
 	_fadein(fade);
 	_fadeout(fade, d:(len-gap));
 }, len)
@@ -421,7 +426,7 @@ _do(\go, {
 	_bpan(0.5, time:time);
 	_rdir;
 	_brate(0.0005);
-	_loop([st, st+len])
+	_frame([st, st+len])
 }, time, random:time/3.0)
 )
 
@@ -456,7 +461,7 @@ _0.buf( _bufs[1] ) // must pass the buffer like this in this case
 _0.vol(1)
 _0.pan(0) // -1 to 1
 _0.rate(1)
-_0.loop(0.1, 0.12) // st and end. range 0-1
+_0.frame(0.1, 0.12) // st and end. range 0-1
 _0.len(1000) // in millisecs!!!
 // and so on...
 
@@ -473,14 +478,14 @@ _0.push
 _0.pop
 
 // random
-_0.rloop //
+_0.rframe //
 _0.rst
 _0.rend
 _0.rvol
 _0.rpan
 _0.rrate
 _0.rdir
-_0.bloop(0.01) // single step small random
+_0.bframe(0.01) // single step small random
 
 // x loop events
 _0.xloop = {me.id.postln}

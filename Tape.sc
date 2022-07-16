@@ -3,39 +3,35 @@
 
 Tape{
 
-	var <id, <player, <curpos, <loops=0, out=0;
-	var buf, st=0, end=1, vol=1, rate=0, pan=0, bus=0, len=0, dur=0, dir=1, wobble=0, brown=0, vib; // state variables hidden
-	var memrate=1; // to store rate while stopped
+	var <id, <player, <curpos, <loops= -1, out=0;
+	var buf, st=0, end=1, vol=1, rate=0, pan=0, len=0, dur=0, dir=1, wobble=0, brown=0, vib; // state variables hidden
+	var memrate=0; // to store rate while stopped
 	var <>del=0.04; //time in between two consecutive p.set. required by gates
 	var <>view=nil;
-	var <>statesDic, <>verbose=false, loopOSC, playheadOSC, <>xloop;
+	var <>statesDic, <>verbose=false, loopOSC, playheadOSC, <>xloop, targetloops=inf;
 
-	*new {| buffer=nil, bus=0 |
-		^super.new.initTape( buffer, bus );
+	*new {| buffer=nil |
+		^super.new.initTape( buffer );
 	}
 
-	initTape {| abuffer, abus |
+	initTape {| abuffer |
 		buf = abuffer;
-		bus = abus;
 
 		vib = [1,0,0,0,0,0,0];
 
 		id = UniqueID.next;
-
-		//Server.default.waitForBoot{
-		player.free;
-		player = Synth.tail(Server.default, \rPlayer,
-			[\buffer, buf ? buf.bufnum, \rate, rate, \index, id, \out, abus]);
-
-		//Server.default.sync;
-		//};
+		this.redoplayer;
 
 		xloop = {};
 		loopOSC.free;
 		loopOSC = OSCdef(\xloop++id, {|msg, time, addr, recvPort|
 			if (id==msg[2], {
+				//[loops, targetloops].postln;
+				if (loops >= (targetloops-1), { this.stop });
 				this.loopcount;
-				this.xloop.value(this)
+				if (loops>0, {
+					this.xloop.value(this)
+				}); // not the first round
 			});
 		}, '/xloop');
 
@@ -48,6 +44,17 @@ Tape{
 		("-----------").postln;
 		("ready tape ID"+id).postln;
 		("using buffer"+this.file).postln;
+	}
+
+	redoplayer {
+		Routine.run { // INSIDE A ONE SHOT ROUTINE TO BE ABLE TO SYNC
+			try{player.free}; // silently
+			player = Synth.tail(Server.default, \rPlayerLoop,
+				[\buffer, buf, \start, st, \end, end, \amp, vol, \rate, memrate,
+					\pan, pan, \index, id, \out, out,
+					\dir, dir, \wobble, wobble, \brown, brown, \vib, vib ]);
+			Server.default.sync;// wait til is allocated
+		}
 	}
 
 	kill {
@@ -70,7 +77,7 @@ Tape{
 	}
 
 	duration { // buffer len in msecs
-		^((buf.numFrames/buf.sampleRate)*1000).asInt // buf.numChannels/
+		^((buf.numloops/buf.sampleRate)*1000).asInt // buf.numChannels/
 	}
 
 	state {|state|
@@ -121,12 +128,12 @@ Tape{
 		if(verbose.asBoolean, {["poping state", which].postln});
 	}
 
-	updatelooppoints {
+	updateframepoints {
 		if (view.notNil, {
 			{
 				view.timeCursorOn = true;
-				view.setSelectionStart(0, (buf.numFrames) * st); // loop the selection
-				view.setSelectionSize(0, (buf.numFrames) * (end-st)); // len
+				view.setSelectionStart(0, (buf.numloops) * st); // frame the selection
+				view.setSelectionSize(0, (buf.numloops) * (end-st)); // len
 				view.readSelection.refresh;
 			}.defer;
 		})
@@ -137,7 +144,7 @@ Tape{
 		this.file().postln;
 		["curpos", curpos].postln;
 		["volume", vol].postln;
-		["loop", st, end].postln;
+		["frame", st, end].postln;
 		["rate", rate].postln;
 		["direction", dir].postln;
 		["panning", pan].postln;
@@ -162,29 +169,20 @@ Tape{
 
 	goend {this.go(end)}
 
-	move {|value=0, random=0| // moves the loop to another position maintaing the duration
+	move {|value=0, random=0| // moves the frame to another position maintaing the duration
 		value = value + random.asFloat.rand2;
-		this.loop(value, value+(end-st)); //keep len
+		this.frame(value, value+(end-st)); //keep len
 	}
 
-	moveby {|value=0, random=0| // moves the loop to another position maintaing the duration
+	moveby {|value=0, random=0| // moves the frame to another position maintaing the duration
 		value = value + random.asFloat.rand2;
-		this.loop(st+value, st+value+(end-st)); //keep len
+		this.frame(st+value, st+value+(end-st)); //keep len
 	}
 
 	file {
 		var res = "buffer in memory?";
 		try { res = PathName(buf.path).fileName };
 		^res
-	}
-
-	outb {|value=nil|
-		if (value.notNil, {
-			bus = value;
-			player.set(\out, bus)
-		}, {
-			^bus
-		})
 	}
 
 	pan {|value=nil, time=0|
@@ -206,7 +204,7 @@ Tape{
 		if (value.notNil, {
 			value = value + random.asFloat.rand2;
 
-			vol = value.clip(0,1); //limits
+			vol = value.clip(0,5); //limits
 			player.set(\amplag, time, \amp, vol, \gate, 1);
 
 			this.post("volume", (vol.asString + time.asString  + random.asString) );
@@ -263,7 +261,7 @@ Tape{
 			value = value + random.asFloat.rand2;
 			player.set(\ratelag, time, \rate, value);
 
-			memrate = rate;
+			//memrate = rate;
 			rate = value;
 			this.post("rate", rate);
 		}, {
@@ -294,12 +292,12 @@ Tape{
 	}
 
 	reset {
-		this.loop(0,1);
+		this.frame(0,1);
 		this.go(0);
 		this.rate(1);
 	}
 
-	loop {|...args|
+	frame {|...args|
 		if (args.size==0, {
 			^[st, end]
 		});
@@ -314,15 +312,15 @@ Tape{
 
 		player.set(\start, st, \end, end);
 		//[st, end].postln;
-		this.post("loop", st.asString+"-"+end.asString);
-		this.updatelooppoints; //only if w open
+		this.post("frame", st.asString+"-"+end.asString);
+		this.updateframepoints; //only if w open
 	}
 
 	st {|value, random=0|
 		if (value.notNil, {
 			st = value + random.asFloat.rand2;
 			player.set(\start, st);
-			this.updatelooppoints; //only if w open
+			this.updateframepoints; //only if w open
 		}, {
 			^st
 		});
@@ -332,7 +330,7 @@ Tape{
 		if (value.notNil, {
 			end = value + random.asFloat.rand2;
 			player.set(\end, end);
-			this.updatelooppoints; //only if w open
+			this.updateframepoints; //only if w open
 		}, {
 			^end
 		})
@@ -343,7 +341,7 @@ Tape{
 			end = st + value + random.asFloat.rand2;
 			player.set(\end, end);
 			this.post("end", end);
-			this.updatelooppoints; //only if w open
+			this.updateframepoints; //only if w open
 		}, {
 			^dur
 		})
@@ -351,7 +349,7 @@ Tape{
 
 	len {|value| // IN MILLISECONDS
 		if (value.notNil, {
-			var adur= value / ((buf.numFrames/buf.sampleRate)*1000 ); // from millisecs to 0-1
+			var adur= value / ((buf.numloops/buf.sampleRate)*1000 ); // from millisecs to 0-1
 			this.dur(adur)
 		}, {
 			^len
@@ -363,25 +361,22 @@ Tape{
 	// 	this.rate(0)
 	// }
 
-	resume {
+/*	resume { // this command name is not a good idea because it is already used by tasks
 		this.rate(memrate); // retrieve stored value
-	}
+	}*/
 
 	stop {
 		memrate = rate; // store
 		this.rate(0)
 	}
 
-	play {
+	play {|value=inf|
+		loops = -1; // reset count
+		targetloops = value;
+		this.redoplayer;
 		if(memrate==0, {memrate=rate}); //otherwise it wont play
 		if(memrate==0, {memrate=1});
 		this.rate(memrate); // retrieve stored value
-	}
-
-	shot { // this should play the sound only once but using all the properties. maybe use another synthdef to do it.
-		//if (rate!=0, { this.pause });
-		Synth(\ShotPlayer, [\buffer, buf, \start, st, \end, end, \amp, vol, \rate, memrate,
-			\pan, pan, \index, id, \out, bus]);
 	}
 
 	buf {|value|
@@ -389,7 +384,7 @@ Tape{
 			buf = value;
 			player.set(\buffer, buf.bufnum);
 			this.post("buffer", this.file());
-			this.updatelooppoints; //only if w open
+			this.updateframepoints; //only if w open
 		}, {
 			^buf
 		})
@@ -413,37 +408,37 @@ Tape{
 		this.go(target)
 	}
 
-	rloop {|st_range=1, len_range=1|
+	rframe {|st_range=1, len_range=1|
 		st = st_range.asFloat.rand;
 		end = st + len_range.asFloat.rand;
 		if (end>1, {end=1}); //limit. maybe not needed
-		this.loop(st, end);
+		this.frame(st, end);
 	}
 
 	rmove {|range=1|
 		var pos = range.rand;
-		this.loop(pos, pos+(end-st)); //keep len
+		this.frame(pos, pos+(end-st)); //keep len
 	}
 
 	rst {|range=1.0|
 		//st = range.asFloat.rand;
 		this.st(range.asFloat.rand);
 		//player.set(\start, st);
-		//this.updatelooppoints; //only if w open
+		//this.updateframepoints; //only if w open
 	}
 
 	rend {|range=1.0|
 		this.end(range.asFloat.rand)
 		//end = range.asFloat.rand; // total rand
 		//player.set(\end, end);
-		//this.updatelooppoints; //only if w open
+		//this.updateframepoints; //only if w open
 	}
 
 	rlen {|range=0.5|
 		this.end(st + range.asFloat.rand)
 		//end = st + range.asFloat.rand; // rand from st point
 		//player.set(\end, end);
-		//this.updatelooppoints; //only if w open
+		//this.updateframepoints; //only if w open
 	}
 
 	rdir {|time=0|
@@ -458,16 +453,16 @@ Tape{
 		this.rpan(time:time);
 		this.rrate(time:time);//??
 		this.rdir(time:time);
-		this.rloop;
-		this.rgo;// this should be limited to the current loop
+		this.rframe;
+		this.rgo;// this should be limited to the current frame
 		this.rvol(time:time); // why?
 	}
 
 	// set start
 	// set len
 
-	bloop {|range=0.01|
-		this.loop(this.st+(range.asFloat.rand2), this.end+(range.asFloat.rand2))
+	bframe {|range=0.01|
+		this.frame(this.st+(range.asFloat.rand2), this.end+(range.asFloat.rand2))
 	}
 
 	bgo {|range=0.01| this.go( curpos+(range.asFloat.rand2)) }// single step brown variation
@@ -486,6 +481,6 @@ Tape{
 
 	bmove {|range=0.05|
 		var pos = st+(range.asFloat.rand2);
-		this.loop(pos, pos+(end-st)); //keep len
+		this.frame(pos, pos+(end-st)); //keep len
 	}
 }

@@ -2,7 +2,7 @@
 */
 
 
-Tapes{
+Tapes {
 
 	var server, <path, <bufs, <sfs, <ps, <procs, <onsets;
 	var plotwin=nil, plotview, drawview, plotwinrefresh;
@@ -35,7 +35,6 @@ Tapes{
 
 		views =  Dictionary[currentgroup -> List.new];
 
-		//bufs = List.new;
 		bufs = Dictionary[currentbank -> List.new];
 		currentbank = \default;
 
@@ -43,7 +42,6 @@ Tapes{
 
 		this.boot(adir);
 
-		//amain !? this.lang(amain, asym)
 		if (amain.notNil, {
 			this.lang(amain, asym)
 		});
@@ -56,15 +54,16 @@ Tapes{
 		main.preProcessor = { |code|
 			// list with all the commands defined by Tapes
 			var keywords = [
-				"add", "new", "kill", "killall", "asignbufs", "loadfiles", "bufs", "buf", "curbufs", "bufinfo", "normalize",
+				"add", "new", "kill", "killall", "asignbufs", "loadfiles", "removebuf",
+				"bufs", "buf", "curbufs", "bufinfo", "normalize",
 				"one", "it", "some", "them", "info", "verbose", "plot", "control", "hm",
-				"scratch", "pause", "solo", "fwd", "bwd", "dir", "reverse", "volu", "vold", "vol", "fadein", "fadeout", "mute",
-				"rwd", "trans",
-				"pan", "rate", "wobble", "brown", "vibrato", "reset", "resume", "shot", "out", "stop", "play",
-				"lp", "loop", "st", "move", "moveby", "end", "go", "gost", "goend", "dur", "len", "env",
+				"scratch", "pause", "solo", "fwd", "bwd", "dir", "reverse", "volu", "vold", "vol",
+				"fadein", "fadeout", "mute", "rwd", "trans",
+				"pan", "rate", "wobble", "brown", "vibrato", "reset", "shot", "out", "stop", "play",
+				"frame", "st", "move", "moveby", "end", "go", "gost", "goend", "dur", "len", "env",
 				"push", "pop", "save", "load", "search", "id", "where",
-				"rbuf", "rrate", "rpan", "rloop", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rmove", "rand",
-				"bloop", "bmove", "bpan", "brate", "bvol", "bpan", "bgo", "spread",
+				"rbuf", "rrate", "rpan", "rframe", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rmove", "rand",
+				"bframe", "bmove", "bpan", "brate", "bvol", "bpan", "bgo", "spread",
 				//"comp", "thr", "slb", "sla",
 				"do", "undo", "xloop", "does", "dogui", "pause", "resume",
 				"slice", "slicegui",
@@ -98,8 +97,8 @@ Tapes{
 				RecordBuf.ar(signal, bufnum, doneAction: Done.freeSelf, loop: loop);
 			}).load;
 
-			SynthDef( \rPlayer, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, dir=1, index=0,
-				trig=0, reset=0, loop=1, wobble=0, amplag=0, ratelag=0, panlag=0, wobblelag=0,
+			SynthDef( \rPlayerLoop, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, dir=1, index=0,
+				trig=0, reset=0, wobble=0, amplag=0, ratelag=0, panlag=0, wobblelag=0,
 				brown=0, brownlag=0,
 				vib = #[1,1,0,0,0,0,0], viblag=0;
 
@@ -115,36 +114,14 @@ Tapes{
 				pan = pan.lag(panlag);
 
 				phasor = Phasor.ar( trig, rate * BufRateScale.kr(buffer), start*dur, end*dur, resetPos: reset*dur);
+				//phasor = Line.ar(start*dur, end*dur, ((end-start)*dur)/SampleRate.ir, add: 0.0, doneAction: 2);
 
 				SendReply.ar( HPZ1.ar(HPZ1.ar(phasor).sign), '/xloop', 1, index); //loop point
 				SendReply.kr( LFPulse.kr(12, 0), '/pos', phasor/dur, index); //fps 12
 
-				#left, right = BufRd.ar( 2, buffer, phasor, loop:loop ) * amp;
+				#left, right = BufRd.ar( 2, buffer, phasor ) * amp;
 				Out.ar(out, Balance2.ar(left, right, pan));
 			}).load;
-
-
-			SynthDef( \ShotPlayer, {|out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=1, index=0|
-				var left, right;
-				#left, right = BufRd.ar(2, buffer,
-					Line.ar(start: BufFrames.kr(buffer) * start,
-						end: BufFrames.kr(buffer) * end,
-						dur: BufDur.kr(buffer) * (end-start) / rate, // change this to set rate
-						doneAction: {SendTrig.kr( Impulse.kr(1), index, 1); Done.freeSelf})
-				) ;
-				Out.ar(out, Balance2.ar(left, right, pan) * amp);
-			}).load;
-
-			/*
-			SynthDef(\rev, {|inbus=0, out=0, mix= 0.33, room= 0.5, damp= 0.5|
-			// FreeVerb2.ar(in, in2, mix: 0.33, room: 0.5, damp: 0.5, mul: 1.0, add: 0.0)
-			var signal = In.ar(inbus, 2);
-			signal = FreeVerb2.ar(signal[0], signal[1], mix, room, damp);
-			Out.ar(out, signal);
-			}).load;*/
-
-			//	buses = Bus.audio(server, 2);
-			//compressor = Synth(\comp, [\inbus, buses]);
 
 			if (dir.notNil, {this.loadfiles(dir)})
 		})
@@ -164,7 +141,7 @@ Tapes{
 	rec {|in=0, len=1, loop=0|
 		rsynth.free;
 		rbuffer.free;
-		"start sampling into _recbuf".postln;
+		"start sampling into _bufrec".postln;
 		Routine.run { // INSIDE A ONE SHOT ROUTINE TO BE ABLE TO SYNC
 			rbuffer = Buffer.alloc(Server.default, len*Server.default.sampleRate, 2);
 			Server.default.sync;// wait til is allocated
@@ -473,20 +450,28 @@ Tapes{
 		var target = currentgroup;
 		#offset, defer = [o?offset, d?defer];
 
+		if (value.isArray, {value=value.choose}); // choose between given integer values
+
+		// finally if valus is an Integer we need the actual buffer
+		if (value.isInteger, {value = bufs[currentbank][value]}); // using the index
+
+		if (value.isNil, { value=bufs[currentbank].choose }); // get an actual buffer
+
 		{
-			if (value.isArray, {value=value.choose}); // choose between given integer values
-
-			// finally if valus is an Integer we need the actual buffer
-			if (value.isInteger, {value = bufs[currentbank][value]}); // using the index
-
-			if (value.isNil, { value=bufs[currentbank].choose }); // get an actual buffer
-
 			grouplists[target].do({ |pl, index|
 				{
 					pl.buf(value);
 					this.newplotdata(value, views[target][index], target); // if control is open then update display
 				}.defer(offset.asFloat.rand)
 		})}.defer(defer)
+	}
+
+	removebuf {|value, defer=0, d=nil|
+		var target = currentbank;
+		defer = d?defer;
+		{
+			if (value.isInteger, {bufs[target].removeAt(value)}); // using the index
+		}.defer(defer)
 	}
 
 	asignbufs { // asign buffers sequentially if more tapes than buffers then wrap
@@ -533,7 +518,7 @@ Tapes{
 				});
 
 				{
-					pl.loop(mysttime, myendtime);
+					pl.frame(mysttime, myendtime);
 					this.newselection(mysttime, myendtime, views[target][index], pl.buf, target);
 				}.defer(offset.asFloat.rand);
 			})
@@ -662,14 +647,13 @@ Tapes{
 		slicerw.front;//!!!!!
 	}
 
-	// SCLANG DOES NOT LIKE THAT WE USE THE NAME "LOOP" FOR OUR METHOD. change
-	lp {|st, end, offset=0, defer=0, o=nil, d=nil|
+	frame {|st, end, offset=0, defer=0, o=nil, d=nil|
 		var target = currentgroup;
 		if (st.isNil, {st=0; end=1}); // reset
 		#offset, defer = [o?offset, d?defer];
 		{grouplists[target].do({ |pl, index|
 			{
-				pl.loop(st, end);
+				pl.frame(st, end);
 				this.newselection(st, end, views[target][index], pl.buf, target);
 			}.defer(offset.asFloat.rand)
 		})}.defer(defer)
@@ -693,12 +677,8 @@ Tapes{
 		this.action(\reset, 0, 0, 0, offset, defer, nil, nil, o, d);
 	}
 
-	shot { |offset=0, defer=0, o=nil, d=nil|
-		this.action(\shot, 0, 0, 0, offset, defer, nil, nil, o, d);
-	}
-
-	play { |offset=0, defer=0, o=nil, d=nil|
-		this.action(\play, 0, 0, 0, offset, defer, nil, nil, o, d);
+	play { |value=inf, offset=0, defer=0, o=nil, d=nil|
+		this.action(\play, value, 0, 0, 0, offset, defer, nil, nil, o, d);
 	}
 
 	stop { |offset=0, defer=0, o=nil, d=nil|
@@ -818,7 +798,7 @@ Tapes{
 		this.action(\rgo, 0, 0, 0, offset, defer, nil, nil, o, d);
 	}
 
-	rloop {|offset=0, defer=0, o=nil, d=nil|
+	rframe {|offset=0, defer=0, o=nil, d=nil|
 		var target = currentgroup;
 		#offset, defer = [o?offset, d?defer];
 		{grouplists[target].do({ |pl, index|
@@ -997,7 +977,7 @@ Tapes{
 		this.action(\bgo, value, 0, 0, offset, defer, nil, nil, o, d);
 	}
 
-	bloop {|range=0.01, offset=0, defer=0, o=0, d=0|
+	bframe {|range=0.01, offset=0, defer=0, o=0, d=0|
 		var target = currentgroup; // freeze target in case of defer
 		#offset, defer = [o?offset, d?defer];
 		{
