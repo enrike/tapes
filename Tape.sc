@@ -77,7 +77,7 @@ Tape{
 	}
 
 	duration { // buffer len in msecs
-		^((buf.numloops/buf.sampleRate)*1000).asInt // buf.numChannels/
+		^((buf.numframes/buf.sampleRate)*1000).asInt // buf.numChannels/
 	}
 
 	state {|state|
@@ -132,8 +132,8 @@ Tape{
 		if (view.notNil, {
 			{
 				view.timeCursorOn = true;
-				view.setSelectionStart(0, (buf.numloops) * st); // frame the selection
-				view.setSelectionSize(0, (buf.numloops) * (end-st)); // len
+				view.setSelectionStart(0, (buf.numframes) * st); // frame the selection
+				view.setSelectionSize(0, (buf.numframes) * (end-st)); // len
 				view.readSelection.refresh;
 			}.defer;
 		})
@@ -349,7 +349,7 @@ Tape{
 
 	len {|value| // IN MILLISECONDS
 		if (value.notNil, {
-			var adur= value / ((buf.numloops/buf.sampleRate)*1000 ); // from millisecs to 0-1
+			var adur= value / ((buf.numframes/buf.sampleRate)*1000 ); // from millisecs to 0-1
 			this.dur(adur)
 		}, {
 			^len

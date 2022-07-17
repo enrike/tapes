@@ -114,7 +114,6 @@ Tapes {
 				pan = pan.lag(panlag);
 
 				phasor = Phasor.ar( trig, rate * BufRateScale.kr(buffer), start*dur, end*dur, resetPos: reset*dur);
-				//phasor = Line.ar(start*dur, end*dur, ((end-start)*dur)/SampleRate.ir, add: 0.0, doneAction: 2);
 
 				SendReply.ar( HPZ1.ar(HPZ1.ar(phasor).sign), '/xloop', 1, index); //loop point
 				SendReply.kr( LFPulse.kr(12, 0), '/pos', phasor/dur, index); //fps 12
@@ -155,6 +154,7 @@ Tapes {
 	recstate { //recording?
 		^rsynth.notNil
 	}
+
 
 	loadfiles {|apath, overwrite=1| // overwrite will remove the previous one if any
 		var files=List.new;
@@ -212,7 +212,8 @@ Tapes {
 		})
 	}
 
-	// groups
+
+	// groups of tapes
 	group {
 		^grouplists[currentgroup]
 	}
@@ -264,9 +265,9 @@ Tapes {
 		^p
 	}
 
-	/////////
-	// BANKS
 
+
+	// buffer BANKS
 	bank {
 		^bufs[currentbank]
 	}
@@ -297,7 +298,7 @@ Tapes {
 		("removed bank"+name).postln;
 	}
 
-	//////////////////
+	// MIDI ////////////////
 
 	midion {
 		MIDIClient.init;
@@ -317,6 +318,7 @@ Tapes {
 
 	//////////////////
 	//change new keyword to something else. new is the constructor of classes in SC
+	// shortcut do add n tapes to a group and create the group if does not exist
 	new {|howmany=1, buffer, group=\default, defer=0, d|
 		defer = d?defer;
 		if (grouplists[group].isNil, {this.newgroup(group)});
@@ -412,7 +414,7 @@ Tapes {
 	them {^them;}
 
 	free { bufs[currentbank].collect(_.free) }
-	freeall { bufs.values.flat.collect(_.kill) }
+	freeall { bufs.values.flat.collect(_.free) }
 
 	/*	allbufs{
 	"-- Available buffers --".postln;
@@ -721,6 +723,8 @@ Tapes {
 		}.defer(defer)
 	}
 
+
+	// STATES SAVE/LOAD
 	states {
 		grouplists[currentgroup][0].statesDic.postln;
 	}
@@ -778,6 +782,8 @@ Tapes {
 		})
 	}
 
+
+	// RANDOM
 	//random file, pan, vol, rate, loop (st, end), dir and go
 	rand {|time=0, offset=0|
 		{this.rbuf}.defer(offset.asFloat.rand);
@@ -824,14 +830,35 @@ Tapes {
 	rlen {|range=1, offset=0, defer=0, o=nil, d=nil|
 		this.action(\rlen, range, 0, 0, offset, defer, nil, nil, o, d);
 	}
+		rdir {|offset=0, defer=0, o=0, d=0|
+		this.action(\rdir, 0, 0, 0, offset, defer, nil, nil, o, d);
+	}
+
+	rrate {|time=0, offset=0, defer=0, t=nil, o=nil, d=nil|
+		this.action(\rrate, 0, 0, time, offset, defer, nil, t, o, d);
+	}
+
+	rbuf {|mode=0, offset=0, defer=0, o=0, d=0|
+		var buffer = bufs[currentbank].choose; // defaulto to all the same
+		var target = currentgroup; // freeze target in case of defer
+		#offset, defer = [o?offset, d?defer];
+		{grouplists[target].do({ |pl, index|
+			{
+				if (mode==1, {buffer=bufs[currentbank].choose}); // each one different
+				pl.buf(buffer);
+				this.newplotdata(pl.buf, views[target][index], target);
+			}.defer(offset.asFloat.rand)
+		})}.defer(defer)
+	}
+
+	////
+
 
 	action { |act=nil, value=1, random=0, time=0, offset=0, defer=0, r=nil, t=nil, o=nil, d=nil|
 		var target = currentgroup; // freeze target in case of defer
 		#random, time, offset, defer = [r?random, t?time, o?offset, d?defer];
-		//[act, time, random, offset, defer].postln};
 		{
 			grouplists[target].do({ |pl|
-				//{pl.performList(act, [value, random, time])}.defer(offset.asFloat.rand)
 				{pl.performKeyValuePairs(act,
 					[\value, value, \random, random, \time, time])}.defer(offset.asFloat.rand)
 			})
@@ -908,27 +935,6 @@ Tapes {
 		this.action(\bwd, 0, 0, time, offset, defer, nil, t, o, d);
 	}
 
-	rdir {|offset=0, defer=0, o=0, d=0|
-		this.action(\rdir, 0, 0, 0, offset, defer, nil, nil, o, d);
-	}
-
-	rrate {|time=0, offset=0, defer=0, t=nil, o=nil, d=nil|
-		this.action(\rrate, 0, 0, time, offset, defer, nil, t, o, d);
-	}
-
-	rbuf {|mode=0, offset=0, defer=0, o=0, d=0|
-		var buffer = bufs[currentbank].choose; // defaulto to all the same
-		var target = currentgroup; // freeze target in case of defer
-		#offset, defer = [o?offset, d?defer];
-		{grouplists[target].do({ |pl, index|
-			{
-				if (mode==1, {buffer=bufs[currentbank].choose}); // each one different
-				pl.buf(buffer);
-				this.newplotdata(pl.buf, views[target][index], target);
-			}.defer(offset.asFloat.rand)
-		})}.defer(defer)
-	}
-
 	out { |ch=0|
 		var target = currentgroup; // freeze target in case of defer
 		grouplists[target].collect(_.out(ch))
@@ -977,6 +983,7 @@ Tapes {
 		this.action(\bgo, value, 0, 0, offset, defer, nil, nil, o, d);
 	}
 
+	// BROWN RAND
 	bframe {|range=0.01, offset=0, defer=0, o=0, d=0|
 		var target = currentgroup; // freeze target in case of defer
 		#offset, defer = [o?offset, d?defer];
@@ -1061,7 +1068,7 @@ Tapes {
 	}
 
 
-	/////// task's stuff ////
+	// TASKS
 	does { procs.keys.postln; ^procs }
 	pause {|name, defer=0, d=nil|
 		defer = d?defer;
@@ -1367,7 +1374,7 @@ Tapes {
 					controlGUI[target].layout.add(views[target][index]);
 
 					grouplists[target][index].view = views[target][index];
-					grouplists[target][index].updatelooppoints();
+					grouplists[target][index].updateframepoints();
 					this.newplotdata(grouplists[target][index].buf, views[target][index], target);
 
 					//grouplists.values.flat[index].view = views[target][index];// to update loop point when they change
