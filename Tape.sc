@@ -8,7 +8,7 @@ Tape{
 	var memrate=0; // to store rate while stopped
 	var <>del=0.04; //time in between two consecutive p.set. required by gates
 	var <>view=nil;
-	var <>statesDic, <>verbose=false, loopOSC, playheadOSC, <>xloop, targetloops=inf;
+	var <>statesDic, <>verbose=false, loopOSC, playheadOSC, <>xloop, <>xdone, targetloops=inf;
 
 	*new {| buffer=nil |
 		^super.new.initTape( buffer );
@@ -23,22 +23,22 @@ Tape{
 		this.redoplayer;
 
 		xloop = {};
+		xdone = {};
 		loopOSC.free;
 		loopOSC = OSCdef(\xloop++id, {|msg, time, addr, recvPort|
 			if (id==msg[2], {
-				//[loops, targetloops].postln;
-				if (loops >= (targetloops-1), { this.stop });
-				this.loopcount;
-				if (loops>0, {
-					this.xloop.value(this)
-				}); // not the first round
+				if (loops >= (targetloops-1), { this.done }); // done
+				loops = loops + 1;
+				if (loops > 1, { // not the first round
+					this.xloop.value(this, loops)
+				});
 			});
-		}, '/xloop');
+		}, '/xloop'); // this might be not the most efficient way to do it. better /xloop++id ??
 
 		playheadOSC.free;
 		playheadOSC = OSCdef(\playhead++id, {|msg, time, addr, recvPort|
 			if (id==msg[2], { curpos = msg[3] });
-		}, '/pos');
+		}, '/pos'); // this might be not the most efficient way to do it. better /pos++id ??
 
 		statesDic = Dictionary.new;
 		("-----------").postln;
@@ -46,15 +46,22 @@ Tape{
 		("using buffer"+this.file).postln;
 	}
 
+	done {
+		this.stop;
+		xdone.value(this);
+	}
+
 	redoplayer {
-		Routine.run { // INSIDE A ONE SHOT ROUTINE TO BE ABLE TO SYNC
-			try{player.free}; // silently
-			player = Synth.tail(Server.default, \rPlayerLoop,
-				[\buffer, buf, \start, st, \end, end, \amp, vol, \rate, memrate,
-					\pan, pan, \index, id, \out, out,
-					\dir, dir, \wobble, wobble, \brown, brown, \vib, vib ]);
-			Server.default.sync;// wait til is allocated
-		}
+		if (player.isNil, {
+			Routine.run { // INSIDE A ONE SHOT ROUTINE TO BE ABLE TO SYNC
+				try{player.free}; // silently
+				player = Synth.tail(Server.default, \rPlayerLoop,
+					[\buffer, buf, \start, st, \end, end, \amp, vol, \rate, memrate,
+						\pan, pan, \index, id, \out, out,
+						\dir, dir, \wobble, wobble, \brown, brown, \vib, vib ]);
+				Server.default.sync;// wait til is allocated
+			}
+		})
 	}
 
 	kill {
@@ -62,10 +69,6 @@ Tape{
 		loopOSC.free;
 		playheadOSC.free;
 		statesDic=nil;
-	}
-
-	loopcount {
-		loops = loops+1;
 	}
 
 	/*	loadbuf {|server, path|
@@ -77,7 +80,7 @@ Tape{
 	}
 
 	duration { // buffer len in msecs
-		^((buf.numframes/buf.sampleRate)*1000).asInt // buf.numChannels/
+		^((buf.numFrames/buf.sampleRate)*1000).asInt // buf.numChannels/
 	}
 
 	state {|state|
@@ -132,8 +135,8 @@ Tape{
 		if (view.notNil, {
 			{
 				view.timeCursorOn = true;
-				view.setSelectionStart(0, (buf.numframes) * st); // frame the selection
-				view.setSelectionSize(0, (buf.numframes) * (end-st)); // len
+				view.setSelectionStart(0, (buf.numFrames) * st); // frame the selection
+				view.setSelectionSize(0, (buf.numFrames) * (end-st)); // len
 				view.readSelection.refresh;
 			}.defer;
 		})
@@ -261,7 +264,7 @@ Tape{
 			value = value + random.asFloat.rand2;
 			player.set(\ratelag, time, \rate, value);
 
-			//memrate = rate;
+			memrate = rate;
 			rate = value;
 			this.post("rate", rate);
 		}, {
@@ -349,21 +352,12 @@ Tape{
 
 	len {|value| // IN MILLISECONDS
 		if (value.notNil, {
-			var adur= value / ((buf.numframes/buf.sampleRate)*1000 ); // from millisecs to 0-1
+			var adur= value / ((buf.numFrames/buf.sampleRate)*1000 ); // from millisecs to 0-1
 			this.dur(adur)
 		}, {
 			^len
 		})
 	}
-
-	// pause {
-	// 	memrate = rate; // store
-	// 	this.rate(0)
-	// }
-
-/*	resume { // this command name is not a good idea because it is already used by tasks
-		this.rate(memrate); // retrieve stored value
-	}*/
 
 	stop {
 		memrate = rate; // store
@@ -371,7 +365,7 @@ Tape{
 	}
 
 	play {|value=inf|
-		loops = -1; // reset count
+		loops = 0; // reset count
 		targetloops = value;
 		this.redoplayer;
 		if(memrate==0, {memrate=rate}); //otherwise it wont play
@@ -397,11 +391,6 @@ Tape{
 	rpan {|time=0| // -1 to 1
 		this.pan( 1.asFloat.rand2, time:time )
 	}
-
-	/*rbuf {
-	buf = buffers.choose;
-	player.set(\buffer, buf.bufnum)
-	}*/
 
 	rgo {
 		var target = rrand(st.asFloat, end.asFloat);
@@ -457,9 +446,6 @@ Tape{
 		this.rgo;// this should be limited to the current frame
 		this.rvol(time:time); // why?
 	}
-
-	// set start
-	// set len
 
 	bframe {|range=0.01|
 		this.frame(this.st+(range.asFloat.rand2), this.end+(range.asFloat.rand2))
