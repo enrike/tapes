@@ -58,14 +58,14 @@ Tapes {
 				"bufs", "buf", "curbufs", "bufinfo", "normalize",
 				"one", "it", "some", "them", "info", "verbose", "plot", "control", "hm",
 				"scratch", "pause", "solo", "fwd", "bwd", "dir", "reverse", "volu", "vold", "vol",
-				"fadein", "fadeout", "mute", "rwd", "trans",
+				"fadein", "fadeout", "mute", "rwd", "trans", "xloop", "xdone",
 				"pan", "rate", "wobble", "brown", "vibrato", "reset", "shot", "out", "stop", "play",
 				"frame", "st", "move", "moveby", "end", "go", "gost", "goend", "dur", "len", "env",
 				"push", "pop", "save", "load", "search", "id", "where",
 				"rbuf", "rrate", "rpan", "rframe", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rmove", "rand",
 				"bframe", "bmove", "bpan", "brate", "bvol", "bpan", "bgo", "spread",
 				//"comp", "thr", "slb", "sla",
-				"do", "undo", "xloop", "does", "dogui", "pause", "resume",
+				"do", "undo", "does", "dogui", "pause", "resume", "shutup",
 				"slice", "slicegui",
 				"group", "groups", "mergegroups", "usegroup", "ug", "currentgroup", "newgroup",
 				"killgroup", "all", "ggui",
@@ -94,6 +94,7 @@ Tapes {
 		server.waitForBoot({
 			SynthDef(\recb, { |in=0, out = 0, bufnum = 0, loop = 0|
 				var signal = In.ar(in, 2);
+				signal = Limiter.ar(signal); // avoid bursts
 				RecordBuf.ar(signal, bufnum, doneAction: Done.freeSelf, loop: loop);
 			}).load;
 
@@ -109,13 +110,12 @@ Tapes {
 				rate = rate + BrownNoise.ar(brown.lag(brownlag));
 				rate = rate * Vibrato.ar(*vib.lag(viblag));
 
-				//amp = amp.lag(amplag);
 				amp = VarLag.kr(amp,amplag, Env.shapeNumber(\lin));
 				pan = pan.lag(panlag);
 
 				phasor = Phasor.ar( trig, rate * BufRateScale.kr(buffer), start*dur, end*dur, resetPos: reset*dur);
 
-				SendReply.ar( HPZ1.ar(HPZ1.ar(phasor).sign), '/xloop', 1, index); //loop point
+				SendReply.ar( Trig.ar(phasor >= ( dur - 1)), '/xloop', 1, index); // loop point
 				SendReply.kr( LFPulse.kr(12, 0), '/pos', phasor/dur, index); //fps 12
 
 				#left, right = BufRd.ar( 2, buffer, phasor ) * amp;
@@ -226,22 +226,26 @@ Tapes {
 	hm {
 		^grouplists.values.flat.size
 	}
-	mergegroups{
-		var players = grouplists.values.flat;
-		grouplists = Dictionary.new.add(\default -> players);
-		views = Dictionary.new.add(\default -> views.values.flat);
-		currentgroup = \default;
-		this.usegroup(currentgroup)
-	}
-	ug {|name=\default|
-		this.usegroup(name)
+	mergegroups{|defer=0, d|
+		var target = currentgroup;
+		var players;
+		defer = d?defer;
+		{
+			players = grouplists.values.flat;
+			grouplists = Dictionary.new.add(\default -> players);
+			views = Dictionary.new.add(\default -> views.values.flat);
+			currentgroup = \default;
+			this.usegroup(currentgroup)
+		}.defer(defer)
 	}
 	usegroup {|name=\default|
+		this.ug(name)
+	}
+	ug {|name=\default|
 		if (grouplists.keys.includes(name).not, {
 			name = \default;
 		});
 		currentgroup=name;
-		//("currentgroup is"+name).postln;
 	}
 	newgroup {|name|
 		grouplists.add(name -> List.new);
@@ -301,6 +305,7 @@ Tapes {
 	// MIDI ////////////////
 
 	midion {
+		"Initialising MIDI... wait...".postln;
 		MIDIClient.init;
 		MIDIIn.connectAll;
 		MIDIdef.freeAll
@@ -362,9 +367,10 @@ Tapes {
 		{
 			index ?? index = grouplists[target].size.rand;
 			agroup !? agroup = currentgroup;
-			grouplists[agroup].removeAt(index).kill;
+			try { grouplists[agroup].removeAt(index).kill;
 			views[agroup].pop;
-			("free"+index+"at group"+agroup).postln;
+				("free"+index+"at group"+agroup).postln;}
+			{("warning: nothing left to kill in group"+agroup).postln}
 		}.defer(defer)
 	}
 
@@ -680,7 +686,7 @@ Tapes {
 	}
 
 	play { |value=inf, offset=0, defer=0, o=nil, d=nil|
-		this.action(\play, value, 0, 0, 0, offset, defer, nil, nil, o, d);
+		this.action(\play, value, 0, 0, offset, defer, nil, nil, o, d);
 	}
 
 	stop { |offset=0, defer=0, o=nil, d=nil|
@@ -809,7 +815,7 @@ Tapes {
 		#offset, defer = [o?offset, d?defer];
 		{grouplists[target].do({ |pl, index|
 			{
-				pl.rloop;
+				pl.rframe;
 				this.newselection(pl.st, pl.end, views[target][index], pl.buf, target);
 			}.defer(offset.asFloat.rand)
 		})}.defer(defer)
@@ -830,7 +836,7 @@ Tapes {
 	rlen {|range=1, offset=0, defer=0, o=nil, d=nil|
 		this.action(\rlen, range, 0, 0, offset, defer, nil, nil, o, d);
 	}
-		rdir {|offset=0, defer=0, o=0, d=0|
+	rdir {|offset=0, defer=0, o=0, d=0|
 		this.action(\rdir, 0, 0, 0, offset, defer, nil, nil, o, d);
 	}
 
@@ -974,7 +980,6 @@ Tapes {
 		this.action(\vol, volume, 0, time, offset, defer, nil, t, o, d);
 	}
 
-
 	pan { |value=0, random=0, time=0, offset=0, defer=0, r=nil, t=nil, o=nil, d=nil|
 		this.action(\pan, value, random, time, offset, defer, r, t, o, d);
 	}
@@ -990,7 +995,7 @@ Tapes {
 		{
 			grouplists[target].do({|pl, index|
 				{
-					pl.bloop(range);
+					pl.bframe(range);
 					this.newselection(pl.st, pl.end, views[target][index], pl.buf, target);
 				}.defer(offset.asFloat.rand)
 			})
@@ -1017,44 +1022,16 @@ Tapes {
 		this.action(\brate, range, 0, time, offset, defer, nil, t, o, d);
 	}
 
-	////////////
-	/*	env {| attackTime= 0.01, decayTime= 0.3, sustainTime=0.5, sustainLevel= 0.5, releaseTime= 1.0, peakLevel= 1.0,
-	curve= -4.0, bias=0,
-	offset=0, defer=0, o=nil, d=nil|
-	var target = currentgroup;
-	#offset, defer = [o?offset, d?defer];
-	{grouplists[target].do({ |pl, index|
-	{
-	pl.env(attackTime, decayTime, sustainLevel, releaseTime, peakLevel, curve, bias);
-	{pl.gate(0)}.defer(sustainTime)
-	}.defer(offset.asFloat.rand)
-	})}.defer(defer)
-	}*/
-	// add rate too? but then must have some way to keep the current rate
 	env {|vol=1, fadein=0.01, len=0.5, fadeout=0.1, offset=0, defer=0, o=nil, d=nil|
 		var target = currentgroup;
 		#offset, defer = [o?offset, d?defer];
 		{grouplists[target].do({ |pl, index|
 			{
-				//if (rate.isNil.not, { pl.rate(rate) }); // only if requiered
 				pl.vol(vol, time:fadein); //rump up
 				{pl.vol(0,  time:fadeout)}.defer(fadein+len); // ramp down / fade len
 			}.defer(offset.asFloat.rand)
 		})}.defer(defer)
 	}
-
-	// add rate too? but then must have some way to keep the current rate
-	/*	env {|vol=1, fadein=0.01, len=0.5, fadeout=0.1, offset=0, defer=0, o=nil, d=nil|
-	var target = currentgroup;
-	#offset, defer = [o?offset, d?defer];
-	{grouplists[target].do({ |pl, index|
-	{
-	//if (rate.isNil.not, { pl.rate(rate) }); // only if requiered
-	pl.vol(vol, time:fadein); //rump up
-	{pl.vol(0,   time:fadeout)}.defer(len); // ramp down / fade len
-	}.defer(offset.asFloat.rand)
-	})}.defer(defer)
-	}*/
 
 	xloop {|func, offset=0, defer=0, o=0, d=0|
 		var target = currentgroup; // freeze target in case of defer
@@ -1063,6 +1040,17 @@ Tapes {
 		{grouplists[target].do({ |pl, index|
 			{
 				pl.xloop = func;
+			}.defer(offset.asFloat.rand)
+		})}.defer(defer)
+	}
+
+	xdone {|func, offset=0, defer=0, o=0, d=0|
+		var target = currentgroup; // freeze target in case of defer
+		#offset, defer = [o?offset, d?defer];
+		func=func?{};
+		{grouplists[target].do({ |pl, index|
+			{
+				pl.xdone = func;
 			}.defer(offset.asFloat.rand)
 		})}.defer(defer)
 	}
@@ -1104,15 +1092,21 @@ Tapes {
 				procs = Dictionary.new;
 			},{
 				("-- _do: killing"+name+procs[name.asSymbol]).postln;
-				procs[name.asSymbol][0].stop;
-				procs.removeAt(name.asSymbol);
+				try {
+					procs[name.asSymbol][0].stop;
+					procs.removeAt(name.asSymbol)
+				}{ (name+"does not exist").postln};
 			})
 		}.defer(defer)
 	}
 
+	shutup {|flag=0|
+		procs.do{|proc| proc[4]=flag}
+	}
+
 	// TO DO: sleep as bpm argument?
 	do {|name="", function, sleep=1, random=0, defer=0, iter=inf, when=true, then,
-		clock=0, verbose=true, s, r, d, i, w, t, c, v|
+		clock=0, verbose=1, s, r, d, i, w, t, c, v|
 		var atask, target;
 		sleep = s?sleep; defer=d?defer; iter=i?iter; when=w?when; then=t?then;
 		random=r?random; clock=c?clock; verbose=v?verbose;
@@ -1138,7 +1132,7 @@ Tapes {
 		target = currentgroup;
 
 		atask = Task({
-			block {|break|
+			block {|break| // this block runs on task.start
 				inf.do{
 					if (when.value.asBoolean, { //go
 						iter.do{|index|
@@ -1162,9 +1156,9 @@ Tapes {
 								wait = wait + random.asFloat.rand2
 							});// rand gets added to sleep
 
-							if (verbose, {("-- now:"+name++time+(index.asInteger+1)++":"++iter+"wait"+wait).postln});
+							if (procs[name.asSymbol][4]==1, {
+								("-- now:"+name++time+(index.asInteger+1)++":"++iter+"wait"+wait).postln});
 
-							//["s", sleep, "r", random, "w", wait].postln;
 							wait.max(0.005).wait;
 						};
 						break.value(999); // done iter. never if iter is inf
@@ -1174,14 +1168,13 @@ Tapes {
 			};
 			then.value; // last will
 			("-- done with"+name).postln;
-			//this.undo(name.asSymbol)
+
 			procs[name.asSymbol][0].stop;
 			procs.removeAt(name.asSymbol)
 		}, clock);
 
+		procs.add(name.asSymbol -> [atask, function, sleep, random, verbose]);// to keep track of them
 		{ atask.start }.defer(defer);
-
-		procs.add(name.asSymbol -> [atask, function, sleep, random]);// to keep track of them
 	}
 
 	ggui { //controls groups
@@ -1193,13 +1186,8 @@ Tapes {
 			res;
 		};
 		w.alwaysOnTop = true;
-		//w.layout = VLayout();
-		w.view.decorator = FlowLayout(w.view.bounds);
 
-		/*StaticText(w, 80@18).align_(\left).string_("play").resize_(7);
-		StaticText(w, 75@18).align_(\left).string_("vol").resize_(7);
-		StaticText(w, 45@18).align_(\left).string_("rate").resize_(7);
-		w.view.decorator.nextLine;*/
+		w.view.decorator = FlowLayout(w.view.bounds);
 
 		grouplists.keys.do{|key|
 			var bu = Button(w, 80@20).states_([
@@ -1240,7 +1228,7 @@ Tapes {
 	}
 
 	dogui { // control do processes
-		var w=Window.new("do", 250@(30+(procs.size*25))).front;
+		var w=Window.new("Current tasks", 275@(30+(procs.size*25))).front;
 		var string;
 		var clean={|data=""| // removes [ and ] from array.asString for displaying it in a statictext
 			var res=data;
@@ -1251,21 +1239,22 @@ Tapes {
 		//w.layout = VLayout();
 		w.view.decorator = FlowLayout(w.view.bounds);
 
-		StaticText(w, 80@18).align_(\left).string_("Do").resize_(7);
+		StaticText(w, 90@18).align_(\left).string_("Do").resize_(7);
 		StaticText(w, 75@18).align_(\left).string_("Sleep").resize_(7);
-		StaticText(w, 45@18).align_(\left).string_("Random").resize_(7);
+		StaticText(w, 45@18).align_(\left).string_("Rand").resize_(7);
+		StaticText(w, 45@18).align_(\left).string_("Trig").resize_(7);
 		w.view.decorator.nextLine;
 
 		procs.keys.do{|key|
-			var bu = Button(w, 80@20).states_([
+			var bu = Button(w, 90@20).states_([
 				[key, Color.red, Color.grey],
 				[key, Color.black, Color.grey]
 			])
 			.action_({|bu|
 				if (bu.value==1, {
-					procs[key][0].stop
+					procs[key][0].pause
 				}, {
-					procs[key][0].start
+					procs[key][0].resume
 				})
 			});
 
