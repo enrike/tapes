@@ -438,11 +438,16 @@ Tapes {
 	}
 
 	info {
-		if (this.hm==0, {"no players!".postln});
-		("--------------").postln;
+		var data = List.new;
+		if (this.hm==0, "no players!".postln);
+		("---------------------").postln;
 		("-- Group:" + currentgroup + "--").postln;
+		("---------------------").postln;
+		grouplists[currentgroup].do{|pl, i|
+			data.add(pl.info);
+		};
 		("--------------").postln;
-		grouplists[currentgroup].collect(_.info)
+		^data
 	}
 
 	verbose {|flag=true|

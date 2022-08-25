@@ -143,20 +143,22 @@ Tape{
 	}
 
 	info {
+		var data = Dictionary.new;
+		data[\file] = this.file();
+		data[\vol] = vol;
+		data[\pos] = curpos;
+		data[\frame] = [st,end];
+		data[\rate] = rate;
+		data[\dir] = dir;
+		data[\pan] = pan;
+		data[\wobble] = wobble;
+		data[\brown] = brown;
+		data[\vibrato] = vib;
+		data[\verbose] = verbose;
+		data[\out] = out;
 		("-- Tape ID"+id+"--").postln;
-		this.file().postln;
-		["curpos", curpos].postln;
-		["volume", vol].postln;
-		["frame", st, end].postln;
-		["rate", rate].postln;
-		["direction", dir].postln;
-		["panning", pan].postln;
-		["wobble", wobble].postln;
-		["brown", brown].postln;
-		["vibrato", vib].postln;
-		["verbose", verbose].postln;
-		["out", out].postln;
-		"--------------".postln;
+		data.associationsDo{|assoc| assoc.postln };
+		^data;
 	}
 
 	post {|action, value|
