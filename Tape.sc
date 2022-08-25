@@ -3,7 +3,7 @@
 
 Tape{
 
-	var <id, <player, <curpos, <loops= -1, out=0;
+	var <id, <player, <curpos, <loops= -1, out=0, sttime;
 	var buf, st=0, end=1, vol=1, rate=0, pan=0, len=0, dur=0, dir=1, wobble=0, brown=0, vib; // state variables hidden
 	var memrate=0; // to store rate while stopped
 	var <>del=0.04; //time in between two consecutive p.set. required by gates
@@ -21,6 +21,8 @@ Tape{
 
 		id = UniqueID.next;
 		this.redoplayer;
+
+		sttime = Process.elapsedTime;
 
 		xloop = {};
 		xdone = {};
@@ -44,6 +46,10 @@ Tape{
 		("-----------").postln;
 		("ready tape ID"+id).postln;
 		("using buffer"+this.file).postln;
+	}
+
+	time {
+		^(Process.elapsedTime-sttime)
 	}
 
 	done {

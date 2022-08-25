@@ -8,7 +8,7 @@ Tapes {
 	var plotwin=nil, plotview, drawview, plotwinrefresh;
 	var controlGUI, <views;
 	//var buses, <compressor;
-	var volume=1;
+	var volume=1, sttime;
 	var it, them; // to remember @one and @some
 	var <grouplists, <currentgroup;
 	var <currentbank;
@@ -45,6 +45,8 @@ Tapes {
 		if (amain.notNil, {
 			this.lang(amain, asym)
 		});
+
+		sttime = Process.elapsedTime;
 	}
 
 
@@ -72,7 +74,8 @@ Tapes {
 				"bank", "banks", "mergebanks", "usebank", "currentbank", "newbank", "delbank",
 				"loadonsetanalysis", "onsets", //experimental
 				"midion", "midioff", "ccin",
-				"rec", "preparerec", "bufrec", "zerorecbuf", "recstate"
+				"rec", "preparerec", "bufrec", "zerorecbuf", "recstate",
+				"time"
 			];
 
 			keywords.do({|met| // eg: _go --> ~tapes.go
@@ -126,6 +129,13 @@ Tapes {
 		})
 	}
 
+	time {|who|
+		var t;
+		if (who.isNil, t = Process.elapsedTime-sttime);
+		if (who.isSymbolWS, t = Process.elapsedTime - procs[who][5]);
+		if (who.class.name==\Tape, t=who.time);
+		^t
+	}
 	// REC ///////
 	preparerec {|len|
 		Buffer.alloc(Server.default,
@@ -1143,6 +1153,7 @@ Tapes {
 						iter.do{|index|
 							var wait = sleep.asString.asFloat; // reset each time
 							var time = ""+Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second;
+							var elapsed = Process.elapsedTime - procs[name.asSymbol][5];
 
 							this.usegroup(target);
 							function.value(index.asInteger); // only run if {when} is true. pass index
@@ -1162,7 +1173,7 @@ Tapes {
 							});// rand gets added to sleep
 
 							if (procs[name.asSymbol][4]==1, {
-								("-- now:"+name++time+(index.asInteger+1)++":"++iter+"wait"+wait).postln});
+								("-- now:"+name++time+elapsed+(index.asInteger+1)++":"++iter+"wait"+wait).postln});
 
 							wait.max(0.005).wait;
 						};
@@ -1178,8 +1189,10 @@ Tapes {
 			procs.removeAt(name.asSymbol)
 		}, clock);
 
-		procs.add(name.asSymbol -> [atask, function, sleep, random, verbose]);// to keep track of them
-		{ atask.start }.defer(defer);
+		procs.add(name.asSymbol -> [atask, function, sleep, random, verbose, 0]);// to keep track of them
+		{   atask.start;
+			procs[name.asSymbol][5] = Process.elapsedTime
+		}.defer(defer);
 	}
 
 	ggui { //controls groups
