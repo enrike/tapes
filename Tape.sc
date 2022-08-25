@@ -150,6 +150,7 @@ Tape{
 
 	info {
 		var data = Dictionary.new;
+		data[\id] = id;
 		data[\file] = this.file();
 		data[\vol] = vol;
 		data[\pos] = curpos;
@@ -162,8 +163,6 @@ Tape{
 		data[\vibrato] = vib;
 		data[\verbose] = verbose;
 		data[\out] = out;
-		("-- Tape ID"+id+"--").postln;
-		data.associationsDo{|assoc| assoc.postln };
 		^data;
 	}
 

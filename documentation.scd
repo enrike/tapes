@@ -18,8 +18,7 @@ _play;
 
 
 
-_verbose(true) // will post extra log information
-
+_verbose(1) // will post extra log information
 
 // MANAGE PLAYERS //
 
@@ -38,10 +37,11 @@ _1 // individual tape player _0, _1, _2, _3, etc...
 _id(1008) // returns the instance of the tape with that ID
 _where(1008)// returns the position of tape with that id in current group 0,1,2...
 
-_info // post internal states for all available tape players
+_info // returns internal states for all available tape players in a dictionary
+_info(1) // same as above but it also posts the content to the console
 _2.state // returns a dictionary with the state of tape player 2, etc...
 
-_all // array with all players
+_all // flat array with all players in all groups
 _hm // how many players exist
 
 _some // returns a list with randomly chosen tape players
@@ -120,6 +120,7 @@ _loadfiles("some/directory/bells/");
 _newbank(\voices);
 _usebank(\voices);
 _loadfiles("some/directory/voices/");
+
 
 ///////////////////////////////////////////////////////////////////////////////////
 // global controls. control ALL tape players *in current group* at the same time //
@@ -264,15 +265,23 @@ _sla(0.2); //slope above thr <1 for compression >1 for expansion*/
 // beware that if you have 20 tapes there will be 20 xloops, one for each tape
 _xloop({ _rrate }) // everytime one single tape crosses the loop point, all off them change their rate
 _xloop({|me| me.rrate})  // every individual xloop each changes ITS own rate. Others are not affected
+_xloop({|me, num| num.postln}) // it knows the loop count
 _xloop // this clears the xloop functions for everyone
 _one.xloop = {|me| me.id.postln} // individually too
 _0.xloop = {|me| me.id.postln} // too
 
+// play loop done event: schedule an action when the _play(n) action is done. eg play(3) will trigger xdone after the 3rd loop when the tape stops
+_xdone({ "done playing loops".postln });
+_play(5) // now run this and wait 5 loops
 
-// MIDI
-_midion
+_xdone({|me| me.postln}) // and so on
+
+
+// MIDI. basic midi
+_midion; // run this and wait until de MIDI is setup
 _midioff
-_ccin(\test, 41, {|v|v.postln}) //bind a midi CC message with a function
+_ccin(\test, 41, {|v|v.postln}) //bind a midi CC message from control 41 with a function
+_ccin(\v1, 0, {|v| _ug;_vol(v/127)}) // eg. nanokontrol slider 1 controls volume of all tapes in group "default"
 
 
 // SCHEDULING FUNCTIONS: _do //
@@ -288,7 +297,8 @@ _pause; // pause all
 _resume(\randpan, d:8) // resume \randpan
 _resume; // resume all
 
-_does; //posts existing _do names
+_does; //returns a dict with current _do tasks and posts it
+_does.keys // it is a fully functional dictionary btw
 _dogui; //gui to pause/resume existing _do with a button
 
 _do(\num, {|i| i.postln}, 1) // get access to num of loops
@@ -339,7 +349,9 @@ a=true; // will start when a is true, then run 3 times and finally post the valu
 // postln or not every run
 _do(\silent, { // wont print its state every run. useful with quick and repetitive tasks that load the post window
 	_rpan
-}, 0.2, verbose:false);
+}, 0.2, verbose:0);
+_shutup // will set verbose to 0 in all tasks
+_shutup(1) // back to normal
 
 // which group of tapes to apply the commands to. it defaults to \default
 _newgroup(\noises); // create a group of tapes
@@ -365,6 +377,10 @@ _do(\mix, {
 _do(\test, {_rvol}, s:3, r:3, d:1, i:2, w:{z>1}, t:0, v:true)
 
 
+// TIME ////////
+_time // returns how many secs since Tapes() was run
+_time(_0) // returns how many secs since Tape _0 was created
+_time(\base) // returns how many secs since do task named \base was created
 
 
 // some examples of scheduling tasks

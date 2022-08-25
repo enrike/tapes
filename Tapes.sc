@@ -131,9 +131,10 @@ Tapes {
 
 	time {|who|
 		var t;
-		if (who.isNil, t = Process.elapsedTime-sttime);
-		if (who.isSymbolWS, t = Process.elapsedTime - procs[who][5]);
-		if (who.class.name==\Tape, t=who.time);
+		if (who.isNil, {t = Process.elapsedTime-sttime}, {
+			if (who.isSymbolWS, t = Process.elapsedTime - procs[who][5]);
+			if (who.class.name==\Tape, t=who.time);
+		});
 		^t
 	}
 	// REC ///////
@@ -378,7 +379,7 @@ Tapes {
 			index ?? index = grouplists[target].size.rand;
 			agroup !? agroup = currentgroup;
 			try { grouplists[agroup].removeAt(index).kill;
-			views[agroup].pop;
+				views[agroup].pop;
 				("free"+index+"at group"+agroup).postln;}
 			{("warning: nothing left to kill in group"+agroup).postln}
 		}.defer(defer)
@@ -447,16 +448,22 @@ Tapes {
 		})
 	}
 
-	info {
+	info {|post|
 		var data = List.new;
-		if (this.hm==0, "no players!".postln);
-		("---------------------").postln;
-		("-- Group:" + currentgroup + "--").postln;
-		("---------------------").postln;
+		//if (this.hm==0, "no players!".postln);
 		grouplists[currentgroup].do{|pl, i|
 			data.add(pl.info);
 		};
-		("--------------").postln;
+		if (post==1, {
+			("---------------------").postln;
+			("-- Group:" + currentgroup + "with" + grouplists[currentgroup].size.asString).postln;
+			data.do{|tap|
+				("-- Tape --").postln;
+				tap.associationsDo{|assoc| assoc.postln };
+				("---------------------").postln;
+			};
+			("--------------").postln;
+		});
 		^data
 	}
 
