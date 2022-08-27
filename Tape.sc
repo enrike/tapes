@@ -175,10 +175,17 @@ Tape{
 		{ player.set(\trig, 1) }.defer(del);
 	}
 
+	jumpby {|value=0, random=0|
+		value = curpos + value + random.asFloat.rand2;
+		value = value.clip(st,end);
+		this.go(value);
+	}
+
 	gost {this.go(st)}
 
 	goend {this.go(end)}
 
+	// these should be called moveframe and moveframeby
 	move {|value=0, random=0| // moves the frame to another position maintaing the duration
 		value = value + random.asFloat.rand2;
 		this.frame(value, value+(end-st)); //keep len
