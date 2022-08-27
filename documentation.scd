@@ -172,6 +172,7 @@ _frame // resets frame to 0-1
 _gost // to to frame start point
 _goend // go to frame end point
 _go // resets pos to 0 --> *SAME* happens with _pan, _rate, _vol. They reset to default value
+_jump(0.01) // will move playhead by 0.01 from current position
 
 
 // store and retrieve named states. they dont get deleted from memory until the session ends

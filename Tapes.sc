@@ -62,7 +62,7 @@ Tapes {
 				"scratch", "pause", "solo", "fwd", "bwd", "dir", "reverse", "volu", "vold", "vol",
 				"fadein", "fadeout", "mute", "rwd", "trans", "xloop", "xdone",
 				"pan", "rate", "wobble", "brown", "vibrato", "reset", "shot", "out", "stop", "play",
-				"frame", "st", "move", "moveby", "jumpby", "end", "go", "gost", "goend", "dur", "len", "env",
+				"frame", "st", "move", "moveby", "jump", "end", "go", "gost", "goend", "dur", "len", "env",
 				"push", "pop", "save", "load", "search", "id", "where",
 				"rbuf", "rrate", "rpan", "rframe", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rmove", "rand",
 				"bframe", "bmove", "bpan", "brate", "bvol", "bpan", "bgo", "spread",
@@ -727,8 +727,8 @@ Tapes {
 		this.action(\goend, 0, 0, offset, defer, nil, nil, o, d);
 	}
 
-	jumpby {|value, random=0, offset=0, defer=0, r=nil, o=nil, d=nil|
-		this.action(\jumpby, value, random, 0, offset, defer, r, nil, o, d);
+	jump {|value, random=0, offset=0, defer=0, r=nil, o=nil, d=nil|
+		this.action(\jump, value, random, 0, offset, defer, r, nil, o, d);
 	}
 
 	move {|value, random=0, offset=0, defer=0, r=nil, o=nil, d=nil|

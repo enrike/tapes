@@ -175,7 +175,7 @@ Tape{
 		{ player.set(\trig, 1) }.defer(del);
 	}
 
-	jumpby {|value=0, random=0|
+	jump {|value=0, random=0|
 		value = curpos + value + random.asFloat.rand2;
 		value = value.clip(st,end);
 		this.go(value);
