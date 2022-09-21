@@ -75,7 +75,7 @@ Tapes {
 				"loadonsetanalysis", "onsets", //experimental
 				"midion", "midioff", "ccin",
 				"rec", "preparerec", "bufrec", "zerorecbuf", "recstate",
-				"time"
+				"time", "secs", "mins"
 			];
 
 			keywords.do({|met| // eg: _go --> ~tapes.go
@@ -129,6 +129,8 @@ Tapes {
 		})
 	}
 
+	secs {|who| ^this.time(who)}
+	mins {|who| ^this.time(who)/60}
 	time {|who|
 		var t;
 		if (who.isNil, {t = Process.elapsedTime-sttime}, {
@@ -1086,27 +1088,27 @@ Tapes {
 	does { procs.keys.postln; ^procs }
 	pause {|name, defer=0, d=nil|
 		defer = d?defer;
-		if (name.isNil, {
-			"-- pause all _do".postln;
-			procs.do{|p|p[0].pause};
-		},{
-			{
+		{
+			if (name.isNil, {
+				"-- pause all _do".postln;
+				procs.do{|p|p[0].pause};
+			},{
 				("-- _do: pause"+name+procs[name.asSymbol]).postln;
 				procs[name.asSymbol][0].pause;
-			}.defer(defer)
-		})
+			})
+		}.defer(defer)
 	}
 	resume {|name, defer=0, d=nil|
 		defer = d?defer;
-		if (name.isNil, {
-			"-- resume all _do".postln;
-			procs.do{|p|p[0].resume};
-		},{
-			{
+		{
+			if (name.isNil, {
+				"-- resume all _do".postln;
+				procs.do{|p|p[0].resume};
+			},{
 				("-- _do: resume"+name+procs[name.asSymbol]).postln;
 				procs[name.asSymbol][0].resume;
-			}.defer(defer)
-		})
+			})
+		}.defer(defer)
 	}
 	undo {|name, defer=0, d=nil|
 		defer = d?defer;
@@ -1140,7 +1142,7 @@ Tapes {
 		iter=iter.max(0);
 
 		if (name=="", {
-			"TASKS MUST HAVE A NAME. Making up one".postln;
+			"TASKS MUST HAVE A NAME. Making one up".postln;
 			name = ("T"++Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second).asSymbol;
 			name.postln;
 		});
@@ -1148,7 +1150,6 @@ Tapes {
 		("creating _do"+name).postln;
 
 		if (procs[name.asSymbol].notNil, {// kill before rebirth if already there
-			//this.undo(name.asSymbol);
 			procs[name.asSymbol][0].stop;
 			procs.removeAt(name.asSymbol)
 		});
@@ -1184,24 +1185,27 @@ Tapes {
 							});// rand gets added to sleep
 
 							if (procs[name.asSymbol][4]==1, {
-								("-- now:"+name++time+elapsed+(index.asInteger+1)++":"++iter+"wait"+wait).postln});
+								("_do:"+name++time+elapsed+(index.asInteger+1)++":"++iter+"wait"+wait).postln});
 
 							wait.max(0.005).wait;
 						};
-						break.value(999); // done iter. never if iter is inf
+						break.value(999); // done iter. this will never happen when iter is inf
 					});
-					0.01.wait // chek for when
+					0.01.wait // needed for when
 				}
 			};
+
 			then.value; // last will
 			("-- done with"+name).postln;
-
 			procs[name.asSymbol][0].stop;
 			procs.removeAt(name.asSymbol)
-		}, clock);
+
+		}, clock); // end definition of task
 
 		procs.add(name.asSymbol -> [atask, function, sleep, random, verbose, 0]);// to keep track of them
-		{   atask.start;
+
+		{
+			atask.start; // now run it
 			procs[name.asSymbol][5] = Process.elapsedTime
 		}.defer(defer);
 	}
