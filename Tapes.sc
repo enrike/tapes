@@ -118,7 +118,7 @@ Tapes {
 
 				phasor = Phasor.ar( trig, rate * BufRateScale.kr(buffer), start*dur, end*dur, resetPos: reset*dur);
 
-				SendReply.ar( Trig.ar(phasor >= ( dur - 1)), '/xloop', 1, index); // loop point
+				SendReply.ar( Trig.ar(phasor >= ( (end*dur) - 1)), '/xloop', 1, index); // loop point
 				SendReply.kr( LFPulse.kr(12, 0), '/pos', phasor/dur, index); //fps 12
 
 				#left, right = BufRd.ar( 2, buffer, phasor ) * amp;
@@ -212,7 +212,11 @@ Tapes {
 					var buf = Buffer.read(server, files.wrapAt(n).path,
 						action:{
 							("... loaded"+PathName(files.wrapAt(n).path).fileName).postln;
-							if (n>=(files.size-1), {"... DONE LOADING FILES!".postln})
+							if (n>=(files.size-1), {
+								".-------------------------".postln;
+								"... DONE LOADING FILES!".postln;
+								"--------------------------".postln
+							})
 						}
 					);
 					bufs[target] = bufs[target].add( buf )
@@ -1115,9 +1119,10 @@ Tapes {
 		{
 			if (name.isNil, {
 				"-- kill all _do".postln;
-				//procs.collect(_.stop);
-				procs.do{|p|p[0].stop};
-				procs = Dictionary.new;
+				try {
+					procs.do{|p|p[0].stop};
+					procs = Dictionary.new;
+				}
 			},{
 				("-- _do: killing"+name+procs[name.asSymbol]).postln;
 				try {
