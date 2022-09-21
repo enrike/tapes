@@ -53,6 +53,8 @@ Tape{
 	}
 
 	done {
+		player.set(\reset, st, \trig, 0); //reset to st
+		{ player.set(\trig, 1) }.defer(del);
 		this.stop;
 		xdone.value(this);
 	}
