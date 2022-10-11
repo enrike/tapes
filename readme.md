@@ -9,8 +9,11 @@ check the documentation.scd file for usage example.
 for instance, to create and play 4 tapes:
 
 Tapes(this)
+
 _loadfiles(/path/to/sound/files/)
+
 _add(4)
+
 _play
 
 
