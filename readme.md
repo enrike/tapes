@@ -4,9 +4,9 @@ Tapes by www.ixi-audio.net
 
 Supercollider based sample loop system. I use it to control many layers of tape-loop-like machines at the same time
 
-check the documentation.scd file for usage example.
+check the documentation.scd file for usage example and the youtube demo https://youtu.be/JTLaD4jMjrI.
 
-for instance, to create and play 4 tapes:
+For instance, to create and play 4 tapes:
 
 Tapes(this)
 
