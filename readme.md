@@ -1,6 +1,6 @@
 Tapes by www.ixi-audio.net
 
-[tape](https://github.com/enrike/tapes/blob/master/tape.png?raw=true)
+![tape](https://github.com/enrike/tapes/blob/master/tape.png)
 
 Supercollider based sample loop system. I use it to control many layers of tape-loop-like machines at the same time
 
@@ -22,6 +22,8 @@ To install just run:
 Quarks.install("https://github.com/enrike/tapes.git");
 
 or download https://github.com/enrike/tapes/archive/refs/heads/master.zip and uncompress into the Supercollider's Extensions folder.
+
+[![Tapes demo](https://i9.ytimg.com/vi_webp/JTLaD4jMjrI/mqdefault.webp?sqp=CMzpk5oG&rs=AOn4CLBoaVZKE6wN8CwPZ2JNe3Q7QOoDVw)](https://youtu.be/JTLaD4jMjrI)
 
 
 License : GNU GPL
