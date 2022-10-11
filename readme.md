@@ -9,11 +9,8 @@ check the documentation.scd file for usage example.
 for instance, to create and play 4 tapes:
 
 Tapes(this)
-
 _loadfiles(/path/to/sound/files/)
-
 _add(4)
-
 _play
 
 
@@ -22,6 +19,8 @@ To install just run:
 Quarks.install("https://github.com/enrike/tapes.git");
 
 or download https://github.com/enrike/tapes/archive/refs/heads/master.zip and uncompress into the Supercollider's Extensions folder.
+
+Tapes video demo:
 
 [![Tapes demo](https://i9.ytimg.com/vi_webp/JTLaD4jMjrI/mqdefault.webp?sqp=CMzpk5oG&rs=AOn4CLBoaVZKE6wN8CwPZ2JNe3Q7QOoDVw)](https://youtu.be/JTLaD4jMjrI)
 
