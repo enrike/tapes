@@ -6,7 +6,7 @@ Tape{
 	var <id, <player, <curpos, <loops= -1, out=0, sttime;
 	var buf, st=0, end=1, vol=1, rate=0, pan=0, len=0, dur=0, dir=1, wobble=0, brown=0, vib; // state variables hidden
 	var memrate=0; // to store rate while stopped
-	var <>del=0.04; //time in between two consecutive p.set. required by gates
+	var <>del=0.02; //time in between two consecutive p.set. required by gates
 	var <>view=nil;
 	var <>statesDic, <>verbose=false, loopOSC, playheadOSC, <>xloop, <>xdone, targetloops=inf;
 
@@ -17,7 +17,7 @@ Tape{
 	initTape {| abuffer |
 		buf = abuffer;
 
-		vib = [1,0,0,0,0,0,0];
+		vib = [1,1,0,0,0,0,0];
 
 		id = UniqueID.next;
 		this.redoplayer;
@@ -29,8 +29,9 @@ Tape{
 		loopOSC.free;
 		loopOSC = OSCdef(\xloop++id, {|msg, time, addr, recvPort|
 			if (id==msg[2], {
+				//(\xloop++id).postln;
 				if (loops >= (targetloops-1), { this.done }); // done
-				loops = loops + 1;
+				if (rate!=0, {loops = loops + 1}); // not when stopped
 				if (loops > 1, { // not the first round
 					this.xloop.value(this, loops)
 				});
@@ -53,9 +54,10 @@ Tape{
 	}
 
 	done {
+		//["done", targetloops].postln;
 		player.set(\reset, st, \trig, 0); //reset to st
-		{ player.set(\trig, 1) }.defer(del);
 		this.stop;
+		{ player.set(\trig, 1) }.defer(del);
 		xdone.value(this);
 	}
 
@@ -159,6 +161,8 @@ Tape{
 		data[\frame] = [st,end];
 		data[\rate] = rate;
 		data[\dir] = dir;
+		data[\targetloops] = targetloops;
+		data[\loops] = loops;
 		data[\pan] = pan;
 		data[\wobble] = wobble;
 		data[\brown] = brown;
@@ -265,8 +269,8 @@ Tape{
 		player.set(\brownlag, time, \brown, value.max(0));
 	}
 
-	vibrato { |rate=1, depth=0, ratev=0, depthv=0, time=0|
-		vib = [1, rate, depth, 0, 0, ratev, depthv];
+	vibrato { |value=1, depth=0, ratev=0, depthv=0, time=0|
+		vib = [1, value.max(0.01), depth, time, 0, ratev, depthv];
 		player.set(\viblag, time, \vib, vib)
 	}
 
@@ -278,10 +282,12 @@ Tape{
 	rate {|value=nil, random=0, time=0|
 		if (value.notNil, {
 			value = value + random.asFloat.rand2;
+			//["rate / memrate", value, memrate].postln;
 			player.set(\ratelag, time, \rate, value);
 
 			memrate = rate;
 			rate = value;
+			//if (rate==0, {this.vol(0, time:time)}, {this.vol(vol, time:time)});
 			this.post("rate", rate);
 		}, {
 			^rate
@@ -377,12 +383,15 @@ Tape{
 
 	stop {
 		memrate = rate; // store
+		//"stop".postln;
+		//this.vol(0);
 		this.rate(0)
 	}
 
 	play {|value=inf|
 		loops = 0; // reset count
 		targetloops = value;
+		//targetloops.postln;
 		this.redoplayer;
 		if(memrate==0, {memrate=rate}); //otherwise it wont play
 		if(memrate==0, {memrate=1});

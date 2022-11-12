@@ -14,12 +14,13 @@ Tapes {
 	var <currentbank;
 	var <slicestate=#[ 0.624, 7.156, 0.05, 0.0 ];
 	var <rbuffer, rsynth; // to record
+	var vib;
 
-	*new {| main=nil, dir, symbol="_" | // systemdir
+	*new {| main=nil, dir, symbol="_", action | // systemdir
 		^super.new.initTapes( main, dir, symbol );
 	}
 
-	initTapes {| amain, adir, asym |
+	initTapes {| amain, adir, asym, action |
 		~tapes = this; // keep me in a global
 
 		//Platform.case(\linux, { Server.supernova });
@@ -29,6 +30,8 @@ Tapes {
 		procs = Dictionary.new; // stores all tasks
 
 		controlGUI = Dictionary.new;
+
+		slicestate = List[0.5, 0, 0.1, 0];
 
 		currentgroup = \default;
 		grouplists = Dictionary[currentgroup -> List.new];
@@ -40,6 +43,8 @@ Tapes {
 
 		onsets = Dictionary.new;
 
+		vib = [1,1,0,0,0,0,0];
+
 		this.boot(adir);
 
 		if (amain.notNil, {
@@ -47,12 +52,16 @@ Tapes {
 		});
 
 		sttime = Process.elapsedTime;
+
+		"--> Tapes is ready!".postln;
+
+		action.value;
 	}
 
 
-	lang {|main, sym|
+	lang {|main, sym="_"|
 		var globalvar = "~tapes";
-		// this is to be able to use the systems using a symbol (like _) instead of ~tapes. and symbol2 (eg _2) instead of ~tapes.grouplists[\current][2]
+		// this is to be able to use the systems using a symbol (like _) instead of ~tapes. and symbol2 (eg _2) instead of ~tapes.grouplists[\default][2]
 		main.preProcessor = { |code|
 			// list with all the commands defined by Tapes
 			var keywords = [
@@ -67,11 +76,11 @@ Tapes {
 				"rbuf", "rrate", "rpan", "rframe", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rmove", "rand",
 				"bframe", "bmove", "bpan", "brate", "bvol", "bpan", "bgo", "spread",
 				//"comp", "thr", "slb", "sla",
-				"do", "undo", "does", "dogui", "pause", "resume", "shutup",
-				"slice", "slicegui",
+				"do", "undo", "does", "dogui", "pause", "resume", "shutup", "restart",
+				"slice", "slicegui", "vibgui",
 				"group", "groups", "mergegroups", "usegroup", "ug", "currentgroup", "newgroup",
 				"killgroup", "all", "ggui",
-				"bank", "banks", "mergebanks", "usebank", "currentbank", "newbank", "delbank",
+				"bank", "banks", "mergebanks", "usebank", "currentbank", "newbank", "removebank",
 				"loadonsetanalysis", "onsets", //experimental
 				"midion", "midioff", "ccin",
 				"rec", "preparerec", "bufrec", "zerorecbuf", "recstate",
@@ -111,13 +120,14 @@ Tapes {
 				rate = rate.lag(ratelag) + wobble.lag(wobblelag).rand2;
 				rate = rate * dir;
 				rate = rate + BrownNoise.ar(brown.lag(brownlag));
-				rate = rate * Vibrato.ar(*vib.lag(viblag));
+				rate = rate * Vibrato.kr(*vib.lag(viblag));
 
 				amp = VarLag.kr(amp,amplag, Env.shapeNumber(\lin));
 				pan = pan.lag(panlag);
 
 				phasor = Phasor.ar( trig, rate * BufRateScale.kr(buffer), start*dur, end*dur, resetPos: reset*dur);
 
+				//SendReply.ar( HPZ1.ar(HPZ1.ar(phasor).sign), '/xloop', 1, index); //loop point
 				SendReply.ar( Trig.ar(phasor >= ( (end*dur) - 1)), '/xloop', 1, index); // loop point
 				SendReply.kr( LFPulse.kr(12, 0), '/pos', phasor/dur, index); //fps 12
 
@@ -134,7 +144,7 @@ Tapes {
 	time {|who|
 		var t;
 		if (who.isNil, {t = Process.elapsedTime-sttime}, {
-			if (who.isSymbolWS, t = Process.elapsedTime - procs[who][5]);
+			if (who.isSymbolWS, t = Process.elapsedTime - procs[who].sttime);
 			if (who.class.name==\Tape, t=who.time);
 		});
 		^t
@@ -169,7 +179,7 @@ Tapes {
 	}
 
 
-	loadfiles {|apath, overwrite=1| // overwrite will remove the previous one if any
+	loadfiles {|apath, overwrite=1, action| // overwrite will remove the previous one if any
 		var files=List.new;
 		var already = sfs.size;
 		var target = currentbank;
@@ -206,17 +216,16 @@ Tapes {
 					//bufs = Array.new(files.size);// all files in the dir
 				});
 
-				files.postln;
-
 				files.size.do({ arg n; // load ALL buffers
 					var buf = Buffer.read(server, files.wrapAt(n).path,
 						action:{
 							("... loaded"+PathName(files.wrapAt(n).path).fileName).postln;
 							if (n>=(files.size-1), {
-								".-------------------------".postln;
+								"--------------------------".postln;
 								"... DONE LOADING FILES!".postln;
-								"--------------------------".postln
-							})
+								"--------------------------".postln;
+								action.value // user defined function
+							});
 						}
 					);
 					bufs[target] = bufs[target].add( buf )
@@ -224,7 +233,9 @@ Tapes {
 
 				("..." + sfs.size + "files available").postln;
 				"... loading sounds into buffers".postln;
+				"...................".postln;
 				"... PLEASE WAIT ...".postln;
+				"...................".postln;
 			});
 		})
 	}
@@ -260,6 +271,7 @@ Tapes {
 	}
 	ug {|name=\default|
 		if (grouplists.keys.includes(name).not, {
+			("warning: group"+name+"does not exist!!").postln;
 			name = \default;
 		});
 		currentgroup=name;
@@ -292,9 +304,9 @@ Tapes {
 	bank {
 		^bufs[currentbank]
 	}
-	/*	banks {
-	^bufs
-	}*/
+	banks {
+		^bufs
+	}
 	mergebanks{
 		var bs = bufs.values.flat;
 		bufs = Dictionary.new.add(\default -> bs);
@@ -307,16 +319,20 @@ Tapes {
 			name = \default;
 		});
 		currentbank=name;
-		("currentbank is"+name).postln;
+		//("currentbank is"+name).postln;
 	}
 	newbank {|name|
 		bufs.add(name -> List.new);
 		("created bank"+name).postln;
 	}
-	removebank {|name|
-		bufs[currentbank].collect(_.free);
-		bufs.removeAt(name);
-		("removed bank"+name).postln;
+	removebank {|name, defer=0, d|
+		defer = d?defer;
+		{
+			if (name.isNil, {name = \default});
+			bufs[name].collect(_.free);
+			bufs.removeAt(name);
+			("removed bank"+name).postln;
+		}.defer(defer)
 	}
 
 	// MIDI ////////////////
@@ -355,7 +371,7 @@ Tapes {
 		var target = currentgroup;
 		defer = d?defer;
 		{
-			("creating players:"+howmany.asString).postln;
+			("creating players:"+howmany.asString+"in group"+target).postln;
 			howmany.do({
 				var thebuffer, lay;
 				if (bufs[currentbank].size>0, {
@@ -506,7 +522,7 @@ Tapes {
 		var target = currentbank;
 		defer = d?defer;
 		{
-			if (value.isInteger, {bufs[target].removeAt(value)}); // using the index
+			if (value.isInteger, {bufs[target].removeAt(value); value.free}); // using the index
 		}.defer(defer)
 	}
 
@@ -525,6 +541,47 @@ Tapes {
 
 	newplayer {|asynth| grouplists[currentgroup].do({ |pl| pl.newplayer(asynth)}) }
 
+	/*slice {|sttime, shift, grain, grainshift, offset=0, defer=0, o=nil, d=nil| // SLICER like behaviour
+	var target = currentgroup;
+	{
+	offset=o?offset;defer?d?defer;
+
+	if (sttime.notNil, { slicestate[0] = sttime }); // apply selective
+	if (shift.notNil, { slicestate[1] = shift });
+	if (grain.notNil, { slicestate[2] = grain });
+	if (grainshift.notNil, { slicestate[3] = grainshift });
+
+	//slicestate = [sttime, shift, grain, grainshift];
+
+	grouplists[target].do({ |pl, index|
+	var mysttime = slicestate[0] + (index * (slicestate[1]/100.0));
+	var myendtime;// = mysttime + grain + (index * (grainshift/100.0));
+
+	if ( (mysttime<0) || (mysttime>1), { //st left, right
+	mysttime = mysttime % 1;
+	});
+
+	myendtime = mysttime + slicestate[2] + (index * (slicestate[3]/100.0));
+
+	if ( (myendtime<0) || (myendtime>1), { //end left, right
+	mysttime = mysttime % 1;
+	myendtime = mysttime + slicestate[2] + (index * (slicestate[3]/100.0));
+	});
+
+	if (myendtime<mysttime, { // reverse
+	var temp1=mysttime;
+	var temp2=myendtime;
+	mysttime = temp2;
+	myendtime = temp1;
+	});
+
+	{
+	pl.frame(mysttime, myendtime);
+	this.newselection(mysttime, myendtime, views[target][index], pl.buf, target);
+	}.defer(offset.asFloat.rand);
+	})
+	}.defer(defer)
+	}*/
 	slice {|sttime, shift, grain, grainshift, offset=0, defer=0, o=nil, d=nil| // SLICER like behaviour
 		var target = currentgroup;
 		{
@@ -683,6 +740,62 @@ Tapes {
 		slicerw.front;//!!!!!
 	}
 
+	vibgui {|w=450|
+		var label;
+		//var doslice = this;
+		var slicerw = Window("Vibrato/Wobble/Brown", w@260).alwaysOnTop_(true);
+		var cols = [Color.grey,Color.white, Color.grey(0.7),Color.grey,Color.white, Color.yellow,nil,nil, Color.grey(0.7)];
+		var controls = [];
+		var target = currentgroup;
+		slicerw.view.decorator = FlowLayout(slicerw.view.bounds);
+		slicerw.view.decorator.gap=2@2;
+
+		//value:3, depth:0.4, ratev:0.01, depthv:0.02
+		controls.add( EZSlider(slicerw, (w-10)@40, "vibrato rate",
+			ControlSpec(0, 8, \lin, 0.001, 6),
+			{|sl|
+				vib[0]=sl.value;
+				this.vibrato(*vib)
+		}, 6, layout:\line2, labelHeight:15, initAction:true).setColors(*cols).numberView.maxDecimals = 4;);
+
+		controls.add( EZSlider(slicerw, (w-10)@40, "vibrato depth",
+			ControlSpec(0, 2, \lin, 0.001, 0),
+			{|sl|
+				vib[1]=sl.value;
+				this.vibrato(*vib)
+		}, 0, layout:\line2, labelHeight:15, initAction:true).setColors(*cols).numberView.maxDecimals = 4;);
+
+		controls.add( EZSlider(slicerw, (w-10)@40, "vibrato rateVariation",
+			ControlSpec(0, 1, \lin, 0.001, 0.04),
+			{|sl|
+				vib[2]=sl.value;
+				this.vibrato(*vib)
+		}, 0.04, layout:\line2, labelHeight:15, initAction:true).setColors(*cols).numberView.maxDecimals = 4;);
+
+		controls.add( EZSlider(slicerw, (w-10)@40, "vibrato depthVariation",
+			ControlSpec(0, 1, \lin, 0.001, 0.1),
+			{|sl|
+				vib[3]=sl.value;
+				this.vibrato(*vib)
+		}, 0.1, layout:\line2, labelHeight:15, initAction:true).setColors(*cols).numberView.maxDecimals = 4;);
+
+
+
+		controls.add(	EZSlider(slicerw, (w-10)@40, "wobble",
+			ControlSpec(0, 2, \lin, 0.001, 0),
+			{|sl|
+				this.wobble(sl.value)
+		}, 0, layout:\line2, labelHeight:15, initAction:true).numberView.maxDecimals = 4);
+
+		controls.add(EZSlider(slicerw, (w-10)@40, "brown",
+			ControlSpec(0, 2, \lin, 0.001, 0),
+			{|sl|
+				this.brown(sl.value)
+		}, 0, layout:\line2, labelHeight:15, initAction:true).numberView.maxDecimals = 4);
+
+		slicerw.front;//!!!!!
+	}
+
 	frame {|st, end, offset=0, defer=0, o=nil, d=nil|
 		var target = currentgroup;
 		if (st.isNil, {st=0; end=1}); // reset
@@ -746,8 +859,7 @@ Tapes {
 	}
 
 	solo {|index, defer=0, d=nil| // add offset and defer?
-		index.postln;
-		grouplists[currentgroup][index].id.postln;
+		//grouplists[currentgroup][index].id.postln;
 		defer = d?defer;
 		{
 			grouplists[currentgroup].do({ |pl|
@@ -919,10 +1031,10 @@ Tapes {
 	brown {|value=0, random=0, time=0, offset=0, defer=0, r=nil, t=nil, o=nil, d=nil|
 		this.action(\brown, value, random, time, offset, defer, r, t, o, d);
 	}
-	//(freq: 440.0, rate: 6, depth: 0.02, delay: 0.0, onset: 0.0, rateVariation: 0.04, depthVariation: 0.1, iphase: 0.0, trig: 0.0)
 	vibrato {|value=1, depth=0, ratev=0, depthv=0, time=0, offset=0, defer=0, t=nil, o=nil, d=nil|
 		var target = currentgroup; // freeze target in case of defer
 		#time, offset, defer = [t?time, o?offset, d?defer];
+		//[value, depth, ratev, depthv].postln;
 		{grouplists[target].do({ |pl|
 			{pl.vibrato(value,depth,ratev,depthv, time)}.defer(offset.asFloat.rand)
 		})}.defer(defer)
@@ -1089,16 +1201,28 @@ Tapes {
 
 
 	// TASKS
-	does { procs.keys.postln; ^procs }
+	does { ^procs }
+	restart {|name, defer=0, d=nil|
+		defer = d?defer;
+		{
+			if (name.isNil, {
+				"-- reset all _do".postln;
+				procs.collect(_.reset);
+			},{
+				("-- _do: reset"+name+procs[name.asSymbol]).postln;
+				procs[name.asSymbol].reset;
+			})
+		}.defer(defer)
+	}
 	pause {|name, defer=0, d=nil|
 		defer = d?defer;
 		{
 			if (name.isNil, {
 				"-- pause all _do".postln;
-				procs.do{|p|p[0].pause};
+				procs.collect(_.pause);
 			},{
 				("-- _do: pause"+name+procs[name.asSymbol]).postln;
-				procs[name.asSymbol][0].pause;
+				procs[name.asSymbol].pause;
 			})
 		}.defer(defer)
 	}
@@ -1107,10 +1231,10 @@ Tapes {
 		{
 			if (name.isNil, {
 				"-- resume all _do".postln;
-				procs.do{|p|p[0].resume};
+				procs.collect(_.resume);
 			},{
 				("-- _do: resume"+name+procs[name.asSymbol]).postln;
-				procs[name.asSymbol][0].resume;
+				procs[name.asSymbol].resume;
 			})
 		}.defer(defer)
 	}
@@ -1120,99 +1244,42 @@ Tapes {
 			if (name.isNil, {
 				"-- kill all _do".postln;
 				try {
-					procs.do{|p|p[0].stop};
+					procs.collect(_.stop);
+					procs.do{|p|p = nil}; //???
 					procs = Dictionary.new;
 				}
 			},{
 				("-- _do: killing"+name+procs[name.asSymbol]).postln;
 				try {
-					procs[name.asSymbol][0].stop;
-					procs.removeAt(name.asSymbol)
+					var proc;
+					procs[name.asSymbol].stop;
+					proc = procs.removeAt(name.asSymbol);
+					proc = nil; // ??
 				}{ (name+"does not exist").postln};
 			})
 		}.defer(defer)
 	}
 
 	shutup {|flag=0|
-		procs.do{|proc| proc[4]=flag}
+		procs.collect(_.shutup(flag))
 	}
 
-	// TO DO: sleep as bpm argument?
 	do {|name="", function, sleep=1, random=0, defer=0, iter=inf, when=true, then,
 		clock=0, verbose=1, s, r, d, i, w, t, c, v|
-		var atask, target;
 		sleep = s?sleep; defer=d?defer; iter=i?iter; when=w?when; then=t?then;
 		random=r?random; clock=c?clock; verbose=v?verbose;
 
-		iter=iter.max(0);
-
-		if (name=="", {
-			"TASKS MUST HAVE A NAME. Making one up".postln;
-			name = ("T"++Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second).asSymbol;
-			name.postln;
+		if (procs[name.asSymbol].notNil,{ // find a way to just update the task restarting from the current state
+			["updating", name].postln;
+			procs[name.asSymbol].function = function;
+			procs[name.asSymbol].sleep = sleep;
+			procs[name.asSymbol].random = random;
+			procs[name.asSymbol].verbose = verbose;
+		}, {
+			procs.add(name.asSymbol -> DoTask(name, function, sleep, random, defer, iter, when, then, clock, verbose) )
 		});
 
-		("creating _do"+name).postln;
-
-		if (procs[name.asSymbol].notNil, {// kill before rebirth if already there
-			procs[name.asSymbol][0].stop;
-			procs.removeAt(name.asSymbol)
-		});
-
-		clock ?? clock = TempoClock; // default
-
-		target = currentgroup;
-
-		atask = Task({
-			block {|break| // this block runs on task.start
-				inf.do{
-					if (when.value.asBoolean, { //go
-						iter.do{|index|
-							var wait = sleep.asString.asFloat; // reset each time
-							var time = ""+Date.getDate.hour++":"++Date.getDate.minute++":"++Date.getDate.second;
-							var elapsed = Process.elapsedTime - procs[name.asSymbol][5];
-
-							this.usegroup(target);
-							function.value(index.asInteger); // only run if {when} is true. pass index
-
-							if (sleep.isArray, {
-								wait = sleep.wrapAt(index).asString.asFloat; //cycle //USE Pseq instead?
-							});
-
-							if (random.isArray,{
-								if (random[1].isArray, {
-									wait = random[0].wchoose(random[1]) ; // {values}, {chances}
-								}, {
-									wait = random.choose; // {n1, n2, n3}
-								})
-							},{
-								wait = wait + random.asFloat.rand2
-							});// rand gets added to sleep
-
-							if (procs[name.asSymbol][4]==1, {
-								("_do:"+name++time+elapsed+(index.asInteger+1)++":"++iter+"wait"+wait).postln});
-
-							wait.max(0.005).wait;
-						};
-						break.value(999); // done iter. this will never happen when iter is inf
-					});
-					0.01.wait // needed for when
-				}
-			};
-
-			then.value; // last will
-			("-- done with"+name).postln;
-			procs[name.asSymbol][0].stop;
-			procs.removeAt(name.asSymbol)
-
-		}, clock); // end definition of task
-
-		procs.add(name.asSymbol -> [atask, function, sleep, random, verbose, 0]);// to keep track of them
-
-		{
-			atask.start; // now run it
-			procs[name.asSymbol][5] = Process.elapsedTime
-		}.defer(defer);
+		^procs[name.asSymbol]
 	}
 
 	ggui { //controls groups
@@ -1290,31 +1357,31 @@ Tapes {
 			])
 			.action_({|bu|
 				if (bu.value==1, {
-					procs[key][0].pause
+					procs[key].pause
 				}, {
-					procs[key][0].resume
+					procs[key].resume
 				})
 			});
 
-			string = clean.value(procs[key][2]);
+			string = clean.value(procs[key].name);
 
 			TextField(w, 75@20) // sleep
 			.string_(string)
 			.action_({|txt|
-				this.do(key, procs[key][1], txt.value.asArray, procs[key][3]); //rebirth task w new sleep
+				this.do(key, procs[key].function, txt.value.asArray, procs[key].random); //rebirth task w new sleep
 				bu.value = 0;// display it
 			});
 			TextField(w, 45@20) // random
-			.string_(procs[key][3].asString)
+			.string_(procs[key].random.asString)
 			.action_({|txt|
-				this.do(key, procs[key][1], procs[key][2], txt.value.asFloat); //rebirth task w new rand
+				this.do(key, procs[key].name, procs[key].function, txt.value.asFloat); //rebirth task w new rand
 				bu.value = 0;// display it
 			});
 			Button(w, 30@20).states_([ // once
 				["once", Color.black, Color.grey]
 			])
 			.action_({|bu|
-				procs[key][1].value
+				procs[key].function.value(0)
 			});
 			w.view.decorator.nextLine;
 		};
@@ -1413,12 +1480,12 @@ Tapes {
 				plotwinrefresh = Task({
 					inf.do({|index|
 						views[target].do({|view, index|
-							view.timeCursorPosition = grouplists.values.flat[index].curpos * (grouplists.values.flat[index].buf.numFrames);
+							{view.timeCursorPosition = grouplists.values.flat[index].curpos * (grouplists.values.flat[index].buf.numFrames)}.defer;
 							0.1.wait;
 						});
 						//"----".postln;
 					})
-				}, AppClock);
+				});
 				plotwinrefresh.start;
 			});
 		}.defer(defer)
