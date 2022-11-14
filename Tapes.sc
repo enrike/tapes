@@ -13,14 +13,15 @@ Tapes {
 	var <grouplists, <currentgroup;
 	var <currentbank;
 	var <slicestate=#[ 0.624, 7.156, 0.05, 0.0 ];
-	var <rbuffer, rsynth; // to record
+	var <recbufs, <rsynths;
+	var <rbuffer, rsynth; // legacy. to be deleted
 	var vib;
 
-	*new {| main=nil, dir, symbol="_", action | // systemdir
-		^super.new.initTapes( main, dir, symbol );
+	*new {| main=nil, dir, symbol="_", action, b=1 | // systemdir
+		^super.new.initTapes( main, dir, symbol, action, b );
 	}
 
-	initTapes {| amain, adir, asym, action |
+	initTapes {| amain, adir, asym, action, b |
 		~tapes = this; // keep me in a global
 
 		//Platform.case(\linux, { Server.supernova });
@@ -38,14 +39,18 @@ Tapes {
 
 		views =  Dictionary[currentgroup -> List.new];
 
+		currentbank = \default; //
 		bufs = Dictionary[currentbank -> List.new];
-		currentbank = \default;
+
+		recbufs = Dictionary.new;
+		rsynths = Dictionary.new;
+
 
 		onsets = Dictionary.new;
 
 		vib = [1,1,0,0,0,0,0];
 
-		this.boot(adir);
+		if (b.asBoolean, {  this.boot(adir) });
 
 		if (amain.notNil, {
 			this.lang(amain, asym)
@@ -66,7 +71,7 @@ Tapes {
 			// list with all the commands defined by Tapes
 			var keywords = [
 				"add", "new", "kill", "killall", "asignbufs", "loadfiles", "removebuf",
-				"bufs", "buf", "curbufs", "bufinfo", "normalize",
+				"buf", "curbufs", "bufinfo", "normalize",
 				"one", "it", "some", "them", "info", "verbose", "plot", "control", "hm",
 				"scratch", "pause", "solo", "fwd", "bwd", "dir", "reverse", "volu", "vold", "vol",
 				"fadein", "fadeout", "mute", "rwd", "trans", "xloop", "xdone",
@@ -83,7 +88,8 @@ Tapes {
 				"bank", "banks", "mergebanks", "usebank", "currentbank", "newbank", "removebank",
 				"loadonsetanalysis", "onsets", //experimental
 				"midion", "midioff", "ccin",
-				"rec", "preparerec", "bufrec", "zerorecbuf", "recstate",
+				"recold", "preparerec", "bufrec", "zerorecbuf", "recstate", // legacy. to be deleted
+				"rec", "preparerec", "stoprec", "recbufs", "write",
 				"time", "secs", "mins"
 			];
 
@@ -149,9 +155,49 @@ Tapes {
 		});
 		^t
 	}
-	// REC ///////
+
+	// new rec //
+	// for long buffers better preparec and then on rec check if the buffer is already there
+	/*	preparerec {|name, len=5, numchans=2|
+	recbufs.add(name -> Buffer.alloc(Server.default, len*Server.default.sampleRate, 2) )
+	}*/
+	rec {|in=0, name="", len=1, loop=0 numchans=2|
+		rsynths[name].free; // just in case
+		recbufs[name].free;
+		("start sampling into buffer"+name).postln;
+		Routine.run { // INSIDE A ONE SHOT ROUTINE TO BE ABLE TO SYNC
+			recbufs.add(name -> Buffer.alloc(Server.default, len*Server.default.sampleRate, 2));
+			Server.default.sync;// wait til is allocated
+			rsynths.add(name -> Synth.tail(Server.default, \recb, [\in, in, \bufnum, recbufs[name], \loop, loop]) );
+			if (loop==0, {
+				{
+					this.stoprec(name);
+					"done sampling!".postln
+				}.defer(len)
+			});
+		}
+	}
+	stoprec {|name|
+		rsynths[name].free;
+		rsynths[name] = nil;
+	}
+	isRecording {|name|
+		^rsynths[name].asBoolean
+	}
+	write {|name|
+		if (name.notNil, {
+			recbufs[name].write
+		}, {
+			recbufs.collect(_.write)
+		});
+	}
+	plotrec {|name| recbufs[name].plot }
+
+
+
+	// REC OLD///////
 	preparerec {|len|
-		Buffer.alloc(Server.default,
+		rbuffer = Buffer.alloc(Server.default,
 			len*Server.default.sampleRate, 2); // must wait for alloc before next line!!!!!!!!!
 	}
 	zerorecbuf{
@@ -160,7 +206,7 @@ Tapes {
 	bufrec {
 		^rbuffer
 	}
-	rec {|in=0, len=1, loop=0|
+	recold {|in=0, len=1, loop=0|
 		rsynth.free;
 		rbuffer.free;
 		"start sampling into _bufrec".postln;
@@ -177,6 +223,7 @@ Tapes {
 	recstate { //recording?
 		^rsynth.notNil
 	}
+
 
 
 	loadfiles {|apath, overwrite=1, action| // overwrite will remove the previous one if any
@@ -376,20 +423,20 @@ Tapes {
 				var thebuffer, lay;
 				if (bufs[currentbank].size>0, {
 					thebuffer = bufs[currentbank].wrapAt( grouplists[target].size );
-					lay = Tape.new(thebuffer);
-					("at group"+currentgroup+"in position @"++grouplists[target].size).postln;
-					("-----------").postln;
-					grouplists[target].add(lay); // check if = is needed
-
-					if (copythis.isNumber, { // by id. get the instance
-						copythis = this.id(copythis)
-					});
-					if (copythis.notNil, { lay.copy(copythis) });
-
-					views[target].add( SoundFileView() );
 				}, {
-					"error: no buffers available!! run _loadfiles".postln;
-				})
+					"warning: no buffers available!! run _loadfiles".postln;
+				});
+				lay = Tape.new(thebuffer);
+				("at group"+currentgroup+"in position @"++grouplists[target].size).postln;
+				("-----------").postln;
+				grouplists[target].add(lay); // check if = is needed
+
+				if (copythis.isNumber, { // by id. get the instance
+					copythis = this.id(copythis)
+				});
+				if (copythis.notNil, { lay.copy(copythis) });
+
+				views[target].add( SoundFileView() );
 			})
 		}.defer(defer)
 	}
@@ -501,13 +548,11 @@ Tapes {
 	buf {|value, offset=0, defer=0, o=nil, d=nil| // value can be a Buffer, an array of ints
 		var target = currentgroup;
 		#offset, defer = [o?offset, d?defer];
-
+		value.isKindOf(Symbol).postln;
 		if (value.isArray, {value=value.choose}); // choose between given integer values
-
-		// finally if valus is an Integer we need the actual buffer
 		if (value.isInteger, {value = bufs[currentbank][value]}); // using the index
-
-		if (value.isNil, { value=bufs[currentbank].choose }); // get an actual buffer
+		if (value.isKindOf(Symbol), {value = recbufs[value]; "it is a recbuf".postln}); // using a rebuf buffer
+		if (value.isNil, { value=bufs[currentbank].choose }); // get an actual buffer randomly
 
 		{
 			grouplists[target].do({ |pl, index|

@@ -46,7 +46,7 @@ Tape{
 		statesDic = Dictionary.new;
 		("-----------").postln;
 		("ready tape ID"+id).postln;
-		("using buffer"+this.file).postln;
+		//("using buffer"+this.file).postln;
 	}
 
 	time {
@@ -65,6 +65,7 @@ Tape{
 		if (player.isNil, {
 			Routine.run { // INSIDE A ONE SHOT ROUTINE TO BE ABLE TO SYNC
 				try{player.free}; // silently
+				if (buf.isNil, {buf=Buffer()}); // just give the player something to chew
 				player = Synth.tail(Server.default, \rPlayerLoop,
 					[\buffer, buf, \start, st, \end, end, \amp, vol, \rate, memrate,
 						\pan, pan, \index, id, \out, out,
@@ -155,7 +156,7 @@ Tape{
 	info {
 		var data = Dictionary.new;
 		data[\id] = id;
-		data[\file] = this.file();
+		data[\file] = this.file(); //warning. if nil key does not get created
 		data[\vol] = vol;
 		data[\pos] = curpos;
 		data[\frame] = [st,end];
@@ -202,9 +203,9 @@ Tape{
 		this.frame(st+value, st+value+(end-st)); //keep len
 	}
 
-	file {
-		var res = "buffer in memory?";
-		try { res = PathName(buf.path).fileName };
+	file { //MST FIND ANOTHER WAY TO RETURN SOMETHING WHEN IS A BUF IN MEMORY
+		var res="";
+		try { res = PathName(buf.path).fileName }{"buffer in memory?".postln; res = buf.bufnum};
 		^res
 	}
 
