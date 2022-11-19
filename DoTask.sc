@@ -24,7 +24,7 @@ DoTask {
 	start { task.start }
 	resume { task.resume }
 	//reset { task.reset}
-	shutup {|flag=false|verbose = flag}
+	shutup {|flag=false|verbose = flag.asInteger}
 	isPlaying { ^task.isPlaying }
 
 	once {
@@ -32,10 +32,11 @@ DoTask {
 	}
 
 	reset {
-		["rebirth", name].postln;
-		task.stop;
+		("reset" + name).postln;
+		task.reset
+		/*task.stop;
 		{task.reset}.defer(0.05);
-		{task.start}.defer(0.1);
+		{task.start}.defer(0.1);*/ // needed?
 	}
 
 	initDo {|aname, afunction, asleep, arandom, adefer, aiter, awhen, athen, aclock, averbose|
@@ -94,7 +95,7 @@ DoTask {
 								wait = wait + random.asFloat.rand2
 							});// rand gets added to sleep
 
-							if (verbose==1, {//procs[name.asSymbol][4]==1, { // verbose
+							if (verbose.asInteger==1, {//procs[name.asSymbol][4]==1, { // verbose
 								("_do:"+name++time+elapsed+(index.asInteger+1)++":"++iter+"wait"+wait).postln});
 
 							wait.max(0.005).wait;
