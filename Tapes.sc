@@ -76,7 +76,7 @@ Tapes {
 				"scratch", "pause", "solo", "fwd", "bwd", "dir", "reverse", "volu", "vold", "vol",
 				"fadein", "fadeout", "mute", "rwd", "trans", "xloop", "xdone",
 				"pan", "rate", "wobble", "brown", "vibrato", "reset", "shot", "out", "stop", "play",
-				"frame", "st", "move", "moveby", "jump", "end", "go", "gost", "goend", "dur", "len", "env",
+				"frame", "st", "move", "moveby", "jump", "end", "go", "gost", "goend", "dur", "len", "env", "asr",
 				"push", "pop", "save", "load", "search", "id", "where",
 				"rbuf", "rrate", "rpan", "rframe", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rmove", "rand",
 				"bframe", "bmove", "bpan", "brate", "bvol", "bpan", "bgo", "spread",
@@ -161,25 +161,31 @@ Tapes {
 	/*	preparerec {|name, len=5, numchans=2|
 	recbufs.add(name -> Buffer.alloc(Server.default, len*Server.default.sampleRate, 2) )
 	}*/
-	rec {|in=0, name="", len=1, loop=0 numchans=2|
-		rsynths[name].free; // just in case
-		recbufs[name].free;
-		("start sampling into buffer"+name).postln;
-		Routine.run { // INSIDE A ONE SHOT ROUTINE TO BE ABLE TO SYNC
-			recbufs.add(name -> Buffer.alloc(Server.default, len*Server.default.sampleRate, 2));
-			Server.default.sync;// wait til is allocated
-			rsynths.add(name -> Synth.tail(Server.default, \recb, [\in, in, \bufnum, recbufs[name], \loop, loop]) );
-			if (loop==0, {
-				{
-					this.stoprec(name);
-					"done sampling!".postln
-				}.defer(len)
-			});
-		}
+	rec {|in=0, name="", len=1, loop=0 numchans=2, defer=0, d|
+		defer = d?defer;
+		{
+			rsynths[name].free; // just in case
+			recbufs[name].free;
+			("start sampling into buffer"+name).postln;
+			Routine.run { // INSIDE A ONE SHOT ROUTINE TO BE ABLE TO SYNC
+				recbufs.add(name -> Buffer.alloc(Server.default, len*Server.default.sampleRate, 2));
+				Server.default.sync;// wait til is allocated
+				rsynths.add(name -> Synth.tail(Server.default, \recb, [\in, in, \bufnum, recbufs[name], \loop, loop]) );
+				if (loop==0, {
+					{
+						this.stoprec(name);
+						"done sampling!".postln
+					}.defer(len)
+				});
+			}
+		}.defer(defer)
 	}
-	stoprec {|name|
-		rsynths[name].free;
-		rsynths[name] = nil;
+	stoprec {|name, defer=0, d|
+		defer = d?defer;
+		{
+			rsynths[name].free;
+			rsynths[name] = nil;
+		}.defer(defer)
 	}
 	isRecording {|name|
 		^rsynths[name].asBoolean
@@ -879,7 +885,7 @@ Tapes {
 		this.action(\stop, 0, 0, 0, offset, defer, nil, nil, o, d);
 	}
 
-	go {|value=1, offset=0, defer=0, o=nil, d=nil|
+	go {|value=1, random=0, offset=0, defer=0, r=nil, o=nil, d=nil|
 		this.action(\go, value, 0, 0, offset, defer, nil, nil, o, d);
 	}
 
@@ -1211,13 +1217,19 @@ Tapes {
 		this.action(\brate, range, 0, time, offset, defer, nil, t, o, d);
 	}
 
+	//env {|... args| this.asr(*args)} //legacy
 	env {|vol=1, fadein=0.01, len=0.5, fadeout=0.1, offset=0, defer=0, o=nil, d=nil|
+		#offset, defer = [o?offset, d?defer];
+		this.asr(vol, fadein, len, fadeout, offset, defer)
+	}
+
+	asr {|vol=1, attack=0.01, sustain=0.5, release=0.1, offset=0, defer=0, o=nil, d=nil|
 		var target = currentgroup;
 		#offset, defer = [o?offset, d?defer];
 		{grouplists[target].do({ |pl, index|
 			{
-				pl.vol(vol, time:fadein); //rump up
-				{pl.vol(0,  time:fadeout)}.defer(fadein+len); // ramp down / fade len
+				pl.vol(vol, time:attack); //rump up
+				{pl.vol(0,  time:release)}.defer(attack+sustain); // ramp down / fade len
 			}.defer(offset.asFloat.rand)
 		})}.defer(defer)
 	}
@@ -1297,9 +1309,11 @@ Tapes {
 				("-- _do: killing"+name+procs[name.asSymbol]).postln;
 				try {
 					var proc;
-					procs[name.asSymbol].stop;
-					proc = procs.removeAt(name.asSymbol);
-					proc = nil; // ??
+					name.do{|na|
+						procs[na.asSymbol].stop;
+						proc = procs.removeAt(na.asSymbol);
+						proc = nil; // ??
+					}
 				}{ (name+"does not exist").postln};
 			})
 		}.defer(defer)
@@ -1315,7 +1329,7 @@ Tapes {
 		random=r?random; clock=c?clock; verbose=v?verbose;
 
 		if (procs[name.asSymbol].notNil,{ // find a way to just update the task restarting from the current state
-			["updating", name].postln;
+			("updating" + name).postln;
 			procs[name.asSymbol].function = function;
 			procs[name.asSymbol].sleep = sleep;
 			procs[name.asSymbol].random = random;

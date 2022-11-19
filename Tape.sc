@@ -177,8 +177,9 @@ Tape{
 		if (verbose.asBoolean, {[id, action, value].postln});
 	}
 
-	go {|value=0|
-		player.set(\reset, value.clip(st,end), \trig, 0);
+	go {|value=0, random=0|
+		value = value + random.asFloat.rand2;
+		player.set(\amp, 0, \reset, value.clip(st,end), \trig, 0, \amp, vol);
 		{ player.set(\trig, 1) }.defer(del);
 	}
 
