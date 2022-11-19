@@ -137,9 +137,9 @@ _usebank(\voices);
 _loadfiles("some/directory/voices/");//loads those samples into voices bank
 
 
-// sampling on the fly //
-_preparerec(name: \newbuf, len:5, numchans:2)
-_rec(in:2, name: \newbuf, len:5, loop:0, numchans:2)
+// sampling on the fly. stereo by default //
+_preparerec(name: \newbuf, len:5)
+_rec(in:2, name: \newbuf, len:5, loop:0)
 _stoprec // if loop is 1 you might need to stop recording at some point
 _buf(\newbuf) // asign this buffer to tapes
 _plotrec(\newbuf) // show the buffer in a window
@@ -182,7 +182,7 @@ _move(0.5) // move frame start point to that position and try to maintain the fr
 _moveby(-0.01) // move frame start and end point by that amount
 _go(0.5) // send playhead to point in sample (only works if >st and <end)
 
-_env(vol:1, fadein:0.01, len:0.5, fadeout:0.1); // fadein time to vol, stay len, fadeout time
+_asr(vol:1, attack:0.01, sustain:0.5, release:0.1); // attack time to vol, stay sustain, release time
 _trans(-2)// transpose pitch by n semitones
 
 // slicer-like behaviour (http://github.com/enrike/slicer)
@@ -329,6 +329,7 @@ _ccin(\v1, 0, {|v| _ug;_vol(v/127)}) // eg. nanokontrol slider 1 controls volume
 // args are explained below
 _do(\randpan, {_rpan}, 2); //loop run a function named \randpan every 2 secs
 _undo(\randpan) // kill \randpan
+_undo([\randpa, \whatever]) // kill \randpan and \whatever
 _undo // kill all scheduled functions
 _undo(\randpan, d:10) // it can be deferred too
 
@@ -336,6 +337,8 @@ _pause(\randpan, d:2) // pause \randpan
 _pause; // pause all
 _resume(\randpan, d:8) // resume \randpan
 _resume; // resume all
+_restart; // all
+_restart(\randpan) // start from the beginning
 
 _does; //returns a dict with current _do tasks and posts it
 _does.keys // it is a fully functional dictionary btw
