@@ -65,38 +65,40 @@ Tapes {
 
 
 	lang {|main, sym="_"|
+			// this is to be able to use a symbol (like _) instead of ~tapes. and symbol2 (eg _2) instead of ~tapes.grouplists[currengroup][2]
 		var globalvar = "~tapes";
-		// this is to be able to use the systems using a symbol (like _) instead of ~tapes. and symbol2 (eg _2) instead of ~tapes.grouplists[\default][2]
-		main.preProcessor = { |code|
-			// list with all the commands defined by Tapes
-			var keywords = [
-				"add", "new", "kill", "killall", "asignbufs", "loadfiles", "removebuf",
-				"buf", "curbufs", "bufinfo", "normalize",
-				"one", "it", "some", "them", "info", "verbose", "plot", "control", "hm",
-				"scratch", "pause", "solo", "fwd", "bwd", "dir", "reverse", "volu", "vold", "vol",
-				"fadein", "fadeout", "mute", "rwd", "trans", "xloop", "xdone",
-				"pan", "rate", "wobble", "brown", "vibrato", "reset", "shot", "out", "stop", "play",
-				"frame", "st", "move", "moveby", "jump", "end", "go", "gost", "goend", "dur", "len", "env", "asr",
-				"push", "pop", "save", "load", "search", "id", "where",
-				"rbuf", "rrate", "rpan", "rframe", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rmove", "rand",
-				"bframe", "bmove", "bpan", "brate", "bvol", "bpan", "bgo", "spread",
-				//"comp", "thr", "slb", "sla",
-				"do", "undo", "does", "dogui", "pause", "resume", "shutup", "restart",
-				"slice", "slicegui", "vibgui",
-				"group", "groups", "mergegroups", "usegroup", "ug", "currentgroup", "newgroup",
-				"killgroup", "all", "ggui",
-				"bank", "banks", "mergebanks", "usebank", "currentbank", "newbank", "removebank",
-				"loadonsetanalysis", "onsets", //experimental
-				"midion", "midioff", "ccin",
-				"recold", "preparerec", "bufrec", "zerorecbuf", "recstate", // legacy. to be deleted
-				"rec", "preparerec", "stoprec", "recbufs", "write",
-				"time", "secs", "mins"
-			];
 
+		// list with all the commands defined by Tapes
+		var keywords = [
+			"allstop", "allplay",
+			"add", "new", "kill", "killall", "asignbufs", "loadfiles", "removebuf",
+			"buf", "curbufs", "bufinfo", "normalize", "dcoffset",
+			"one", "it", "some", "them", "info", "verbose", "plot", "control", "hm",
+			"scratch", "pause", "solo", "fwd", "bwd", "dir", "reverse", "volu", "vold", "vol",
+			"fadein", "fadeout", "mute", "rwd", "trans", "xloop", "xdone", "markers", "fps",
+			"pan", "rate", "wobble", "brown", "vibrato", "reset", "shot", "out", "stop", "play", "sync",
+			"frame", "st", "move", "moveby", "jump", "end", "go", "gost", "goend", "dur", "len", "env", "asr",
+			"push", "pop", "save", "load", "search", "id", "where",
+			"rbuf", "rrate", "rpan", "rframe", "rdir", "rvol", "rgo", "rst", "rend", "rlen", "rmove", "rand",
+			"bframe", "bmove", "bpan", "brate", "bvol", "bpan", "bgo", "spread",
+			//"comp", "thr", "slb", "sla",
+			"do", "undo", "does", "dogui", "pause", "resume", "shutup", "restart",
+			"slice", "slicegui", "vibgui",
+			"group", "groups", "mergegroups", "usegroup", "ug", "currentgroup", "newgroup",
+			"killgroup", "all", "ggui",
+			"bank", "banks", "mergebanks", "usebank", "currentbank", "newbank", "removebank",
+			"loadonsetanalysis", "onsets", //experimental
+			"midion", "midioff", "ccin",
+			"recold", "preparerec", "bufrec", "recstate", // legacy. to be deleted
+			"rec", "preparerec", "stoprec", "recbufs", "write", "zerorec",
+			"time", "secs", "mins"
+		];
+
+		main.preProcessor = { |code|
 			keywords.do({|met| // eg: _go --> ~tapes.go
 				code = code.replace(sym++met, globalvar++"."++met);
 			});
-			100.reverseDo({|num| // reverse to avoid errors with index > 1 digit
+			20.reverseDo({|num| // reverse to avoid errors with index > 1 digit
 				var dest = globalvar++".grouplists[\\"++currentgroup++"]"++"["++num.asString++"]";
 				code = code.replace(sym++num.asString, dest); // _2 --> ~tapes.grouplists[\whatever][2]
 			});
@@ -116,9 +118,9 @@ Tapes {
 				RecordBuf.ar(signal, bufnum, doneAction: Done.freeSelf, loop: loop);
 			}).load;
 
-			SynthDef( \rPlayerLoop, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, dir=1, index=0,
-				trig=0, reset=0, wobble=0, amplag=0, ratelag=0, panlag=0, wobblelag=0,
-				brown=0, brownlag=0,
+			SynthDef( \rPlayerLoop, { arg out=0, buffer=0, amp=1, pan=0, start=0, end=1, rate=0, dir=1, dcoffset=0,
+				index=0, trig=0, reset=0, fps=30,
+				wobble=0, amplag=0, ratelag=0, panlag=0, wobblelag=0, brown=0, brownlag=0,
 				vib = #[1,1,0,0,0,0,0], viblag=0;
 
 				var left, right, phasor, dur = BufFrames.kr(buffer);
@@ -135,9 +137,11 @@ Tapes {
 
 				//SendReply.ar( HPZ1.ar(HPZ1.ar(phasor).sign), '/xloop', 1, index); //loop point
 				SendReply.ar( Trig.ar(phasor >= ( (end*dur) - 1)), '/xloop', 1, index); // loop point
-				SendReply.kr( LFPulse.kr(12, 0), '/pos', phasor/dur, index); //fps 12
 
-				#left, right = BufRd.ar( 2, buffer, phasor ) * amp;
+				// (end-start)*dur
+				SendReply.kr( LFPulse.kr(fps, 0), '/pos', phasor/dur, index); //fps 12
+
+				#left, right = (BufRd.ar( 2, buffer, phasor ) + DC.ar(dcoffset)) * amp;
 				Out.ar(out, Balance2.ar(left, right, pan));
 			}).load;
 
@@ -150,7 +154,7 @@ Tapes {
 	time {|who|
 		var t;
 		if (who.isNil, {t = Process.elapsedTime-sttime}, {
-			if (who.isSymbolWS, t = Process.elapsedTime - procs[who].sttime);
+			if (who.isKindOf(Symbol), t = Process.elapsedTime - procs[who].sttime);
 			if (who.class.name==\Tape, t=who.time);
 		});
 		^t
@@ -158,17 +162,18 @@ Tapes {
 
 	// new rec //
 	// for long buffers better preparec and then on rec check if the buffer is already there
-	/*	preparerec {|name, len=5, numchans=2|
-	recbufs.add(name -> Buffer.alloc(Server.default, len*Server.default.sampleRate, 2) )
-	}*/
+	preparerec {|name, len=5, numchans=2|
+		recbufs.add(name -> Buffer.alloc(Server.default, len*Server.default.sampleRate, 2) )
+	}
 	rec {|in=0, name="", len=1, loop=0 numchans=2, defer=0, d|
 		defer = d?defer;
 		{
 			rsynths[name].free; // just in case
-			recbufs[name].free;
 			("start sampling into buffer"+name).postln;
 			Routine.run { // INSIDE A ONE SHOT ROUTINE TO BE ABLE TO SYNC
-				recbufs.add(name -> Buffer.alloc(Server.default, len*Server.default.sampleRate, 2));
+				if (recbufs[name].isNil, { // not already there
+					recbufs.add(name -> Buffer.alloc(Server.default, len*Server.default.sampleRate, 2));
+				});
 				Server.default.sync;// wait til is allocated
 				rsynths.add(name -> Synth.tail(Server.default, \recb, [\in, in, \bufnum, recbufs[name], \loop, loop]) );
 				if (loop==0, {
@@ -198,41 +203,40 @@ Tapes {
 		});
 	}
 	plotrec {|name| recbufs[name].plot }
-
-
+	zerorec{|name| recbufs[name].zero }
 
 	// REC OLD///////
-	preparerec {|len|
-		rbuffer = Buffer.alloc(Server.default,
-			len*Server.default.sampleRate, 2); // must wait for alloc before next line!!!!!!!!!
+	/*	preparerec {|len|
+	rbuffer = Buffer.alloc(Server.default,
+	len*Server.default.sampleRate, 2); // must wait for alloc before next line!!!!!!!!!
 	}
 	zerorecbuf{
-		rbuffer.zero;
+	rbuffer.zero;
 	}
 	bufrec {
-		^rbuffer
+	^rbuffer
 	}
 	recold {|in=0, len=1, loop=0|
-		rsynth.free;
-		rbuffer.free;
-		"start sampling into _bufrec".postln;
-		Routine.run { // INSIDE A ONE SHOT ROUTINE TO BE ABLE TO SYNC
-			rbuffer = Buffer.alloc(Server.default, len*Server.default.sampleRate, 2);
-			Server.default.sync;// wait til is allocated
-			rsynth = Synth.tail(Server.default, \recb, [\in, in, \bufnum, rbuffer, \loop, loop]);
-			if (loop==0, { {"done sampling!".postln}.defer(len) });
-		}
+	rsynth.free;
+	rbuffer.free;
+	"start sampling into _bufrec".postln;
+	Routine.run { // INSIDE A ONE SHOT ROUTINE TO BE ABLE TO SYNC
+	rbuffer = Buffer.alloc(Server.default, len*Server.default.sampleRate, 2);
+	Server.default.sync;// wait til is allocated
+	rsynth = Synth.tail(Server.default, \recb, [\in, in, \bufnum, rbuffer, \loop, loop]);
+	if (loop==0, { {"done sampling!".postln}.defer(len) });
+	}
 	}
 	stopr { // this should kill the \recb synth if loop
-		rsynth.free;
+	rsynth.free;
 	}
 	recstate { //recording?
-		^rsynth.notNil
-	}
+	^rsynth.notNil
+	}*/
 
 
 
-	loadfiles {|apath, overwrite=1, action| // overwrite will remove the previous one if any
+	loadfiles {|apath, overwrite=0, action| // overwrite will remove the previous one if any
 		var files=List.new;
 		var already = sfs.size;
 		var target = currentbank;
@@ -307,6 +311,8 @@ Tapes {
 	hm {
 		^grouplists.values.flat.size
 	}
+	allstop {grouplists.values.flat.collect(_.stop)}
+	allplay {grouplists.values.flat.collect(_.play)}
 	mergegroups{|defer=0, d|
 		var target = currentgroup;
 		var players;
@@ -547,14 +553,27 @@ Tapes {
 		grouplists[currentgroup].do({ |p| p.verbose = flag })
 	}
 
-	normalize {
-		bufs[currentbank].collect(_.normalize);
+	normalize {|lvl, target|
+		if (target.isNil, {
+			bufs[currentbank].collect(_.normalize(lvl))
+		}, { // default
+			recbufs[target].collect(_.normalize(lvl));
+		});
+	}
+
+	dcoffset {|value=1|
+		var target = currentgroup;
+		if (target.isNil, {
+			bufs[currentbank].collect(_.dcoffset(value))
+		}, { // default
+			recbufs[target].collect(_.dcoffset(value));
+		});
 	}
 
 	buf {|value, offset=0, defer=0, o=nil, d=nil| // value can be a Buffer, an array of ints
 		var target = currentgroup;
 		#offset, defer = [o?offset, d?defer];
-		value.isKindOf(Symbol).postln;
+		//value.isKindOf(Symbol).postln;
 		if (value.isArray, {value=value.choose}); // choose between given integer values
 		if (value.isInteger, {value = bufs[currentbank][value]}); // using the index
 		if (value.isKindOf(Symbol), {value = recbufs[value]; "it is a recbuf".postln}); // using a rebuf buffer
@@ -909,6 +928,20 @@ Tapes {
 		this.action(\moveby, value, random, 0, offset, defer, r, nil, o, d);
 	}
 
+	sync {|index, defer=0, d=nil| // add offset and defer?
+		//grouplists[currentgroup][index].id.postln;
+		defer = d?defer;
+		if (index.isNil, {index=0}); //sync to first item
+		{
+			grouplists[currentgroup].do({ |pl|
+				if (pl!=grouplists[currentgroup][index], {
+					pl.go(grouplists[currentgroup][index].curpos)
+				})
+			});
+		}.defer(defer)
+
+	}
+
 	solo {|index, defer=0, d=nil| // add offset and defer?
 		//grouplists[currentgroup][index].id.postln;
 		defer = d?defer;
@@ -1240,7 +1273,7 @@ Tapes {
 		func=func?{};
 		{grouplists[target].do({ |pl, index|
 			{
-				pl.xloop = func;
+				pl.xloop(func);
 			}.defer(offset.asFloat.rand)
 		})}.defer(defer)
 	}
@@ -1251,7 +1284,24 @@ Tapes {
 		func=func?{};
 		{grouplists[target].do({ |pl, index|
 			{
-				pl.xdone = func;
+				pl.xdone(func);
+			}.defer(offset.asFloat.rand)
+		})}.defer(defer)
+	}
+
+	fps {|value=30|
+		grouplists[currentgroup].do{ |pl, index|
+			pl.fps(value);
+		}
+	}
+
+	markers {|items, func, offset=0, defer=0, o=0, d=0|
+		var target = currentgroup; // freeze target in case of defer
+		#offset, defer = [o?offset, d?defer];
+		//func=func?{};
+		{grouplists[target].do({ |pl, index|
+			{
+				pl.markers(items, func);
 			}.defer(offset.asFloat.rand)
 		})}.defer(defer)
 	}
@@ -1266,8 +1316,10 @@ Tapes {
 				"-- reset all _do".postln;
 				procs.collect(_.reset);
 			},{
-				("-- _do: reset"+name+procs[name.asSymbol]).postln;
-				procs[name.asSymbol].reset;
+				name.asArray.do{|na|
+					("-- _do: reset"+na+procs[na.asSymbol]).postln;
+					procs[na.asSymbol].reset;
+				}
 			})
 		}.defer(defer)
 	}
@@ -1278,8 +1330,10 @@ Tapes {
 				"-- pause all _do".postln;
 				procs.collect(_.pause);
 			},{
-				("-- _do: pause"+name+procs[name.asSymbol]).postln;
-				procs[name.asSymbol].pause;
+				name.asArray.do{|na|
+					("-- _do: pause"+na+procs[na.asSymbol]).postln;
+					try{procs[na.asSymbol].pause};
+				}
 			})
 		}.defer(defer)
 	}
@@ -1290,8 +1344,10 @@ Tapes {
 				"-- resume all _do".postln;
 				procs.collect(_.resume);
 			},{
-				("-- _do: resume"+name+procs[name.asSymbol]).postln;
-				procs[name.asSymbol].resume;
+				name.asArray.do{|na|
+					("-- _do: resume"+na+procs[na.asSymbol]).postln;
+					try{procs[na.asSymbol].resume};
+				}
 			})
 		}.defer(defer)
 	}
@@ -1306,15 +1362,15 @@ Tapes {
 					procs = Dictionary.new;
 				}
 			},{
-				("-- _do: killing"+name+procs[name.asSymbol]).postln;
-				try {
-					var proc;
-					name.do{|na|
+				name.asArray.do{|na|
+					("-- _do: killing"+na+procs[na.asSymbol]).postln;
+					try {
+						var proc;
 						procs[na.asSymbol].stop;
 						proc = procs.removeAt(na.asSymbol);
 						proc = nil; // ??
-					}
-				}{ (name+"does not exist").postln};
+					}{ (name+"does not exist").postln};
+				}
 			})
 		}.defer(defer)
 	}
@@ -1324,7 +1380,7 @@ Tapes {
 	}
 
 	do {|name="", function, sleep=1, random=0, defer=0, iter=inf, when=true, then,
-		clock=0, verbose=1, s, r, d, i, w, t, c, v|
+		clock=0, verbose=0, s, r, d, i, w, t, c, v|
 		sleep = s?sleep; defer=d?defer; iter=i?iter; when=w?when; then=t?then;
 		random=r?random; clock=c?clock; verbose=v?verbose;
 

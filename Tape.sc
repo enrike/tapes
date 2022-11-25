@@ -1,14 +1,14 @@
-/* single tape
+/* single ḉtape
 */
 
 Tape{
 
-	var <id, <player, <curpos, <loops= -1, out=0, sttime;
-	var buf, st=0, end=1, vol=1, rate=0, pan=0, len=0, dur=0, dir=1, wobble=0, brown=0, vib; // state variables hidden
+	var <id, <player, <curpos, <loops= -1, out=0, sttime, markers, markerindex=0, fps=12;
+	var buf, st=0, end=1, vol=0, rate=0, pan=0, len=0, dur=0, dir=1, wobble=0, brown=0, vib; // state variables hidden
 	var memrate=0; // to store rate while stopped
 	var <>del=0.02; //time in between two consecutive p.set. required by gates
 	var <>view=nil;
-	var <>statesDic, <>verbose=false, loopOSC, playheadOSC, <>xloop, <>xdone, targetloops=inf;
+	var <>statesDic, <>verbose=false, loopOSC, playheadOSC, xloopF, xdoneF, targetloops=inf;
 
 	*new {| buffer=nil |
 		^super.new.initTape( buffer );
@@ -16,6 +16,7 @@ Tape{
 
 	initTape {| abuffer |
 		buf = abuffer;
+		//	delta = 0.005;
 
 		vib = [1,1,0,0,0,0,0];
 
@@ -24,8 +25,11 @@ Tape{
 
 		sttime = Process.elapsedTime;
 
-		xloop = {};
-		xdone = {};
+		markers = Dictionary.new;
+		//markerFunc = {};
+
+		xloopF = {};
+		xdoneF = {};
 		loopOSC.free;
 		loopOSC = OSCdef(\xloop++id, {|msg, time, addr, recvPort|
 			if (id==msg[2], {
@@ -33,20 +37,53 @@ Tape{
 				if (loops >= (targetloops-1), { this.done }); // done
 				if (rate!=0, {loops = loops + 1}); // not when stopped
 				if (loops > 1, { // not the first round
-					this.xloop.value(this, loops)
+					xloopF.value(this, loops)
 				});
 			});
 		}, '/xloop'); // this might be not the most efficient way to do it. better /xloop++id ??
 
 		playheadOSC.free;
 		playheadOSC = OSCdef(\playhead++id, {|msg, time, addr, recvPort|
-			if (id==msg[2], { curpos = msg[3] });
+			if (id==msg[2], {
+				var nextmark = markers.keys.asArray.sort.wrapAt(markerindex);
+				curpos = msg[3];
+				if (nextmark.notNil, {
+					if (curpos.equalWithPrecision(nextmark.asFloat, 0.5/(buf.duration*(fps)) ), {
+						markers[nextmark].value(curpos);
+						markerindex = markerindex + 1;
+					});
+				});
+			});
 		}, '/pos'); // this might be not the most efficient way to do it. better /pos++id ??
 
 		statesDic = Dictionary.new;
 		("-----------").postln;
 		("ready tape ID"+id).postln;
-		//("using buffer"+this.file).postln;
+	}
+
+	fps {|value|
+		fps = value;
+		player.set(\fps, fps);
+	}
+
+	markers {|items, func|
+		/*if (func.isNil && items.isNil, {
+		^markers
+		});*/
+		if (func.isNil, { //clear
+			if (items.isNil, {
+				markers = Dictionary.new;
+			},{
+				items.asArray.do{|marker|
+					markers.removeAt(marker.asSymbol);
+				}
+			})
+		}, {
+			items.asArray.do{|marker|
+				markers.add(marker.asSymbol -> func);
+			}
+		});
+		if (markers.size>0, {this.fps(30)},{this.fps(12)})
 	}
 
 	time {
@@ -58,8 +95,11 @@ Tape{
 		player.set(\reset, st, \trig, 0); //reset to st
 		this.stop;
 		{ player.set(\trig, 1) }.defer(del);
-		xdone.value(this);
+		xdoneF.value(this);
 	}
+
+	xdone {|func| xdoneF = func }
+	xloop {|func| xloopF = func }
 
 	redoplayer {
 		if (player.isNil, {
@@ -68,7 +108,7 @@ Tape{
 				if (buf.isNil, {buf=Buffer()}); // just give the player something to chew
 				player = Synth.tail(Server.default, \rPlayerLoop,
 					[\buffer, buf, \start, st, \end, end, \amp, vol, \rate, memrate,
-						\pan, pan, \index, id, \out, out,
+						\pan, pan, \index, id, \out, out, \fps, fps,
 						\dir, dir, \wobble, wobble, \brown, brown, \vib, vib ]);
 				Server.default.sync;// wait til is allocated
 			}
@@ -126,7 +166,8 @@ Tape{
 
 	copy {|tape|
 		this.state( tape.state() );
-		this.xloop = tape.xloop;
+		this.xloopF = tape.xloopF;
+		this.xdoneF = tape.xdoneF;
 	}
 
 	push { |which|
@@ -398,6 +439,11 @@ Tape{
 		if(memrate==0, {memrate=rate}); //otherwise it wont play
 		if(memrate==0, {memrate=1});
 		this.rate(memrate); // retrieve stored value
+	}
+
+	dcoffset {|value=1|
+		value = value.clip(-1, 1);
+		player.set(\dcoffset, value);
 	}
 
 	buf {|value|
