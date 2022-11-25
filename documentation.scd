@@ -4,7 +4,7 @@ license GPL
 
 Tapes allows to create and control multiple tapeloop-like sample players
 
-note that it expects stereo samples
+note that it expects STEREO samples
 */
 
 
@@ -36,7 +36,7 @@ _0.copy(_1) // tape player 0 copies tape player 1's state (here you cannot pass 
 _new(2, 1, \base) // create two players playing buffer 1 at group \base (and create \base if not there)
 
 _group // all tape players in current group
-_1 // individual tape player _0, _1, _2, _3, etc...
+_1 // individual tape players _0, _1, _2, _3, etc... in current group (read below details about this functionality)
 _id(1008) // returns the instance of the tape with that ID
 _where(1008)// returns the position of tape with that id in current group 0,1,2...
 
@@ -57,9 +57,9 @@ _it // last one choosen by _one
 // GROUPS. are stacks of tapes that will respond to commands. This allows to have a group doing something and
 // create other tapes that are not affected by commmand unless selected with _currentgroup (or _ug)
 // by default there is a group called \default
-_currentgroup // active group: default is \default
+_currentgroup // name of current active group: default is \default
 _group // posts current group's content
-_groups // all groups' content
+_groups // dictionary with all groups
 _newgroup(\dirty) // creates a new group
 _usegroup(\dirty) // switch to this group
 _usegroup // if no arg it defaults to \default group
@@ -69,6 +69,9 @@ _removegroup(\dirty) // removes the group and kills all players in it
 //_togroup(_1, \dirty) //move _1 from current group to group \a
 //_whichgroup(1001) // by ID
 _mergegroups // merge all players to group \default and run a usegroup(\default) command to swith to default
+
+_allstop // stop all tapes in all groups
+_allplay // play all tapes in all groups
 
 // and example of using groups ///
 _add; // creates a tape in \default
@@ -138,7 +141,7 @@ _loadfiles("some/directory/voices/");//loads those samples into voices bank
 
 
 // sampling on the fly. stereo by default //
-_preparerec(name: \newbuf, len:5)
+_preparerec(name: \newbuf, len:5) // it is a good idea to prepare the buffer if you will use defer in the _rec command
 _rec(in:2, name: \newbuf, len:5, loop:0)
 _stoprec // if loop is 1 you might need to stop recording at some point
 _buf(\newbuf) // asign this buffer to tapes
@@ -199,6 +202,7 @@ _gost // to to frame start point
 _goend // go to frame end point
 _go // resets pos to 0 --> *SAME* happens with _pan, _rate, _vol. They reset to default value if no argument is passed
 _jump(0.01) // will move playhead by 0.01 from current position
+_sync(0) //sync all tapes in current group to the position of tape at index 0
 
 
 // store and retrieve named states. they dont get deleted from memory until the session ends
@@ -287,28 +291,29 @@ _rate(r:4) // shortcut
 _rate(2, d:5, o:10, t:1, r:0.1)
 
 
-
-
-/*// compressor. yes, there is a built in compressor/expander. inactive by default
-_comp(0.2, 0.6, 0.2) //threshold, slopeBelow, slopeAbove
-_thr(0.2); // threshold
-_slb(0.6); // slope below thr <1 for expansion
-_sla(0.2); //slope above thr <1 for compression >1 for expansion*/
-
-
 // Loop crossing event. SCHEDULE actions at loop crossing points
 // beware that if you have 20 tapes there will be 20 xloops, one for each tape
 _xloop({ _rrate }) // everytime one single tape crosses the loop point, all off them change their rate
 _xloop({|me| me.rrate})  // every individual xloop each changes ITS own rate. Others are not affected
 _xloop({|me, num| num.postln}) // it knows the loop count
 _xloop // this clears the xloop functions for everyone
-_0.xloop = {|me| me.id.postln} // individually too
+_0.xloop({|me| me.id.postln}) // individually too. (read below about this way to access individual tapes)
 
 // play loop done event: schedule an action when the _play(n) action is done. eg play(3) will trigger xdone after the 3rd loop when the tape stops
 _xdone({ "done playing loops".postln });
+_0.xdone({ "done playing loops".postln });
 _play(5) // now run this and wait 5 loops
 
 _xdone({|me| me.postln}) // and so on
+_xdone // clears all
+
+// markers define actions at specific point in the play of a tape
+_markers(0.5, {"we are half way through".postln}) //new marker at 0.5
+_markers([0.1, 0.2, 0.3], {|pos| pos.postln}) // adds more markers. it only overwrides previous if position is the same
+_markers(0.1) // clears this marker
+_markers([0.1, 0.2]) // clears those markers
+_markers //clears all
+_0.markers(0.5, {"we are half way through".postln}) // and so on...
 
 
 // MIDI. basic midi
@@ -506,9 +511,13 @@ _do(\run, {
 ////////////////////////////////
 
 // you can also control each player individually with _0, _1 etc...
+// beware that it is limited 20 tapes: to _0 to _19
+// _0 might point to different tapes depending on _currentgroup, so make sure you know which group you are working with
 // I hardly use this so documentation might not be totally up to date
 // some functions might work slightly different from the global ones for technical reasons
 // if in doubt check the source code at Tape.sc
+
+_0 // is the same as _group[0] // current group's 0 item
 
 // GET
 _0.id;
@@ -554,7 +563,8 @@ _0.rrate
 _0.rdir
 _0.bframe(0.01) // single step small random
 
-// x loop events
 _0.xloop = {me.id.postln}
+_0.xdone
+_0.markers
 
 // and so on...
